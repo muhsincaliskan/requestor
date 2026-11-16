@@ -1,6 +1,4 @@
-use serde_json::Map;
-
-use crate::collection::{Item, Request, RequestSpec};
+use crate::collection::Item;
 
 #[derive(Default)]
 pub struct ItemTree {
@@ -28,35 +26,11 @@ impl ItemTree {
     }
 
     pub fn into_items(self) -> Vec<Item> {
-        let folders = self.folders.into_iter().map(|(name, items)| Item {
-            item: Some(items),
-            ..Item::named(name)
-        });
+        let folders = self
+            .folders
+            .into_iter()
+            .map(|(name, items)| Item::folder(name, items));
         folders.chain(self.root).collect()
-    }
-}
-
-impl Item {
-    pub fn named(name: String) -> Self {
-        Item {
-            id: None,
-            name: Some(name),
-            description: None,
-            variable: None,
-            event: None,
-            auth: None,
-            item: None,
-            request: None,
-            response: None,
-            extra: Map::new(),
-        }
-    }
-
-    pub fn for_request(name: String, request: Request) -> Self {
-        Item {
-            request: Some(RequestSpec::Full(Box::new(request))),
-            ..Item::named(name)
-        }
     }
 }
 

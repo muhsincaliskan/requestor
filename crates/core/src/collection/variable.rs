@@ -27,6 +27,20 @@ pub struct Variable {
 }
 
 impl Variable {
+    pub fn text(key: &str, value: &str) -> Self {
+        Variable {
+            id: None,
+            key: Some(key.to_string()),
+            value: Some(Value::String(value.to_string())),
+            kind: Some("string".to_string()),
+            name: None,
+            description: None,
+            system: None,
+            disabled: None,
+            extra: Map::new(),
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         !self.disabled.unwrap_or(false)
     }

@@ -1,24 +1,8 @@
-use serde_json::{Map, Value};
+use serde_json::Value;
 
-use crate::collection::Variable;
 use crate::text::{scalar_text, Description};
 
 const LIST_SEPARATOR: &str = ",";
-const STRING_KIND: &str = "string";
-
-pub fn text_variable(key: &str, value: &str) -> Variable {
-    Variable {
-        id: None,
-        key: Some(key.to_string()),
-        value: Some(Value::String(value.to_string())),
-        kind: Some(STRING_KIND.to_string()),
-        name: None,
-        description: None,
-        system: None,
-        disabled: None,
-        extra: Map::new(),
-    }
-}
 
 pub fn description_of(holder: &Value) -> Option<Description> {
     non_empty_text(holder, "description").map(|text| Description::Text(text.to_string()))

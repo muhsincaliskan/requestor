@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use serde_json::{Map, Value};
 
 use super::reference::Resolver;
 
 const MAX_SAMPLE_DEPTH: usize = 8;
+const MAX_SAMPLE_NODES: usize = 10_000;
 const SCHEMA_KEY: &str = "schema";
 const STRING_FALLBACK: &str = "string";
 const NULL_TYPE: &str = "null";
@@ -21,7 +24,8 @@ pub fn explicit_example<'a>(resolver: &mut Resolver<'a>, holder: &'a Value) -> O
     if let Some(example) = holder.get("example") {
         return Some(example.clone());
     }
-    let first = holder.get("examples")?.as_object()?.values().next()?;
+    let examples = holder.get("examples")?.as_object()?;
+    let first = examples.iter().min_by_key(|(name, _)| name.as_str())?.1;
     resolver.resolve(first)?.get("value").cloned()
 }
 
@@ -45,6 +49,9 @@ pub fn schema_sample<'a>(resolver: &mut Resolver<'a>, schema: &'a Value) -> Valu
     Sampler {
         resolver,
         active: Vec::new(),
+        cache: HashMap::new(),
+        remaining: MAX_SAMPLE_NODES,
+        truncated: false,
     }
     .value(schema, 0)
 }
@@ -52,25 +59,56 @@ pub fn schema_sample<'a>(resolver: &mut Resolver<'a>, schema: &'a Value) -> Valu
 struct Sampler<'r, 'a> {
     resolver: &'r mut Resolver<'a>,
     active: Vec<&'a str>,
+    cache: HashMap<&'a str, Value>,
+    remaining: usize,
+    truncated: bool,
 }
 
 impl<'a> Sampler<'_, 'a> {
     fn value(&mut self, schema: &'a Value, depth: usize) -> Value {
+        if self.remaining == 0 {
+            return self.truncate();
+        }
+        self.remaining -= 1;
         if depth > MAX_SAMPLE_DEPTH {
-            return Value::Null;
+            return self.truncate();
         }
-        let reference = Resolver::reference_of(schema);
-        if let Some(reference) = reference {
-            if self.active.contains(&reference) {
-                return Value::Null;
-            }
-            self.active.push(reference);
+        match Resolver::reference_of(schema) {
+            Some(reference) => self.referenced(schema, reference, depth),
+            None => self.resolved(schema, depth),
         }
+    }
+
+    fn truncate(&mut self) -> Value {
+        self.truncated = true;
+        Value::Null
+    }
+
+    fn referenced(&mut self, schema: &'a Value, reference: &'a str, depth: usize) -> Value {
+        if self.active.contains(&reference) {
+            return self.truncate();
+        }
+        if let Some(cached) = self.cache.get(reference).cloned() {
+            return self.reuse(cached);
+        }
+        self.active.push(reference);
+        let outer_truncated = std::mem::replace(&mut self.truncated, false);
         let sample = self.resolved(schema, depth);
-        if reference.is_some() {
-            self.active.pop();
+        self.active.pop();
+        if !self.truncated {
+            self.cache.insert(reference, sample.clone());
         }
+        self.truncated |= outer_truncated;
         sample
+    }
+
+    fn reuse(&mut self, cached: Value) -> Value {
+        let size = node_count(&cached);
+        if size > self.remaining {
+            return self.truncate();
+        }
+        self.remaining -= size;
+        cached
     }
 
     fn resolved(&mut self, schema: &'a Value, depth: usize) -> Value {
@@ -116,11 +154,15 @@ impl<'a> Sampler<'_, 'a> {
 
     fn object(&mut self, schema: &'a Value, depth: usize) -> Value {
         let properties = schema.get("properties").and_then(Value::as_object);
-        let fields = properties
-            .into_iter()
-            .flatten()
-            .map(|(name, property)| (name.clone(), self.value(property, depth + 1)));
-        Value::Object(fields.collect())
+        let mut fields = Map::new();
+        for (name, property) in properties.into_iter().flatten() {
+            if self.remaining == 0 {
+                self.truncated = true;
+                break;
+            }
+            fields.insert(name.clone(), self.value(property, depth + 1));
+        }
+        Value::Object(fields)
     }
 
     fn array(&mut self, schema: &'a Value, depth: usize) -> Value {
@@ -129,6 +171,15 @@ impl<'a> Sampler<'_, 'a> {
             .map(|items| self.value(items, depth + 1));
         Value::Array(items.into_iter().collect())
     }
+}
+
+fn node_count(value: &Value) -> usize {
+    let children: usize = match value {
+        Value::Array(items) => items.iter().map(node_count).sum(),
+        Value::Object(fields) => fields.values().map(node_count).sum(),
+        _ => 0,
+    };
+    1 + children
 }
 
 fn schema_type(schema: &Value) -> Option<&str> {
@@ -155,7 +206,7 @@ fn string_placeholder(schema: &Value) -> String {
 mod tests {
     use serde_json::{json, Value};
 
-    use super::{media_sample, schema_sample};
+    use super::{media_sample, node_count, schema_sample, MAX_SAMPLE_NODES};
     use crate::import::openapi::reference::Resolver;
 
     fn sample(root: &Value, pointer: &str) -> Value {
@@ -186,6 +237,37 @@ mod tests {
             sample(&root, "/node"),
             json!({"next": {"name": "string", "next": null}, "name": "string"})
         );
+    }
+
+    #[test]
+    fn wide_deep_reference_chains_stay_within_the_node_budget() {
+        let mut schemas = serde_json::Map::new();
+        for level in 0..9 {
+            let properties: serde_json::Map<String, Value> = (0..10)
+                .map(|index| {
+                    let target = format!("#/s{}", level + 1);
+                    (format!("p{index}"), json!({ "$ref": target }))
+                })
+                .collect();
+            schemas.insert(
+                format!("s{level}"),
+                json!({"type": "object", "properties": properties}),
+            );
+        }
+        schemas.insert("s9".to_string(), json!({"type": "string"}));
+        let root = Value::Object(schemas);
+        let started = std::time::Instant::now();
+        let result = sample(&root, "/s0");
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        assert!(node_count(&result) <= MAX_SAMPLE_NODES);
+    }
+
+    #[test]
+    fn shared_references_are_sampled_once_and_reused() {
+        let root = json!({"s": {"type": "object", "properties": {
+            "a": {"$ref": "#/leaf"}, "b": {"$ref": "#/leaf"}}},
+            "leaf": {"type": "object", "properties": {"n": {"type": "integer"}}}});
+        assert_eq!(sample(&root, "/s"), json!({"a": {"n": 0}, "b": {"n": 0}}));
     }
 
     #[test]

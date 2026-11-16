@@ -6,6 +6,7 @@ use crate::curl_command::COMMAND_NAME;
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
 const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
 const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
+const OPENAPI_KEY_MARKERS: [&str; 2] = ["\"openapi\"", "\"swagger\""];
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];
 
 pub fn import_text(text: &str) -> Result<Imported, ImportError> {
@@ -39,11 +40,23 @@ pub fn import_text(text: &str) -> Result<Imported, ImportError> {
     ImportedRequest::from_raw_http(trimmed).map(Imported::Request)
 }
 
+fn looks_like_openapi(text: &str) -> bool {
+    OPENAPI_KEY_MARKERS
+        .iter()
+        .any(|marker| text.contains(marker))
+}
+
 fn import_json(text: &str) -> Result<Imported, ImportError> {
+    if text.len() > MAX_OPENAPI_INPUT_BYTES && looks_like_openapi(text) {
+        return Err(ImportError::UnsupportedFormat(format!(
+            "OpenAPI documents larger than {} MB are not supported",
+            MAX_OPENAPI_INPUT_BYTES / BYTES_PER_MEGABYTE
+        )));
+    }
     let document: Value =
         serde_json::from_str(text).map_err(|error| ImportError::InvalidJson(error.to_string()))?;
     if document.get("openapi").is_some() || document.get("swagger").is_some() {
-        return import_openapi(text, &document);
+        return openapi::from_json(&document).map(Imported::Collection);
     }
     if document.get("info").is_some() && document.get("item").is_some() {
         return serde_json::from_value(document)
@@ -60,16 +73,6 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
     Err(ImportError::UnsupportedFormat(
         "the JSON document is not a Postman collection, environment or OpenAPI file".to_string(),
     ))
-}
-
-fn import_openapi(text: &str, document: &Value) -> Result<Imported, ImportError> {
-    if text.len() > MAX_OPENAPI_INPUT_BYTES {
-        return Err(ImportError::UnsupportedFormat(format!(
-            "OpenAPI documents larger than {} MB are not supported",
-            MAX_OPENAPI_INPUT_BYTES / BYTES_PER_MEGABYTE
-        )));
-    }
-    openapi::from_json(document).map(Imported::Collection)
 }
 
 fn is_curl_command(text: &str) -> bool {

@@ -1,5 +1,6 @@
 use super::{options, CurlArguments};
 use crate::collection::Param;
+use crate::media_type;
 
 const QUOTE: char = '"';
 const ESCAPE: char = '\\';
@@ -146,8 +147,7 @@ impl CurlArguments {
         match value.strip_prefix(FILE_MARK).filter(|_| allow_files) {
             Some(spec) => {
                 let (path, options) = split_file_spec(spec);
-                let content_type = options
-                    .split(';')
+                let content_type = media_type::segments(options)
                     .find_map(|segment| segment.strip_prefix(TYPE_PREFIX));
                 self.form
                     .push(Param::file_with_type(name, path, content_type));

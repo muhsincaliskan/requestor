@@ -3,7 +3,7 @@ use serde_json::{Map, Value};
 
 use super::auth::Auth;
 use super::event::Event;
-use super::request::RequestSpec;
+use super::request::{Request, RequestSpec};
 use super::variable::Variable;
 use crate::text::Description;
 
@@ -32,6 +32,35 @@ pub struct Item {
 }
 
 impl Item {
+    pub fn named(name: String) -> Self {
+        Item {
+            id: None,
+            name: Some(name),
+            description: None,
+            variable: None,
+            event: None,
+            auth: None,
+            item: None,
+            request: None,
+            response: None,
+            extra: Map::new(),
+        }
+    }
+
+    pub fn for_request(name: String, request: Request) -> Self {
+        Item {
+            request: Some(RequestSpec::Full(Box::new(request))),
+            ..Item::named(name)
+        }
+    }
+
+    pub fn folder(name: String, items: Vec<Item>) -> Self {
+        Item {
+            item: Some(items),
+            ..Item::named(name)
+        }
+    }
+
     pub fn is_folder(&self) -> bool {
         self.item.is_some()
     }

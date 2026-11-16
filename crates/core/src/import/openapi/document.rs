@@ -4,10 +4,12 @@ use super::operation::Operation;
 use super::reference::Resolver;
 use super::security;
 use super::tree::ItemTree;
-use super::values::{description_of, non_empty_text, text_variable};
+use super::values::{description_of, non_empty_text};
 use super::{BASE_URL_VARIABLE, MAX_OPERATIONS};
-use crate::collection::{Auth, Collection};
+use crate::collection::{Auth, Collection, Item, Variable, SCHEME_SEPARATOR};
 use crate::import::ImportError;
+
+const DEFAULT_SERVER_URL: &str = "/";
 
 const SUPPORTED_VERSION_PREFIX: &str = "3.";
 const DEFAULT_TITLE: &str = "Imported API";
@@ -46,7 +48,7 @@ impl<'a> Document<'a> {
         let title = info.and_then(|info| non_empty_text(info, "title"));
         let mut collection = Collection::new(title.unwrap_or(DEFAULT_TITLE));
         collection.info.description = info.and_then(description_of);
-        collection.variable = Some(vec![text_variable(
+        collection.variable = Some(vec![Variable::text(
             BASE_URL_VARIABLE,
             &self.base_url(resolver),
         )]);
@@ -64,28 +66,33 @@ impl<'a> Document<'a> {
             .get("servers")
             .and_then(Value::as_array)
             .and_then(|servers| servers.first());
-        let Some(mut url) =
-            server.and_then(|server| server.get("url")?.as_str().map(str::to_string))
-        else {
+        let declared = server.and_then(|server| server.get("url")?.as_str());
+        if declared.is_none() {
             resolver.warn(format!(
-                "no servers are defined; set the {BASE_URL_VARIABLE} variable"
+                "no servers are defined; {DEFAULT_SERVER_URL} was assumed, set the {BASE_URL_VARIABLE} variable"
             ));
-            return String::new();
-        };
+        }
+        let mut url = declared.unwrap_or(DEFAULT_SERVER_URL).to_string();
         let variables = server.and_then(|server| server.get("variables")?.as_object());
         for (name, variable) in variables.into_iter().flatten() {
             if let Some(default) = variable.get("default").and_then(Value::as_str) {
                 url = url.replace(&format!("{{{name}}}"), default);
             }
         }
+        if !url.contains(SCHEME_SEPARATOR) {
+            resolver.warn(format!(
+                "the server URL {url} is relative; set the {BASE_URL_VARIABLE} variable to an absolute URL"
+            ));
+        }
         url.trim_end_matches('/').to_string()
     }
 
-    fn items(&self, resolver: &mut Resolver<'a>) -> Vec<crate::collection::Item> {
+    fn items(&self, resolver: &mut Resolver<'a>) -> Vec<Item> {
         let paths = self.root.get("paths").and_then(Value::as_object);
         let operations: Vec<Operation<'a>> = paths
             .into_iter()
             .flatten()
+            .filter_map(|(path, item)| Some((path.as_str(), resolver.resolve(item)?)))
             .flat_map(|(path, item)| Operation::of_path_item(path, item))
             .take(MAX_OPERATIONS + 1)
             .collect();
@@ -130,5 +137,19 @@ mod tests {
         let collection = document.to_collection(&mut resolver);
         let variable = &collection.variable.unwrap()[0];
         assert_eq!(variable.text_value().unwrap(), "https://eu.api.test/v2");
+        assert!(resolver.into_warnings().is_empty());
+    }
+
+    #[test]
+    fn relative_and_missing_servers_warn() {
+        for root in [
+            json!({"openapi": "3.0.0", "servers": [{"url": "/api"}]}),
+            json!({"openapi": "3.0.0"}),
+        ] {
+            let mut resolver = Resolver::new(&root);
+            Document::parse(&root).unwrap().to_collection(&mut resolver);
+            let warnings = resolver.into_warnings();
+            assert!(warnings.iter().any(|warning| warning.contains("relative")));
+        }
     }
 }

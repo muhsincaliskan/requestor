@@ -1,12 +1,8 @@
-use std::collections::BTreeMap;
-
 use serde_json::Value;
 
 use super::reference::Resolver;
-use crate::collection::{Auth, AuthAttribute};
+use crate::collection::Auth;
 
-const NO_AUTH_KIND: &str = "noauth";
-const API_KEY_KIND: &str = "apikey";
 const BEARER_TOKEN: &str = "{{bearerToken}}";
 const BASIC_USERNAME: &str = "{{username}}";
 const BASIC_PASSWORD: &str = "{{password}}";
@@ -19,14 +15,12 @@ pub fn auth_for<'a>(
     requirements: &'a Value,
 ) -> Option<Auth> {
     let alternatives = requirements.as_array()?;
-    if alternatives.is_empty() {
-        return Some(no_auth());
-    }
-    alternatives
+    let supported = alternatives
         .iter()
         .filter_map(Value::as_object)
         .flat_map(|requirement| requirement.keys())
-        .find_map(|name| scheme_auth(resolver, schemes, name))
+        .find_map(|name| scheme_auth(resolver, schemes, name));
+    Some(supported.unwrap_or_else(Auth::none))
 }
 
 fn scheme_auth<'a>(
@@ -70,22 +64,8 @@ fn api_key_auth(scheme: &Value) -> Option<Auth> {
     if !API_KEY_LOCATIONS.contains(&location) {
         return None;
     }
-    let attributes = vec![
-        AuthAttribute::string("key", scheme.get("name")?.as_str()?),
-        AuthAttribute::string("value", API_KEY_VALUE),
-        AuthAttribute::string("in", location),
-    ];
-    Some(Auth {
-        kind: API_KEY_KIND.to_string(),
-        parameters: BTreeMap::from([(API_KEY_KIND.to_string(), Some(attributes))]),
-    })
-}
-
-fn no_auth() -> Auth {
-    Auth {
-        kind: NO_AUTH_KIND.to_string(),
-        parameters: BTreeMap::new(),
-    }
+    let name = scheme.get("name")?.as_str()?;
+    Some(Auth::api_key(name, API_KEY_VALUE, location))
 }
 
 #[cfg(test)]
@@ -114,7 +94,9 @@ mod tests {
         assert_eq!(bearer.value_of("token"), Some("{{bearerToken}}"));
         let api_key = auth_for(&mut resolver, schemes, &root["key"]).unwrap();
         assert_eq!(api_key.value_of("key"), Some("X-Key"));
-        assert!(auth_for(&mut resolver, schemes, &root["oauth"]).is_none());
+        assert!(auth_for(&mut resolver, schemes, &root["oauth"])
+            .unwrap()
+            .is_none());
         assert!(auth_for(&mut resolver, schemes, &root["none"])
             .unwrap()
             .is_none());

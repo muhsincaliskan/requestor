@@ -2,10 +2,13 @@ use serde_json::Value;
 
 use super::example::{declared_value, explicit_example};
 use super::reference::Resolver;
-use super::values::{description_of, text_variable, value_text};
+use super::values::{description_of, value_text};
 use super::BASE_URL_PLACEHOLDER;
 use crate::collection::{Param, Url, UrlParts, Variable};
+use crate::header::CONTENT_TYPE;
 use crate::text::StringOrList;
+
+const RESERVED_HEADERS: [&str; 3] = ["Accept", CONTENT_TYPE, "Authorization"];
 
 const QUERY_LOCATION: &str = "query";
 const HEADER_LOCATION: &str = "header";
@@ -51,6 +54,12 @@ impl<'a> Candidate<'a> {
         value.as_ref().map(value_text).unwrap_or_default()
     }
 
+    fn is_reserved_header(&self) -> bool {
+        RESERVED_HEADERS
+            .iter()
+            .any(|reserved| reserved.eq_ignore_ascii_case(self.name))
+    }
+
     fn is_required(&self) -> bool {
         self.spec.get("required").and_then(Value::as_bool) == Some(true)
     }
@@ -94,6 +103,7 @@ impl<'a> Parameters {
     fn accept(&mut self, resolver: &mut Resolver<'a>, candidate: &Candidate<'a>) {
         match candidate.location {
             QUERY_LOCATION => self.query.push(candidate.to_param(resolver)),
+            HEADER_LOCATION if candidate.is_reserved_header() => {}
             HEADER_LOCATION => self.headers.push(candidate.to_param(resolver)),
             PATH_LOCATION => self
                 .path_values
@@ -135,7 +145,7 @@ impl<'a> Parameters {
         segments
             .iter()
             .filter_map(|segment| segment.strip_prefix(PATH_VARIABLE_PREFIX))
-            .map(|name| text_variable(name, self.path_value(name)))
+            .map(|name| Variable::text(name, self.path_value(name)))
             .collect()
     }
 
@@ -198,5 +208,19 @@ mod tests {
         assert_eq!(url.to_text(), "{{baseUrl}}/pets/:id?limit=50");
         assert_eq!(parameters.headers[0].disabled, Some(true));
         assert_eq!(resolver.into_warnings().len(), 1);
+    }
+
+    #[test]
+    fn reserved_headers_are_ignored_case_insensitively() {
+        let root = json!([
+            {"name": "accept", "in": "header"},
+            {"name": "CONTENT-TYPE", "in": "header"},
+            {"name": "Authorization", "in": "header"},
+            {"name": "X-Keep", "in": "header"}
+        ]);
+        let mut resolver = Resolver::new(&root);
+        let parameters = Parameters::collect(&mut resolver, None, Some(&root));
+        assert_eq!(parameters.headers.len(), 1);
+        assert_eq!(parameters.headers[0].key.as_deref(), Some("X-Keep"));
     }
 }

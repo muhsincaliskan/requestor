@@ -49,6 +49,24 @@ impl Auth {
         )
     }
 
+    pub fn none() -> Self {
+        Auth {
+            kind: NO_AUTH_KIND.to_string(),
+            parameters: BTreeMap::new(),
+        }
+    }
+
+    pub fn api_key(name: &str, value: &str, location: &str) -> Self {
+        Auth::with_attributes(
+            "apikey",
+            vec![
+                AuthAttribute::string("key", name),
+                AuthAttribute::string("value", value),
+                AuthAttribute::string("in", location),
+            ],
+        )
+    }
+
     pub fn from_credentials(credentials: &str) -> Self {
         let (username, password) = credentials.split_once(':').unwrap_or((credentials, ""));
         Auth::basic(username, password)

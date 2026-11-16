@@ -131,7 +131,7 @@ fn security_schemes_map_to_auth_and_unsupported_ones_warn() {
         Some("{{username}}")
     );
     let put = request_of(find(&collection.item, "Replace a pet"));
-    assert!(put.auth.is_none());
+    assert!(put.auth.unwrap().is_none());
     let warnings = imported.warnings.join("\n");
     for expected in ["oauth", "cookie parameter session", "external reference"] {
         assert!(warnings.contains(expected), "{expected} in {warnings}");
@@ -153,6 +153,55 @@ fn swagger_two_and_yaml_are_rejected_with_a_conversion_hint() {
     assert!(swagger.to_string().contains("convert to OpenAPI 3 JSON"));
     let yaml = import_text("openapi: 3.0.0\ninfo:\n  title: x").unwrap_err();
     assert!(yaml.to_string().contains("convert to OpenAPI 3 JSON"));
+}
+
+#[test]
+fn the_size_cap_applies_before_parsing() {
+    let padding = "x".repeat(10 * 1024 * 1024);
+    let broken = format!(r#"{{"openapi": "3.0.0", "x-padding": "{padding}"#);
+    let error = import_text(&broken).unwrap_err();
+    assert!(matches!(error, ImportError::UnsupportedFormat(_)));
+}
+
+#[test]
+fn operations_with_only_unsupported_security_get_explicit_no_auth() {
+    let document = serde_json::json!({
+        "openapi": "3.0.0",
+        "servers": [{"url": "https://x.test"}],
+        "security": [{"key": []}],
+        "components": {"securitySchemes": {
+            "key": {"type": "apiKey", "in": "header", "name": "X-Key"},
+            "oauth": {"type": "oauth2"}
+        }},
+        "paths": {"/a": {"get": {"summary": "A", "security": [{"oauth": []}]}}}
+    });
+    let imported = import(&document.to_string());
+    let request = request_of(find(&imported.collection.item, "A"));
+    assert!(request.auth.unwrap().is_none());
+    assert!(imported
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("oauth")));
+}
+
+#[test]
+fn path_items_may_be_local_references_and_external_ones_warn() {
+    let document = serde_json::json!({
+        "openapi": "3.0.0",
+        "servers": [{"url": "https://x.test"}],
+        "paths": {
+            "/a": {"$ref": "#/components/pathItems/Shared"},
+            "/b": {"$ref": "https://example.test/paths.json#/B"}
+        },
+        "components": {"pathItems": {"Shared": {"get": {"summary": "Shared"}}}}
+    });
+    let imported = import(&document.to_string());
+    assert_eq!(imported.collection.request_count(), 1);
+    find(&imported.collection.item, "Shared");
+    assert!(imported
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("external reference")));
 }
 
 #[test]

@@ -12,7 +12,6 @@ const PREFERRED_CONTENT_TYPES: [&str; 3] = [
     media_type::FORM_URLENCODED,
     media_type::MULTIPART_FORM_DATA,
 ];
-const PARAMETER_SEPARATOR: char = ';';
 const BINARY_FORMAT: &str = "binary";
 
 pub struct RequestBody {
@@ -31,7 +30,7 @@ impl RequestBody {
         let spec = resolver.resolve(spec)?;
         let (content_type, media) = select_media(spec.get("content")?.as_object()?)?;
         let sample = media_sample(resolver, media);
-        let body = match base_type(content_type).to_ascii_lowercase().as_str() {
+        let body = match media_type::base(content_type).to_ascii_lowercase().as_str() {
             media_type::FORM_URLENCODED => {
                 let fields = form_fields(resolver, media, sample);
                 Body::urlencoded(fields.into_iter().map(FormField::into_text_param).collect())
@@ -70,23 +69,15 @@ impl FormField {
     }
 }
 
-fn base_type(content_type: &str) -> &str {
-    content_type
-        .split(PARAMETER_SEPARATOR)
-        .next()
-        .unwrap_or(content_type)
-        .trim()
-}
-
 fn select_media(content: &Map<String, Value>) -> Option<(&str, &Value)> {
     PREFERRED_CONTENT_TYPES
         .iter()
         .find_map(|preferred| {
             content
                 .iter()
-                .find(|(key, _)| base_type(key).eq_ignore_ascii_case(preferred))
+                .find(|(key, _)| media_type::base(key).eq_ignore_ascii_case(preferred))
         })
-        .or_else(|| content.iter().next())
+        .or_else(|| content.iter().min_by_key(|(key, _)| key.as_str()))
         .map(|(key, media)| (key.as_str(), media))
 }
 
@@ -140,16 +131,16 @@ mod tests {
     use crate::import::openapi::reference::Resolver;
 
     #[test]
-    fn json_is_preferred_and_other_types_fall_back_to_the_first() {
+    fn json_is_preferred_and_other_types_fall_back_to_the_alphabetically_first() {
         let both = json!({"text/plain": {}, "application/json; charset=utf-8": {}});
         assert_eq!(
             select_media(both.as_object().unwrap()).unwrap().0,
             "application/json; charset=utf-8"
         );
-        let other = json!({"text/csv": {}});
+        let other = json!({"text/csv": {}, "application/yaml": {}});
         assert_eq!(
             select_media(other.as_object().unwrap()).unwrap().0,
-            "text/csv"
+            "application/yaml"
         );
     }
 
