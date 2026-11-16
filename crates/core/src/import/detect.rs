@@ -1,9 +1,11 @@
 use serde_json::Value;
 
-use super::{openapi, ImportError, Imported, ImportedRequest};
+use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
 use crate::curl_command::COMMAND_NAME;
 
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
+const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
+const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];
 
 pub fn import_text(text: &str) -> Result<Imported, ImportError> {
@@ -31,7 +33,7 @@ pub fn import_text(text: &str) -> Result<Imported, ImportError> {
         .any(|marker| trimmed.starts_with(marker))
     {
         return Err(ImportError::UnsupportedFormat(
-            "YAML OpenAPI documents are not supported yet; convert the file to JSON".to_string(),
+            "YAML OpenAPI documents are not supported; convert to OpenAPI 3 JSON".to_string(),
         ));
     }
     ImportedRequest::from_raw_http(trimmed).map(Imported::Request)
@@ -41,11 +43,13 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
     let document: Value =
         serde_json::from_str(text).map_err(|error| ImportError::InvalidJson(error.to_string()))?;
     if document.get("openapi").is_some() || document.get("swagger").is_some() {
-        return openapi::from_json(&document).map(Imported::Collection);
+        return import_openapi(text, &document);
     }
     if document.get("info").is_some() && document.get("item").is_some() {
         return serde_json::from_value(document)
-            .map(Imported::Collection)
+            .map(|collection| {
+                Imported::Collection(ImportedCollection::without_warnings(collection))
+            })
             .map_err(|error| ImportError::InvalidJson(error.to_string()));
     }
     if document.get("values").is_some() && document.get("name").is_some() {
@@ -56,6 +60,16 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
     Err(ImportError::UnsupportedFormat(
         "the JSON document is not a Postman collection, environment or OpenAPI file".to_string(),
     ))
+}
+
+fn import_openapi(text: &str, document: &Value) -> Result<Imported, ImportError> {
+    if text.len() > MAX_OPENAPI_INPUT_BYTES {
+        return Err(ImportError::UnsupportedFormat(format!(
+            "OpenAPI documents larger than {} MB are not supported",
+            MAX_OPENAPI_INPUT_BYTES / BYTES_PER_MEGABYTE
+        )));
+    }
+    openapi::from_json(document).map(Imported::Collection)
 }
 
 fn is_curl_command(text: &str) -> bool {

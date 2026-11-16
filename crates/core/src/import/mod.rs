@@ -54,8 +54,23 @@ pub struct ImportedRequest {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ImportedCollection {
+    pub collection: Collection,
+    pub warnings: Vec<String>,
+}
+
+impl ImportedCollection {
+    pub fn without_warnings(collection: Collection) -> Self {
+        ImportedCollection {
+            collection,
+            warnings: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Imported {
-    Collection(Collection),
+    Collection(ImportedCollection),
     Environment(Environment),
     Request(ImportedRequest),
 }

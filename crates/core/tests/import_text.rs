@@ -17,7 +17,7 @@ fn quiet_settings() -> RequestSettings {
 #[test]
 fn detects_postman_collections_and_environments() {
     match import_text(COLLECTION_FIXTURE).unwrap() {
-        Imported::Collection(collection) => assert_eq!(collection.request_count(), 9),
+        Imported::Collection(imported) => assert_eq!(imported.collection.request_count(), 9),
         other => panic!("expected a collection, got {other:?}"),
     }
     match import_text(ENVIRONMENT_FIXTURE).unwrap() {
