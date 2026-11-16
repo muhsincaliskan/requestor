@@ -30,7 +30,7 @@ impl JsonHighlighter {
         let mut highlighter = HighlightLines::new(self.json_syntax(), &self.theme);
         let terminated = format!("{line}\n");
         let Ok(ranges) = highlighter.highlight_line(&terminated, &self.syntaxes) else {
-            job.append(line, 0.0, plain_format(font_id));
+            job.append(line, 0.0, Self::plain_format(font_id));
             return job;
         };
         for (style, text) in ranges {
@@ -46,16 +46,16 @@ impl JsonHighlighter {
         job
     }
 
+    fn plain_format(font_id: &FontId) -> TextFormat {
+        TextFormat {
+            font_id: font_id.clone(),
+            ..TextFormat::default()
+        }
+    }
+
     fn json_syntax(&self) -> &SyntaxReference {
         self.syntaxes
             .find_syntax_by_extension(JSON_EXTENSION)
             .unwrap_or_else(|| self.syntaxes.find_syntax_plain_text())
-    }
-}
-
-fn plain_format(font_id: &FontId) -> TextFormat {
-    TextFormat {
-        font_id: font_id.clone(),
-        ..TextFormat::default()
     }
 }

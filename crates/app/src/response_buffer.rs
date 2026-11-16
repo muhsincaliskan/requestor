@@ -1,16 +1,15 @@
+pub const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
+
 pub struct ResponseBuffer {
     text: String,
-    line_starts: Vec<u32>,
+    line_starts: Vec<usize>,
 }
 
 impl ResponseBuffer {
     pub fn from_text(text: String) -> Self {
         let line_starts = std::iter::once(0)
-            .chain(
-                text.match_indices('\n')
-                    .map(|(position, _)| position as u32 + 1),
-            )
-            .filter(|start| (*start as usize) < text.len())
+            .chain(text.match_indices('\n').map(|(position, _)| position + 1))
+            .filter(|start| *start < text.len())
             .collect();
         ResponseBuffer { text, line_starts }
     }
@@ -19,17 +18,17 @@ impl ResponseBuffer {
         self.line_starts.len()
     }
 
-    pub fn byte_len(&self) -> usize {
-        self.text.len()
+    pub fn megabytes(&self) -> f64 {
+        self.text.len() as f64 / BYTES_PER_MEGABYTE as f64
     }
 
     pub fn line(&self, index: usize) -> &str {
-        let start = self.line_starts[index] as usize;
+        let start = self.line_starts[index];
         let end = self
             .line_starts
             .get(index + 1)
-            .map_or(self.text.len(), |next| *next as usize);
-        self.text[start..end].trim_end_matches('\n')
+            .map_or(self.text.len(), |next| *next);
+        self.text[start..end].trim_end_matches(['\r', '\n'])
     }
 }
 
@@ -49,6 +48,13 @@ mod tests {
     fn keeps_last_line_without_terminator() {
         let buffer = ResponseBuffer::from_text("a\nb".to_string());
         assert_eq!(buffer.line_count(), 2);
+        assert_eq!(buffer.line(1), "b");
+    }
+
+    #[test]
+    fn strips_carriage_returns() {
+        let buffer = ResponseBuffer::from_text("a\r\nb\r\n".to_string());
+        assert_eq!(buffer.line(0), "a");
         assert_eq!(buffer.line(1), "b");
     }
 

@@ -2,13 +2,16 @@
 name = "requestor-app"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 egui_dock = "0.21.1"
 requestor-core = { version = "0.1.0", path = "../core" }
-serde_json = "1.0.154"
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
+
+[dev-dependencies]
+serde_json = "1.0.154"
 
 [lints]
 workspace = true

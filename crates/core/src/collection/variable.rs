@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::text::Description;
+use crate::text::{scalar_text, Description};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Variable {
@@ -32,10 +32,6 @@ impl Variable {
     }
 
     pub fn text_value(&self) -> Option<String> {
-        match self.value.as_ref()? {
-            Value::String(text) => Some(text.clone()),
-            Value::Null => None,
-            other => Some(other.to_string()),
-        }
+        self.value.as_ref().and_then(scalar_text)
     }
 }

@@ -4,12 +4,11 @@ mod response_buffer;
 mod synthetic;
 
 use app::RequestorApp;
-use response_buffer::ResponseBuffer;
+use response_buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
 
 const APP_NAME: &str = "Requestor";
 const DEFAULT_RESPONSE_MEGABYTES: usize = 5;
 const RESPONSE_SIZE_FLAG: &str = "--response-mb";
-const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
 
 fn response_megabytes() -> usize {
     std::env::args()

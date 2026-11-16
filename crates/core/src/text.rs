@@ -42,3 +42,11 @@ impl Description {
         }
     }
 }
+
+pub fn scalar_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.clone()),
+        Value::Null => None,
+        other => Some(other.to_string()),
+    }
+}

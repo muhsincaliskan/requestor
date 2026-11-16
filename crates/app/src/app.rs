@@ -10,7 +10,8 @@ const REQUEST_TAB_TITLE: &str = "Request";
 const RESPONSE_TAB_TITLE: &str = "Response";
 const SPLIT_FRACTION: f32 = 0.45;
 const DEFAULT_URL: &str = "https://api.example.com/users";
-const BYTES_PER_MEGABYTE: f64 = 1024.0 * 1024.0;
+const METHOD_COMBO_ID: &str = "method";
+const SPIKE_STATUS_TEXT: &str = "200 OK";
 const METHODS: [HttpMethod; 5] = [
     HttpMethod::Get,
     HttpMethod::Post,
@@ -92,7 +93,7 @@ impl TabViewer for Session {
 impl Session {
     fn request_ui(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ComboBox::from_id_salt("method")
+            ComboBox::from_id_salt(METHOD_COMBO_ID)
                 .selected_text(self.method.as_str())
                 .show_ui(ui, |ui| {
                     for method in METHODS {
@@ -105,9 +106,9 @@ impl Session {
     }
 
     fn response_ui(&self, ui: &mut Ui) {
-        let megabytes = self.response.byte_len() as f64 / BYTES_PER_MEGABYTE;
         ui.label(format!(
-            "200 OK  {megabytes:.1} MB  {} lines",
+            "{SPIKE_STATUS_TEXT}  {:.1} MB  {} lines",
+            self.response.megabytes(),
             self.response.line_count()
         ));
         ui.separator();

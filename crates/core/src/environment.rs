@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::error::CoreError;
+use crate::text::scalar_text;
 
 const ENVIRONMENT_SCOPE: &str = "environment";
 
@@ -9,7 +10,7 @@ const ENVIRONMENT_SCOPE: &str = "environment";
 pub struct EnvironmentValue {
     pub key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
+    pub value: Option<Value>,
     #[serde(rename = "type")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
@@ -57,10 +58,11 @@ impl Environment {
         Ok(serde_json::to_string_pretty(self)?)
     }
 
-    pub fn value_of(&self, key: &str) -> Option<&str> {
+    pub fn value_of(&self, key: &str) -> Option<String> {
         self.values
             .iter()
             .find(|entry| entry.key == key && entry.is_enabled())
-            .and_then(|entry| entry.value.as_deref())
+            .and_then(|entry| entry.value.as_ref())
+            .and_then(scalar_text)
     }
 }

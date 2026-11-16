@@ -30,3 +30,13 @@ impl Param {
         !self.disabled.unwrap_or(false)
     }
 }
+
+impl Param {
+    pub fn query_pair(&self) -> String {
+        let key = self.key.as_deref().unwrap_or_default();
+        match &self.value {
+            Some(value) => format!("{key}={value}"),
+            None => key.to_string(),
+        }
+    }
+}

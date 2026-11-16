@@ -5,8 +5,13 @@ use super::param::Param;
 use super::variable::Variable;
 use crate::text::StringOrList;
 
+const SCHEME_SEPARATOR: &str = "://";
 const HOST_SEPARATOR: &str = ".";
+const PORT_SEPARATOR: &str = ":";
 const PATH_SEPARATOR: &str = "/";
+const QUERY_MARK: &str = "?";
+const QUERY_SEPARATOR: &str = "&";
+const HASH_MARK: &str = "#";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UrlParts {
@@ -51,22 +56,97 @@ impl UrlParts {
         if let Some(raw) = &self.raw {
             return raw.clone();
         }
+        format!(
+            "{}{}{}{}{}",
+            self.scheme_text(),
+            self.authority_text(),
+            self.path_text(),
+            self.query_text(),
+            self.hash_text()
+        )
+    }
+
+    fn scheme_text(&self) -> String {
+        self.protocol
+            .as_ref()
+            .map(|name| format!("{name}{SCHEME_SEPARATOR}"))
+            .unwrap_or_default()
+    }
+
+    fn authority_text(&self) -> String {
         let host = self
             .host
             .as_ref()
             .map(|host| host.joined(HOST_SEPARATOR))
             .unwrap_or_default();
+        match &self.port {
+            Some(port) => format!("{host}{PORT_SEPARATOR}{port}"),
+            None => host,
+        }
+    }
+
+    fn path_text(&self) -> String {
         let path = self
             .path
             .as_ref()
             .map(|path| path.joined(PATH_SEPARATOR))
             .unwrap_or_default();
-        let port = self.port.as_ref().map(|port| format!(":{port}"));
-        let scheme = self.protocol.as_ref().map(|name| format!("{name}://"));
-        format!(
-            "{}{host}{}/{path}",
-            scheme.unwrap_or_default(),
-            port.unwrap_or_default()
-        )
+        match path.trim_start_matches(PATH_SEPARATOR) {
+            "" => String::new(),
+            trimmed => format!("{PATH_SEPARATOR}{trimmed}"),
+        }
+    }
+
+    fn query_text(&self) -> String {
+        let pairs: Vec<String> = self
+            .query
+            .iter()
+            .flatten()
+            .filter(|param| param.is_enabled())
+            .map(Param::query_pair)
+            .collect();
+        if pairs.is_empty() {
+            return String::new();
+        }
+        format!("{QUERY_MARK}{}", pairs.join(QUERY_SEPARATOR))
+    }
+
+    fn hash_text(&self) -> String {
+        self.hash
+            .as_ref()
+            .map(|hash| format!("{HASH_MARK}{hash}"))
+            .unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Url, UrlParts};
+
+    fn parts(json: &str) -> UrlParts {
+        match serde_json::from_str::<Url>(json).unwrap() {
+            Url::Parts(parts) => *parts,
+            Url::Raw(_) => panic!("expected url object"),
+        }
+    }
+
+    #[test]
+    fn builds_text_from_parts_without_raw() {
+        let url = parts(
+            r#"{"protocol":"https","host":["api","x","com"],"port":"8443","path":["v1","u"],
+                "query":[{"key":"a","value":"1"},{"key":"b","disabled":true},{"key":"flag"}],"hash":"h"}"#,
+        );
+        assert_eq!(url.to_text(), "https://api.x.com:8443/v1/u?a=1&flag#h");
+    }
+
+    #[test]
+    fn avoids_double_slash_for_leading_slash_path() {
+        let url = parts(r#"{"host":"{{base}}","path":"/v1/u"}"#);
+        assert_eq!(url.to_text(), "{{base}}/v1/u");
+    }
+
+    #[test]
+    fn empty_parts_give_empty_text() {
+        assert_eq!(parts("{}").to_text(), "");
     }
 }

@@ -29,7 +29,7 @@ fn environment_round_trips_without_losing_fields() {
 #[test]
 fn counts_requests_across_nested_folders() {
     let collection = Collection::from_json(COLLECTION_FIXTURE).unwrap();
-    assert_eq!(collection.request_count(), 7);
+    assert_eq!(collection.request_count(), 9);
     assert!(collection.item[0].is_folder());
     assert!(!collection.item[1].is_folder());
 }
@@ -91,7 +91,7 @@ fn environment_ignores_disabled_values() {
     let environment = Environment::from_json(ENVIRONMENT_FIXTURE).unwrap();
     assert_eq!(
         environment.value_of("baseUrl"),
-        Some("https://staging.example.com")
+        Some("https://staging.example.com".to_string())
     );
     assert_eq!(environment.value_of("legacy"), None);
 }
@@ -110,4 +110,25 @@ fn request_of(item: &Item) -> Request {
         .as_ref()
         .expect("item has a request")
         .to_request()
+}
+
+#[test]
+fn reads_oauth2_attributes_with_non_string_values() {
+    let collection = Collection::from_json(COLLECTION_FIXTURE).unwrap();
+    let oauth = request_of(&collection.item[5]).auth.unwrap();
+    assert_eq!(oauth.value_of("accessToken"), Some("{{token}}"));
+    assert_eq!(oauth.value_of("useBrowser"), None);
+}
+
+#[test]
+fn reads_noauth_with_null_attributes() {
+    let collection = Collection::from_json(COLLECTION_FIXTURE).unwrap();
+    assert!(request_of(&collection.item[6]).auth.unwrap().is_none());
+}
+
+#[test]
+fn builds_url_text_for_object_without_raw() {
+    let collection = Collection::from_json(COLLECTION_FIXTURE).unwrap();
+    let url = request_of(&collection.item[5]).url.unwrap();
+    assert_eq!(url.to_text(), "https://api.example.com/me?verbose=1");
 }

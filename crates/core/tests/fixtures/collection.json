@@ -2,7 +2,10 @@
   "info": {
     "_postman_id": "9f4a3c7e-1b2d-4c5e-8a6f-0d1e2f3a4b5c",
     "name": "Sample API",
-    "description": { "content": "Sample **collection**", "type": "text/markdown" },
+    "description": {
+      "content": "Sample **collection**",
+      "type": "text/markdown"
+    },
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "12345"
   },
@@ -18,11 +21,22 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/users?page=1&limit=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20", "disabled": true }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
               ]
             }
           },
@@ -35,24 +49,45 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('created', function () {", "  pm.response.to.have.status(201);", "});"]
+                "exec": [
+                  "pm.test('created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ]
               }
             }
           ],
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Debug", "value": "1", "disabled": true }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Debug",
+                "value": "1",
+                "disabled": true
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\"name\": \"Ada\"}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": "{{baseUrl}}/users"
           },
@@ -76,12 +111,35 @@
                 "body": {
                   "mode": "formdata",
                   "formdata": [
-                    { "key": "name", "value": "Ada", "type": "text" },
-                    { "key": "avatar", "type": "file", "src": "/tmp/avatar.png" },
-                    { "key": "skip", "value": "x", "type": "text", "disabled": true }
+                    {
+                      "key": "name",
+                      "value": "Ada",
+                      "type": "text"
+                    },
+                    {
+                      "key": "avatar",
+                      "type": "file",
+                      "src": "/tmp/avatar.png"
+                    },
+                    {
+                      "key": "skip",
+                      "value": "x",
+                      "type": "text",
+                      "disabled": true
+                    }
                   ]
                 },
-                "url": { "raw": "https://example.com/avatar", "protocol": "https", "host": ["example", "com"], "path": ["avatar"] }
+                "url": {
+                  "raw": "https://example.com/avatar",
+                  "protocol": "https",
+                  "host": [
+                    "example",
+                    "com"
+                  ],
+                  "path": [
+                    "avatar"
+                  ]
+                }
               }
             }
           ]
@@ -95,11 +153,23 @@
         "body": {
           "mode": "urlencoded",
           "urlencoded": [
-            { "key": "user", "value": "ada" },
-            { "key": "pass", "value": "{{password}}" }
+            {
+              "key": "user",
+              "value": "ada"
+            },
+            {
+              "key": "pass",
+              "value": "{{password}}"
+            }
           ]
         },
-        "url": { "raw": "http://localhost:8080/login", "protocol": "http", "host": "localhost", "port": "8080", "path": "login" }
+        "url": {
+          "raw": "http://localhost:8080/login",
+          "protocol": "http",
+          "host": "localhost",
+          "port": "8080",
+          "path": "login"
+        }
       }
     },
     {
@@ -108,40 +178,124 @@
         "method": "POST",
         "body": {
           "mode": "graphql",
-          "graphql": { "query": "{ users { id } }", "variables": "{}" }
+          "graphql": {
+            "query": "{ users { id } }",
+            "variables": "{}"
+          }
         },
-        "url": { "raw": "{{baseUrl}}/graphql" }
+        "url": {
+          "raw": "{{baseUrl}}/graphql"
+        }
       }
     },
     {
       "name": "Raw upload",
       "request": {
         "method": "POST",
-        "body": { "mode": "file", "file": { "src": "/tmp/data.bin" } },
+        "body": {
+          "mode": "file",
+          "file": {
+            "src": "/tmp/data.bin"
+          }
+        },
         "url": "{{baseUrl}}/upload"
       }
     },
     {
       "name": "Purge cache",
-      "request": { "method": "PURGE", "url": "{{baseUrl}}/cache" }
+      "request": {
+        "method": "PURGE",
+        "url": "{{baseUrl}}/cache"
+      }
+    },
+    {
+      "name": "OAuth call",
+      "request": {
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "useBrowser",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "key": "accessToken",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "url": {
+          "protocol": "https",
+          "host": [
+            "api",
+            "example",
+            "com"
+          ],
+          "path": [
+            "me"
+          ],
+          "query": [
+            {
+              "key": "verbose",
+              "value": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Public",
+      "request": {
+        "auth": {
+          "type": "noauth",
+          "noauth": null
+        },
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      }
     }
   ],
   "event": [
     {
       "listen": "prerequest",
-      "script": { "type": "text/javascript", "exec": [""] }
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
     }
   ],
   "variable": [
-    { "key": "baseUrl", "value": "https://api.example.com", "type": "string" },
-    { "key": "retries", "value": 3 }
+    {
+      "key": "baseUrl",
+      "value": "https://api.example.com",
+      "type": "string"
+    },
+    {
+      "key": "retries",
+      "value": 3
+    }
   ],
   "auth": {
     "type": "basic",
     "basic": [
-      { "key": "username", "value": "ada", "type": "string" },
-      { "key": "password", "value": "{{password}}", "type": "string" }
+      {
+        "key": "username",
+        "value": "ada",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{password}}",
+        "type": "string"
+      }
     ]
   },
-  "protocolProfileBehavior": { "followRedirects": false }
+  "protocolProfileBehavior": {
+    "followRedirects": false
+  }
 }

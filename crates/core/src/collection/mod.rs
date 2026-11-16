@@ -8,7 +8,7 @@ mod request;
 mod url;
 mod variable;
 
-pub use auth::Auth;
+pub use auth::{Auth, AuthAttribute};
 pub use body::{Body, BodyMode};
 pub use event::{Event, Script};
 pub use info::{Info, POSTMAN_COLLECTION_SCHEMA_V21};
