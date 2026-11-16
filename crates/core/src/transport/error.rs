@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
-const TLS_MARKERS: [&str; 3] = ["certificate", "tls", "handshake"];
+const TLS_MARKERS: [&str; 2] = ["certificate", "tls"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TransportError {
@@ -56,7 +56,11 @@ impl TransportError {
     }
 
     pub(super) fn from_io(error: &std::io::Error) -> Self {
-        if error.kind() == std::io::ErrorKind::TimedOut {
+        let wrapped_timeout = error
+            .get_ref()
+            .and_then(|inner| inner.downcast_ref::<reqwest::Error>())
+            .is_some_and(reqwest::Error::is_timeout);
+        if wrapped_timeout || error.kind() == std::io::ErrorKind::TimedOut {
             TransportError::Timeout
         } else {
             TransportError::Other(error.to_string())

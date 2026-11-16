@@ -36,7 +36,7 @@ fn sends_headers_and_reads_json_response() {
     let mut prepared = request(HttpMethod::Get, server.url("/items?a=1"));
     prepared.headers.push(Header::new("X-Custom", "42"));
     let response = transport(&RequestSettings::default())
-        .send(&prepared)
+        .send(prepared.clone())
         .unwrap();
     assert_eq!(response.status, 200);
     assert_eq!(response.reason, "OK");
@@ -58,7 +58,7 @@ fn sends_request_body_and_custom_method() {
     );
     prepared.body = Some(b"payload".to_vec());
     let response = transport(&RequestSettings::default())
-        .send(&prepared)
+        .send(prepared.clone())
         .unwrap();
     assert_eq!(response.status, 201);
     let received = server.requests().remove(0);
@@ -77,14 +77,14 @@ fn follows_redirects_only_when_enabled() {
     });
     let prepared = request(HttpMethod::Get, server.url("/start"));
     let followed = transport(&RequestSettings::default())
-        .send(&prepared)
+        .send(prepared.clone())
         .unwrap();
     assert_eq!(followed.body_text(), "arrived");
     let settings = RequestSettings {
         follow_redirects: false,
         ..RequestSettings::default()
     };
-    let stopped = transport(&settings).send(&prepared).unwrap();
+    let stopped = transport(&settings).send(prepared.clone()).unwrap();
     assert_eq!(stopped.status, 302);
     assert_eq!(stopped.header("location"), Some("/final"));
 }
@@ -97,7 +97,7 @@ fn redirect_loops_hit_the_limit() {
         ..RequestSettings::default()
     };
     let error = transport(&settings)
-        .send(&request(HttpMethod::Get, server.url("/again")))
+        .send(request(HttpMethod::Get, server.url("/again")))
         .unwrap_err();
     assert_eq!(error, TransportError::TooManyRedirects);
 }
@@ -110,12 +110,12 @@ fn caps_response_size_and_reports_truncation() {
         ..RequestSettings::default()
     };
     let response = transport(&settings)
-        .send(&request(HttpMethod::Get, server.url("/big")))
+        .send(request(HttpMethod::Get, server.url("/big")))
         .unwrap();
     assert_eq!(response.body.len(), 1_000);
     assert!(response.truncated);
     let whole = transport(&RequestSettings::default())
-        .send(&request(HttpMethod::Get, server.url("/big")))
+        .send(request(HttpMethod::Get, server.url("/big")))
         .unwrap();
     assert_eq!(whole.body.len(), 10_000);
     assert!(!whole.truncated);
@@ -132,7 +132,7 @@ fn slow_servers_time_out() {
         ..RequestSettings::default()
     };
     let error = transport(&settings)
-        .send(&request(HttpMethod::Get, server.url("/slow")))
+        .send(request(HttpMethod::Get, server.url("/slow")))
         .unwrap_err();
     assert_eq!(error, TransportError::Timeout);
 }
@@ -144,7 +144,7 @@ fn refused_connections_are_reported_as_connection_failures() {
         listener.local_addr().unwrap()
     };
     let error = transport(&RequestSettings::default())
-        .send(&request(HttpMethod::Get, format!("http://{address}/")))
+        .send(request(HttpMethod::Get, format!("http://{address}/")))
         .unwrap_err();
     assert!(matches!(error, TransportError::ConnectionFailed(_)));
 }
@@ -160,8 +160,8 @@ fn cookies_are_replayed_only_when_enabled() {
         };
         let client = transport(&settings);
         let prepared = request(HttpMethod::Get, server.url("/"));
-        client.send(&prepared).unwrap();
-        client.send(&prepared).unwrap();
+        client.send(prepared.clone()).unwrap();
+        client.send(prepared.clone()).unwrap();
         let requests = server.requests();
         let last = requests.last().unwrap().to_ascii_lowercase();
         assert_eq!(
@@ -185,7 +185,7 @@ fn proxy_receives_absolute_requests_with_credentials() {
         ..RequestSettings::default()
     };
     let response = transport(&settings)
-        .send(&request(
+        .send(request(
             HttpMethod::Get,
             "http://origin.invalid/page".to_string(),
         ))

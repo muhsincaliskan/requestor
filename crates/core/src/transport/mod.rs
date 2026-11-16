@@ -8,5 +8,5 @@ use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
 
 pub trait HttpTransport {
-    fn send(&self, request: &PreparedRequest) -> Result<HttpResponse, TransportError>;
+    fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError>;
 }
