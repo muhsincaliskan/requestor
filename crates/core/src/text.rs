@@ -9,6 +9,13 @@ pub enum StringOrList {
 }
 
 impl StringOrList {
+    pub fn items(&self) -> Vec<&str> {
+        match self {
+            StringOrList::Single(text) => vec![text.as_str()],
+            StringOrList::List(parts) => parts.iter().map(String::as_str).collect(),
+        }
+    }
+
     pub fn joined(&self, separator: &str) -> String {
         match self {
             StringOrList::Single(text) => text.clone(),
