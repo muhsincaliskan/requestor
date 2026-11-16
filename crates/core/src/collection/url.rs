@@ -5,7 +5,7 @@ use super::param::Param;
 use super::variable::Variable;
 use crate::text::StringOrList;
 
-const SCHEME_SEPARATOR: &str = "://";
+pub const SCHEME_SEPARATOR: &str = "://";
 const HOST_SEPARATOR: &str = ".";
 const PORT_SEPARATOR: &str = ":";
 const PATH_SEPARATOR: &str = "/";

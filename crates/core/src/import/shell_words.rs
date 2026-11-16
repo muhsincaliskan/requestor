@@ -1,16 +1,10 @@
 use super::ImportError;
 
-const LINE_CONTINUATIONS: [&str; 2] = ["\\\r\n", "\\\n"];
-
 pub(super) fn split(command: &str) -> Result<Vec<String>, ImportError> {
-    let mut text = command.to_string();
-    for continuation in LINE_CONTINUATIONS {
-        text = text.replace(continuation, " ");
-    }
     let mut words = Vec::new();
     let mut current = String::new();
     let mut started = false;
-    let mut characters = text.chars().peekable();
+    let mut characters = command.chars().peekable();
     while let Some(character) = characters.next() {
         match character {
             '\'' => read_single_quoted(&mut characters, &mut current, &mut started)?,
@@ -19,10 +13,7 @@ pub(super) fn split(command: &str) -> Result<Vec<String>, ImportError> {
                 characters.next();
                 read_ansi_quoted(&mut characters, &mut current, &mut started)?;
             }
-            '\\' => {
-                started = true;
-                current.extend(characters.next());
-            }
+            '\\' => read_unquoted_escape(&mut characters, &mut current, &mut started),
             space if space.is_whitespace() => {
                 if started {
                     words.push(std::mem::take(&mut current));
@@ -42,6 +33,25 @@ pub(super) fn split(command: &str) -> Result<Vec<String>, ImportError> {
 }
 
 type Characters<'a> = std::iter::Peekable<std::str::Chars<'a>>;
+
+fn skip_line_break(characters: &mut Characters) -> bool {
+    let mut ahead = characters.clone();
+    let skipped = match ahead.next() {
+        Some('\n') => 1,
+        Some('\r') if ahead.next() == Some('\n') => 2,
+        _ => return false,
+    };
+    characters.nth(skipped - 1);
+    true
+}
+
+fn read_unquoted_escape(characters: &mut Characters, current: &mut String, started: &mut bool) {
+    if skip_line_break(characters) {
+        return;
+    }
+    *started = true;
+    current.extend(characters.next());
+}
 
 fn read_single_quoted(
     characters: &mut Characters,
@@ -67,6 +77,7 @@ fn read_double_quoted(
     while let Some(character) = characters.next() {
         match character {
             '"' => return Ok(()),
+            '\\' if skip_line_break(characters) => {}
             '\\' => match characters.peek().copied() {
                 Some(escaped @ ('"' | '\\' | '$' | '`')) => {
                     current.push(escaped);
@@ -125,6 +136,13 @@ mod tests {
             split("curl \\\n  -X POST \\\r\n  url").unwrap(),
             ["curl", "-X", "POST", "url"]
         );
+    }
+
+    #[test]
+    fn line_continuations_respect_quoting() {
+        assert_eq!(split("a 'x\\\ny' b").unwrap(), ["a", "x\\\ny", "b"]);
+        assert_eq!(split("a \"x\\\ny\" b").unwrap(), ["a", "xy", "b"]);
+        assert_eq!(split("ab\\\ncd").unwrap(), ["abcd"]);
     }
 
     #[test]

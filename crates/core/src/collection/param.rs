@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::encoding::{percent_decode, percent_encode};
 use crate::text::{Description, StringOrList};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,6 +66,41 @@ impl Param {
         }
     }
 
+    pub fn encode_form_pair(key: &str, value: &str) -> String {
+        if key.is_empty() {
+            percent_encode(value)
+        } else {
+            format!("{}={}", percent_encode(key), percent_encode(value))
+        }
+    }
+
+    pub fn form_pair(&self) -> String {
+        Param::encode_form_pair(
+            self.key.as_deref().unwrap_or_default(),
+            self.value.as_deref().unwrap_or_default(),
+        )
+    }
+
+    pub fn from_form_text(text: &str) -> Option<Vec<Param>> {
+        text.split('&')
+            .map(|pair| {
+                pair.split_once('=')
+                    .map(|(key, value)| Param::text(percent_decode(key), percent_decode(value)))
+            })
+            .collect()
+    }
+
+    pub fn file_with_type(
+        key: impl Into<String>,
+        path: impl Into<String>,
+        content_type: Option<&str>,
+    ) -> Self {
+        Param {
+            content_type: content_type.map(str::to_string),
+            ..Param::file(key, path)
+        }
+    }
+
     pub fn file(key: impl Into<String>, path: impl Into<String>) -> Self {
         Param {
             value: None,
@@ -72,5 +108,23 @@ impl Param {
             kind: Some("file".to_string()),
             ..Param::text(key, "")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Param;
+
+    #[test]
+    fn form_pairs_encode_once_and_omit_the_equals_for_empty_keys() {
+        assert_eq!(Param::text("q", "a b&c").form_pair(), "q=a%20b%26c");
+        assert_eq!(Param::text("", "a b").form_pair(), "a%20b");
+    }
+
+    #[test]
+    fn form_text_decodes_pairs_and_rejects_bare_words() {
+        let params = Param::from_form_text("a=1%202&b=").unwrap();
+        assert_eq!(params[0].value.as_deref(), Some("1 2"));
+        assert!(Param::from_form_text("plain").is_none());
     }
 }

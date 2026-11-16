@@ -7,10 +7,13 @@ pub mod openapi;
 
 use std::fmt;
 
-use crate::collection::{Collection, Request};
+use crate::collection::{Collection, Request, Url, UrlParts, SCHEME_SEPARATOR};
 use crate::environment::Environment;
 
 pub use detect::import_text;
+
+const DEFAULT_SCHEME: &str = "http";
+const GET_METHOD: &str = "GET";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ImportError {
@@ -55,4 +58,34 @@ pub enum Imported {
     Collection(Collection),
     Environment(Environment),
     Request(ImportedRequest),
+}
+
+impl ImportedRequest {
+    pub fn from_url(url: &str) -> Self {
+        ImportedRequest::new(GET_METHOD, url)
+    }
+
+    fn new(method: &str, url: &str) -> Self {
+        let url = if url.contains(SCHEME_SEPARATOR) {
+            url.to_string()
+        } else {
+            format!("{DEFAULT_SCHEME}{SCHEME_SEPARATOR}{url}")
+        };
+        ImportedRequest {
+            name: format!("{method} {}", display_path(&url)),
+            request: Request::new(method, Url::Parts(Box::new(UrlParts::parse(&url)))),
+            warnings: Vec::new(),
+        }
+    }
+}
+
+fn display_path(url: &str) -> String {
+    let without_scheme = url
+        .split_once(SCHEME_SEPARATOR)
+        .map_or(url, |(_, rest)| rest);
+    without_scheme
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(without_scheme)
+        .to_string()
 }

@@ -49,6 +49,11 @@ impl Auth {
         )
     }
 
+    pub fn from_credentials(credentials: &str) -> Self {
+        let (username, password) = credentials.split_once(':').unwrap_or((credentials, ""));
+        Auth::basic(username, password)
+    }
+
     pub fn bearer(token: impl Into<String>) -> Self {
         Auth::with_attributes("bearer", vec![AuthAttribute::string("token", token)])
     }
@@ -78,5 +83,18 @@ impl Auth {
 
     pub fn is_none(&self) -> bool {
         self.kind == NO_AUTH_KIND
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Auth;
+
+    #[test]
+    fn credentials_split_on_the_first_colon() {
+        let auth = Auth::from_credentials("ada:p:w");
+        assert_eq!(auth.value_of("username"), Some("ada"));
+        assert_eq!(auth.value_of("password"), Some("p:w"));
+        assert_eq!(Auth::from_credentials("ada").value_of("password"), Some(""));
     }
 }

@@ -83,3 +83,21 @@ fn curl_import_survives_a_round_trip_through_request_preparation_and_export() {
     assert_eq!(reprepared.body, prepared.body);
     assert_eq!(reprepared.header("x-note"), Some("it's"));
 }
+
+#[test]
+fn json_arrays_are_reported_as_unsupported() {
+    let error = import_text("[1, 2]").unwrap_err();
+    assert!(matches!(error, ImportError::UnsupportedFormat(_)));
+    assert!(error.to_string().contains("arrays"));
+}
+
+#[test]
+fn bare_urls_with_shell_characters_are_kept_verbatim() {
+    let Imported::Request(imported) = import_text("https://x.test/a?q='1'&b=$HOME").unwrap() else {
+        panic!("expected a request");
+    };
+    assert_eq!(
+        imported.request.url.unwrap().to_text(),
+        "https://x.test/a?q='1'&b=$HOME"
+    );
+}

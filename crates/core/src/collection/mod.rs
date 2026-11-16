@@ -15,7 +15,7 @@ pub use info::{Info, POSTMAN_COLLECTION_SCHEMA_V21};
 pub use item::Item;
 pub use param::Param;
 pub use request::{Request, RequestSpec};
-pub use url::{Url, UrlParts};
+pub use url::{Url, UrlParts, SCHEME_SEPARATOR};
 pub use variable::Variable;
 
 use serde::{Deserialize, Serialize};

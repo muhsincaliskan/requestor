@@ -1,10 +1,10 @@
 use super::{ImportError, ImportedRequest};
-use crate::collection::{Body, Request, Url, UrlParts};
+use crate::collection::{Body, Request, Url, UrlParts, SCHEME_SEPARATOR};
+use crate::header::CONTENT_TYPE;
 
 const HTTP_VERSION_PREFIX: &str = "HTTP/";
 const SECURE_PORT: &str = "443";
 const HOST_HEADER: &str = "host";
-const JSON_MARK: &str = "json";
 const KNOWN_METHODS: [&str; 9] = [
     "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "CONNECT",
 ];
@@ -35,11 +35,8 @@ impl ImportedRequest {
             request.push_header(*name, *value);
         }
         if !body.trim().is_empty() {
-            let language = request
-                .header_value("content-type")
-                .filter(|kind| kind.contains(JSON_MARK))
-                .map(|_| JSON_MARK);
-            request.body = Some(Body::raw(body.trim_end(), language));
+            let content_type = request.header_value(CONTENT_TYPE);
+            request.body = Some(Body::raw_for_content_type(body.trim_end(), content_type));
         }
         Ok(ImportedRequest {
             name: format!("{method} {}", target.split('?').next().unwrap_or(target)),
@@ -65,7 +62,7 @@ fn parse_request_line(line: &str) -> Result<(String, &str), ImportError> {
 }
 
 fn absolute_url(target: &str, host: Option<&str>) -> Result<String, ImportError> {
-    if target.contains("://") {
+    if target.contains(SCHEME_SEPARATOR) {
         return Ok(target.to_string());
     }
     let host = host.ok_or(ImportError::MissingUrl)?;
@@ -74,7 +71,7 @@ fn absolute_url(target: &str, host: Option<&str>) -> Result<String, ImportError>
     } else {
         "http"
     };
-    Ok(format!("{scheme}://{host}{target}"))
+    Ok(format!("{scheme}{SCHEME_SEPARATOR}{host}{target}"))
 }
 
 #[cfg(test)]

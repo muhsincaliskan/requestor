@@ -1,5 +1,6 @@
 mod auth;
 mod body;
+mod body_source;
 mod curl;
 mod multipart;
 
@@ -10,6 +11,8 @@ use crate::identity::random_uuid;
 use crate::method::HttpMethod;
 use crate::settings::RequestSettings;
 use crate::variables::{placeholder_names, VariableScope};
+
+pub use body_source::{BodySource, FormField, FormValue};
 
 use body::EncodedBody;
 
@@ -23,6 +26,7 @@ pub struct PreparedRequest {
     pub url: String,
     pub headers: Vec<Header>,
     pub body: Option<Vec<u8>>,
+    pub body_source: BodySource,
 }
 
 impl std::fmt::Debug for PreparedRequest {
@@ -57,6 +61,7 @@ impl PreparedRequest {
                 .filter_map(|param| Header::from_param(param, scope))
                 .collect(),
             body: None,
+            body_source: BodySource::Inline,
         };
         if let Some(body) = request.body.as_ref().filter(|body| body.is_enabled()) {
             prepared.apply_body(EncodedBody::from_body(body, scope)?);
@@ -96,6 +101,7 @@ impl PreparedRequest {
             None => {}
         }
         self.body = Some(encoded.data);
+        self.body_source = encoded.source;
     }
 
     fn add_default_headers(&mut self, settings: &RequestSettings) {

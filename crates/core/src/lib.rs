@@ -1,4 +1,5 @@
 pub mod collection;
+pub(crate) mod curl_command;
 pub mod encoding;
 pub mod environment;
 pub mod error;

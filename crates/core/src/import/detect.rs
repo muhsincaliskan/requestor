@@ -1,10 +1,8 @@
 use serde_json::Value;
 
 use super::{openapi, ImportError, Imported, ImportedRequest};
-use crate::collection::Collection;
-use crate::environment::Environment;
+use crate::curl_command::COMMAND_NAME;
 
-const CURL_COMMAND: &str = "curl";
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];
 
@@ -16,12 +14,17 @@ pub fn import_text(text: &str) -> Result<Imported, ImportError> {
     if trimmed.starts_with('{') {
         return import_json(trimmed);
     }
+    if trimmed.starts_with('[') {
+        return Err(ImportError::UnsupportedFormat(
+            "JSON arrays are not supported; expected a Postman collection, environment or OpenAPI object"
+                .to_string(),
+        ));
+    }
     if is_curl_command(trimmed) {
         return ImportedRequest::from_curl(trimmed).map(Imported::Request);
     }
     if is_bare_url(trimmed) {
-        return ImportedRequest::from_curl(&format!("{CURL_COMMAND} '{trimmed}'"))
-            .map(Imported::Request);
+        return Ok(Imported::Request(ImportedRequest::from_url(trimmed)));
     }
     if YAML_OPENAPI_MARKERS
         .iter()
@@ -41,12 +44,12 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
         return openapi::from_json(&document).map(Imported::Collection);
     }
     if document.get("info").is_some() && document.get("item").is_some() {
-        return Collection::from_json(text)
+        return serde_json::from_value(document)
             .map(Imported::Collection)
             .map_err(|error| ImportError::InvalidJson(error.to_string()));
     }
     if document.get("values").is_some() && document.get("name").is_some() {
-        return Environment::from_json(text)
+        return serde_json::from_value(document)
             .map(Imported::Environment)
             .map_err(|error| ImportError::InvalidJson(error.to_string()));
     }
@@ -56,7 +59,7 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
 }
 
 fn is_curl_command(text: &str) -> bool {
-    text.split_whitespace().next() == Some(CURL_COMMAND)
+    text.split_whitespace().next() == Some(COMMAND_NAME)
 }
 
 fn is_bare_url(text: &str) -> bool {
