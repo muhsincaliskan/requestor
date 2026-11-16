@@ -23,4 +23,4 @@ cargo build --release -p requestor-app
 scripts/measure-ram.sh 5 8
 ```
 
-The first argument is the synthetic response size in megabytes, the second is the settle time in seconds. On macOS the script reports `phys_footprint`, the figure Activity Monitor shows.
+The first argument is the synthetic response size in megabytes, the second is the settle time in seconds. On macOS the script prints `footprint` output for the process (the physical footprint is what Activity Monitor reports) next to `ps` RSS. To compare with Postman, add up every Postman process (main, Helper renderer and GPU) and compare the total with Requestor's single process.

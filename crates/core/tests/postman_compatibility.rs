@@ -132,3 +132,13 @@ fn builds_url_text_for_object_without_raw() {
     let url = request_of(&collection.item[5]).url.unwrap();
     assert_eq!(url.to_text(), "https://api.example.com/me?verbose=1");
 }
+
+#[test]
+fn explicit_null_fields_are_normalized_to_absent_on_export() {
+    let source = r#"{"info":{"name":"n"},"item":[{"name":"r","request":{"method":"GET","url":{"raw":"http://x/?flag","query":[{"key":"flag","value":null}]}}}]}"#;
+    let exported = Collection::from_json(source)
+        .unwrap()
+        .to_json_pretty()
+        .unwrap();
+    assert!(!exported.contains("null"));
+}
