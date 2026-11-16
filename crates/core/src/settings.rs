@@ -16,7 +16,8 @@ pub enum HttpVersion {
     Http2,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ProxySettings {
     pub url: String,
     pub username: Option<String>,

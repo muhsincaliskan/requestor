@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::param::Param;
+use crate::media_type;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -35,7 +36,34 @@ pub struct Body {
     pub extra: Map<String, Value>,
 }
 
+const RAW_LANGUAGE_CONTENT_TYPES: [(&str, &str); 5] = [
+    ("json", media_type::JSON),
+    ("xml", media_type::XML),
+    ("html", media_type::HTML),
+    ("javascript", media_type::JAVASCRIPT),
+    ("text", media_type::PLAIN_TEXT),
+];
+
 impl Body {
+    pub fn raw_content_type(&self) -> &'static str {
+        let language = self
+            .options
+            .as_ref()
+            .and_then(|options| options.get("raw")?.get("language")?.as_str());
+        RAW_LANGUAGE_CONTENT_TYPES
+            .iter()
+            .find(|(name, _)| Some(*name) == language)
+            .map_or(media_type::PLAIN_TEXT, |(_, content_type)| content_type)
+    }
+
+    pub fn file_source(&self) -> Option<&str> {
+        self.file
+            .as_ref()?
+            .get("src")?
+            .as_str()
+            .filter(|path| !path.is_empty())
+    }
+
     pub fn is_enabled(&self) -> bool {
         !self.disabled.unwrap_or(false)
     }

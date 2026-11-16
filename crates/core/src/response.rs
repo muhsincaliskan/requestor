@@ -1,8 +1,7 @@
 use std::time::Duration;
 
-use crate::header::{find_header, Header};
-
-const CONTENT_TYPE: &str = "content-type";
+use crate::header::{find_header, Header, CONTENT_TYPE};
+use crate::media_type;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResponseFormat {
@@ -27,7 +26,7 @@ impl ResponseFormat {
             declared if declared.contains("html") => Some(Self::Html),
             declared if declared.contains("xml") => Some(Self::Xml),
             declared if declared.starts_with("text/") => Some(Self::Text),
-            declared if declared.starts_with("application/octet-stream") => Some(Self::Binary),
+            declared if declared.starts_with(media_type::OCTET_STREAM) => Some(Self::Binary),
             declared
                 if ["image/", "audio/", "video/"]
                     .iter()
@@ -40,7 +39,7 @@ impl ResponseFormat {
     }
 
     fn sniff(body: &[u8]) -> Self {
-        if std::str::from_utf8(body).is_err() {
+        if std::str::from_utf8(body).is_err_and(|error| error.error_len().is_some()) {
             return Self::Binary;
         }
         match body.iter().find(|byte| !byte.is_ascii_whitespace()) {
@@ -51,7 +50,7 @@ impl ResponseFormat {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct HttpResponse {
     pub status: u16,
     pub reason: String,
@@ -60,6 +59,18 @@ pub struct HttpResponse {
     pub body: Vec<u8>,
     pub truncated: bool,
     pub elapsed: Duration,
+}
+
+impl std::fmt::Debug for HttpResponse {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("HttpResponse")
+            .field("status", &self.status)
+            .field("headers", &self.headers.len())
+            .field("body_bytes", &self.body.len())
+            .field("truncated", &self.truncated)
+            .finish()
+    }
 }
 
 impl HttpResponse {
@@ -98,6 +109,13 @@ mod tests {
             ResponseFormat::detect(Some("image/png"), b"abc"),
             ResponseFormat::Binary
         );
+    }
+
+    #[test]
+    fn truncated_utf8_tail_is_still_text() {
+        let mut body = "héllo".as_bytes().to_vec();
+        body.pop();
+        assert_eq!(ResponseFormat::detect(None, &body), ResponseFormat::Text);
     }
 
     #[test]

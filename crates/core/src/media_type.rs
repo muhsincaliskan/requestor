@@ -1,0 +1,9 @@
+pub const JSON: &str = "application/json";
+pub const XML: &str = "application/xml";
+pub const HTML: &str = "text/html";
+pub const JAVASCRIPT: &str = "application/javascript";
+pub const PLAIN_TEXT: &str = "text/plain";
+pub const OCTET_STREAM: &str = "application/octet-stream";
+pub const FORM_URLENCODED: &str = "application/x-www-form-urlencoded";
+pub const MULTIPART_PREFIX: &str = "multipart/";
+pub const MULTIPART_FORM_DATA: &str = "multipart/form-data";

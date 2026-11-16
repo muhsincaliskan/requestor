@@ -7,20 +7,28 @@ const AUTHORIZATION: &str = "Authorization";
 const BEARER_KIND: &str = "bearer";
 const BASIC_KIND: &str = "basic";
 const API_KEY_KIND: &str = "apikey";
+const TOKEN_KEY: &str = "token";
+const USERNAME_KEY: &str = "username";
+const PASSWORD_KEY: &str = "password";
+const API_KEY_NAME_KEY: &str = "key";
+const API_KEY_VALUE_KEY: &str = "value";
+const API_KEY_LOCATION_KEY: &str = "in";
 const API_KEY_IN_QUERY: &str = "query";
 const FRAGMENT_MARK: char = '#';
+const QUERY_MARK: char = '?';
+const QUERY_SEPARATOR: char = '&';
 
 impl PreparedRequest {
     pub(super) fn apply_auth(&mut self, authentication: &Auth, scope: &VariableScope) {
-        let value_of = |key: &str| {
-            authentication
-                .value_of(key)
-                .map(|value| scope.resolve(value).text)
-        };
+        let value_of = |key: &str| authentication.resolved_value_of(key, scope);
         match authentication.kind.as_str() {
-            BEARER_KIND => self.apply_bearer(value_of("token")),
-            BASIC_KIND => self.apply_basic(value_of("username"), value_of("password")),
-            API_KEY_KIND => self.apply_api_key(value_of("key"), value_of("value"), value_of("in")),
+            BEARER_KIND => self.apply_bearer(value_of(TOKEN_KEY)),
+            BASIC_KIND => self.apply_basic(value_of(USERNAME_KEY), value_of(PASSWORD_KEY)),
+            API_KEY_KIND => self.apply_api_key(
+                value_of(API_KEY_NAME_KEY),
+                value_of(API_KEY_VALUE_KEY),
+                value_of(API_KEY_LOCATION_KEY),
+            ),
             _ => {}
         }
     }
@@ -63,7 +71,11 @@ impl PreparedRequest {
             }
             None => (self.url.clone(), String::new()),
         };
-        let separator = if address.contains('?') { '&' } else { '?' };
+        let separator = match address.chars().last() {
+            Some(QUERY_MARK | QUERY_SEPARATOR) => String::new(),
+            _ if address.contains(QUERY_MARK) => QUERY_SEPARATOR.to_string(),
+            _ => QUERY_MARK.to_string(),
+        };
         self.url = format!(
             "{address}{separator}{}={}{fragment}",
             percent_encode(key),

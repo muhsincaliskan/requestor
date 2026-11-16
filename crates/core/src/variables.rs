@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt;
 
 use crate::collection::Variable;
 use crate::environment::Environment;
@@ -6,11 +7,20 @@ use crate::text::scalar_text;
 
 const OPEN_MARK: &str = "{{";
 const CLOSE_MARK: &str = "}}";
-const MAX_NESTING_DEPTH: usize = 8;
+const MAX_EXPANDED_BYTES: usize = 1024 * 1024;
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct VariableLayer {
     values: BTreeMap<String, String>,
+}
+
+impl fmt::Debug for VariableLayer {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("VariableLayer")
+            .field("keys", &self.values.keys().collect::<Vec<_>>())
+            .finish()
+    }
 }
 
 impl VariableLayer {
@@ -39,10 +49,24 @@ impl VariableLayer {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Resolved {
     pub text: String,
     pub unresolved: Vec<String>,
+    pub circular: Vec<String>,
+    pub limit_exceeded: bool,
+}
+
+impl fmt::Debug for Resolved {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Resolved")
+            .field("text_bytes", &self.text.len())
+            .field("unresolved", &self.unresolved)
+            .field("circular", &self.circular)
+            .field("limit_exceeded", &self.limit_exceeded)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -69,49 +93,122 @@ impl VariableScope {
     }
 
     pub fn resolve(&self, text: &str) -> Resolved {
-        let mut unresolved = Vec::new();
-        let text = self.expand(text, 0, &mut unresolved);
-        unresolved.sort();
-        unresolved.dedup();
-        Resolved { text, unresolved }
+        let mut expansion = Expansion {
+            scope: self,
+            budget: MAX_EXPANDED_BYTES,
+            active: Vec::new(),
+            unresolved: Vec::new(),
+            circular: Vec::new(),
+            limit_exceeded: false,
+        };
+        let text = expansion.expand(text);
+        Resolved {
+            text,
+            unresolved: sorted_unique(expansion.unresolved),
+            circular: sorted_unique(expansion.circular),
+            limit_exceeded: expansion.limit_exceeded,
+        }
     }
+}
 
-    fn expand(&self, text: &str, depth: usize, unresolved: &mut Vec<String>) -> String {
+pub fn placeholder_names(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rest = text;
+    while let Some(found) = Placeholder::find(rest) {
+        names.push(found.name.to_string());
+        rest = found.after;
+    }
+    sorted_unique(names)
+}
+
+fn sorted_unique(mut names: Vec<String>) -> Vec<String> {
+    names.sort();
+    names.dedup();
+    names
+}
+
+struct Expansion<'a> {
+    scope: &'a VariableScope,
+    budget: usize,
+    active: Vec<String>,
+    unresolved: Vec<String>,
+    circular: Vec<String>,
+    limit_exceeded: bool,
+}
+
+impl Expansion<'_> {
+    fn expand(&mut self, text: &str) -> String {
         let mut output = String::with_capacity(text.len());
         let mut rest = text;
-        while let Some((before, name, after)) = split_placeholder(rest) {
-            output.push_str(before);
-            output.push_str(&self.expand_name(name, depth, unresolved));
-            rest = after;
+        while let Some(found) = Placeholder::find(rest) {
+            output.push_str(found.before);
+            output.push_str(&self.expand_placeholder(&found));
+            rest = found.after;
         }
         output.push_str(rest);
         output
     }
 
-    fn expand_name(&self, name: &str, depth: usize, unresolved: &mut Vec<String>) -> String {
-        match self.lookup(name) {
-            Some(value) if depth < MAX_NESTING_DEPTH => self.expand(value, depth + 1, unresolved),
-            Some(value) => value.to_string(),
-            None => {
-                unresolved.push(name.to_string());
-                format!("{OPEN_MARK}{name}{CLOSE_MARK}")
-            }
+    fn expand_placeholder(&mut self, found: &Placeholder<'_>) -> String {
+        if self.active.iter().any(|name| name == found.name) {
+            self.circular.push(found.name.to_string());
+            return found.literal.to_string();
         }
+        let Some(value) = self.scope.lookup(found.name) else {
+            self.unresolved.push(found.name.to_string());
+            return found.literal.to_string();
+        };
+        if value.len() > self.budget {
+            self.limit_exceeded = true;
+            return found.literal.to_string();
+        }
+        self.budget -= value.len();
+        self.active.push(found.name.to_string());
+        let expanded = self.expand(value);
+        self.active.pop();
+        expanded
     }
 }
 
-fn split_placeholder(text: &str) -> Option<(&str, &str, &str)> {
-    let start = text.find(OPEN_MARK)?;
-    let name_start = start + OPEN_MARK.len();
-    let length = text[name_start..].find(CLOSE_MARK)?;
-    let name = text[name_start..name_start + length].trim();
-    let after = &text[name_start + length + CLOSE_MARK.len()..];
-    Some((&text[..start], name, after))
+struct Placeholder<'a> {
+    before: &'a str,
+    literal: &'a str,
+    name: &'a str,
+    after: &'a str,
+}
+
+impl<'a> Placeholder<'a> {
+    fn find(text: &'a str) -> Option<Self> {
+        let mut from = 0;
+        while let Some(relative) = text[from..].find(CLOSE_MARK) {
+            let close = from + relative;
+            if let Some(found) = Self::ending_at(text, from, close) {
+                return Some(found);
+            }
+            from = close + CLOSE_MARK.len();
+        }
+        None
+    }
+
+    fn ending_at(text: &'a str, from: usize, close: usize) -> Option<Self> {
+        let open = from + text[from..close].rfind(OPEN_MARK)?;
+        let name = text[open + OPEN_MARK.len()..close].trim();
+        if name.is_empty() {
+            return None;
+        }
+        let end = close + CLOSE_MARK.len();
+        Some(Placeholder {
+            before: &text[..open],
+            literal: &text[open..end],
+            name,
+            after: &text[end..],
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{VariableLayer, VariableScope};
+    use super::{placeholder_names, VariableLayer, VariableScope};
 
     fn scope() -> VariableScope {
         VariableScope::new()
@@ -121,6 +218,15 @@ mod tests {
                     .with("a", "1"),
             )
             .with_layer(VariableLayer::default().with("host", "env.example"))
+    }
+
+    fn scope_with(pairs: &[(&str, &str)]) -> VariableScope {
+        let layer = pairs
+            .iter()
+            .fold(VariableLayer::default(), |layer, (key, value)| {
+                layer.with(*key, *value)
+            });
+        VariableScope::new().with_layer(layer)
     }
 
     #[test]
@@ -133,26 +239,74 @@ mod tests {
     }
 
     #[test]
-    fn unresolved_names_are_kept_and_reported_once() {
+    fn unresolved_names_keep_their_original_spelling_and_are_reported_once() {
         let resolved = scope().resolve("{{missing}}/{{ missing }}/{{host}}");
-        assert_eq!(resolved.text, "{{missing}}/{{missing}}/env.example");
+        assert_eq!(resolved.text, "{{missing}}/{{ missing }}/env.example");
         assert_eq!(resolved.unresolved, vec!["missing".to_string()]);
     }
 
     #[test]
-    fn nested_variables_expand_and_cycles_terminate() {
-        let nested = VariableScope::new().with_layer(
-            VariableLayer::default()
-                .with("base", "https://{{host}}")
-                .with("host", "h"),
-        );
+    fn nested_variables_expand() {
+        let nested = scope_with(&[("base", "https://{{host}}"), ("host", "h")]);
         assert_eq!(nested.resolve("{{base}}/p").text, "https://h/p");
-        let cyclic = VariableScope::new().with_layer(VariableLayer::default().with("a", "{{a}}x"));
-        assert!(cyclic.resolve("{{a}}").text.starts_with("{{a}}x"));
     }
 
     #[test]
-    fn unterminated_placeholder_is_left_alone() {
-        assert_eq!(scope().resolve("a {{host").text, "a {{host");
+    fn cycles_are_reported_and_left_unexpanded() {
+        let resolved = scope_with(&[("a", "{{b}}"), ("b", "{{a}}")]).resolve("{{a}}");
+        assert_eq!(resolved.text, "{{a}}");
+        assert_eq!(resolved.circular, vec!["a".to_string()]);
+        let selfish = scope_with(&[("a", "x{{a}}")]).resolve("{{a}}");
+        assert_eq!(selfish.text, "x{{a}}");
+        assert_eq!(selfish.circular, vec!["a".to_string()]);
+    }
+
+    #[test]
+    fn exponential_expansion_is_bounded() {
+        let fanout = "{{c}}".repeat(8);
+        let mut pairs: Vec<(String, String)> = (0..12)
+            .map(|level| {
+                (
+                    format!("v{level}"),
+                    format!("{{{{v{}}}}}", level + 1).repeat(8),
+                )
+            })
+            .collect();
+        pairs.push(("v12".to_string(), "x".to_string()));
+        pairs.push(("c".to_string(), fanout));
+        let layer = pairs
+            .iter()
+            .fold(VariableLayer::default(), |layer, (key, value)| {
+                layer.with(key.as_str(), value.as_str())
+            });
+        let resolved = VariableScope::new().with_layer(layer).resolve("{{v0}}");
+        assert!(resolved.limit_exceeded);
+        assert!(resolved.text.len() < 16 * 1024 * 1024);
+    }
+
+    #[test]
+    fn placeholder_parsing_matches_postman_for_edge_cases() {
+        let a = scope();
+        assert_eq!(a.resolve("{{{a}}}").text, "{1}");
+        assert_eq!(a.resolve("{{x {{a}}").text, "{{x 1");
+        assert_eq!(a.resolve("{{}}").text, "{{}}");
+        assert!(a.resolve("{{}}").unresolved.is_empty());
+        assert_eq!(a.resolve("}} {{a}}").text, "}} 1");
+        assert_eq!(a.resolve("a {{host").text, "a {{host");
+    }
+
+    #[test]
+    fn placeholder_names_lists_distinct_names() {
+        assert_eq!(
+            placeholder_names("{{b}} {{a}} {{b}} {{ }}"),
+            vec!["a".to_string(), "b".to_string()]
+        );
+    }
+
+    #[test]
+    fn debug_output_hides_values() {
+        let debug = format!("{:?}", scope_with(&[("token", "s3cret")]));
+        assert!(debug.contains("token"));
+        assert!(!debug.contains("s3cret"));
     }
 }
