@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::variables::VariableScope;
+
 const NO_AUTH_KIND: &str = "noauth";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,6 +36,12 @@ impl Auth {
             .find(|attribute| attribute.key.as_deref() == Some(key))
             .and_then(|attribute| attribute.value.as_ref())
             .and_then(Value::as_str)
+    }
+
+    pub fn resolved_value_of(&self, key: &str, scope: &VariableScope) -> Option<String> {
+        self.value_of(key)
+            .map(|value| scope.resolve(value).text)
+            .filter(|value| !value.is_empty())
     }
 
     pub fn is_none(&self) -> bool {

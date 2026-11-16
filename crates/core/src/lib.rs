@@ -4,6 +4,7 @@ pub mod environment;
 pub mod error;
 pub mod header;
 pub mod identity;
+pub mod media_type;
 pub mod method;
 pub mod prepared;
 pub mod response;

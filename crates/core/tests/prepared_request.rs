@@ -12,6 +12,17 @@ fn request_from(request: Value) -> Request {
     collection.item[0].request.as_ref().unwrap().to_request()
 }
 
+fn temp_file(name: &str, contents: &str) -> std::path::PathBuf {
+    let directory = std::env::temp_dir().join(format!(
+        "requestor-{}",
+        requestor_core::identity::random_uuid()
+    ));
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join(name);
+    std::fs::write(&path, contents).unwrap();
+    path
+}
+
 fn scope() -> VariableScope {
     VariableScope::new().with_layer(
         VariableLayer::default()
@@ -102,8 +113,7 @@ fn urlencoded_body_escapes_and_skips_disabled() {
 
 #[test]
 fn formdata_body_contains_text_and_file_parts() {
-    let path = std::env::temp_dir().join("requestor-formdata-fixture.txt");
-    std::fs::write(&path, "file-bytes").unwrap();
+    let path = temp_file("requestor-formdata-fixture.txt", "file-bytes");
     let prepared = prepare(json!({
         "method": "POST",
         "url": "http://x/",
@@ -197,4 +207,115 @@ fn default_headers_follow_settings() {
     assert!(with.header("Postman-Token").is_some());
     let without = PreparedRequest::from_request(&request, &scope(), &quiet_settings()).unwrap();
     assert!(without.headers.is_empty());
+}
+
+#[test]
+fn explicit_multipart_content_type_is_replaced_to_carry_the_boundary() {
+    let prepared = prepare(json!({
+        "method": "POST",
+        "header": [{"key": "content-type", "value": "multipart/form-data"}],
+        "url": "http://x/",
+        "body": {"mode": "formdata", "formdata": [{"key": "a", "value": "1", "type": "text"}]}
+    }));
+    let content_type = prepared.header("Content-Type").unwrap();
+    let boundary = content_type.split("boundary=").nth(1).unwrap();
+    assert!(String::from_utf8(prepared.body.clone().unwrap())
+        .unwrap()
+        .starts_with(&format!("--{boundary}\r\n")));
+    assert_eq!(
+        prepared
+            .headers
+            .iter()
+            .filter(|header| header.is_named("content-type"))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn form_field_names_are_escaped_and_content_types_with_line_breaks_rejected() {
+    let prepared = prepare(json!({
+        "method": "POST", "url": "http://x/",
+        "body": {"mode": "formdata", "formdata": [{"key": "a\"\r\nX-Evil: 1", "value": "v", "type": "text"}]}
+    }));
+    let body = String::from_utf8(prepared.body.unwrap()).unwrap();
+    assert!(body.contains("name=\"a%22%0D%0AX-Evil: 1\""));
+    assert!(!body.contains("\r\nX-Evil"));
+    let request = request_from(json!({
+        "method": "POST", "url": "http://x/",
+        "body": {"mode": "formdata", "formdata": [{"key": "a", "value": "v", "type": "text", "contentType": "text/plain\r\nX: y"}]}
+    }));
+    let result = PreparedRequest::from_request(&request, &scope(), &quiet_settings());
+    assert!(matches!(result, Err(CoreError::InvalidFormField(_))));
+}
+
+#[test]
+fn file_fields_support_several_files_and_skip_unselected_ones() {
+    let first = temp_file("one.txt", "AAA");
+    let second = temp_file("two.txt", "BBB");
+    let prepared = prepare(json!({
+        "method": "POST", "url": "http://x/",
+        "body": {"mode": "formdata", "formdata": [
+            {"key": "docs", "type": "file", "src": [first.to_string_lossy(), second.to_string_lossy()]},
+            {"key": "empty", "type": "file"}
+        ]}
+    }));
+    let body = String::from_utf8(prepared.body.unwrap()).unwrap();
+    assert!(body.contains("filename=\"one.txt\"") && body.contains("AAA"));
+    assert!(body.contains("filename=\"two.txt\"") && body.contains("BBB"));
+    assert!(!body.contains("name=\"empty\""));
+}
+
+#[test]
+fn file_body_without_a_selected_file_sends_no_body() {
+    let prepared = prepare(json!({
+        "method": "POST", "url": "http://x/",
+        "body": {"mode": "file", "file": {}}
+    }));
+    assert!(prepared.body.is_none());
+}
+
+#[test]
+fn unresolved_variables_are_reported_for_url_headers_and_body() {
+    let prepared = prepare(json!({
+        "method": "POST",
+        "header": [{"key": "X-{{h}}", "value": "{{v}}"}],
+        "url": "http://{{host}}/{{path}}",
+        "body": {"mode": "raw", "raw": "{{payload}} {{name}}"}
+    }));
+    assert_eq!(
+        prepared.unresolved_variables(),
+        ["h", "path", "payload", "v"]
+    );
+}
+
+#[test]
+fn debug_output_does_not_print_credentials_or_body() {
+    let prepared = prepare(json!({
+        "method": "POST", "url": "http://x/",
+        "header": [{"key": "Authorization", "value": "Bearer s3cret"}],
+        "body": {"mode": "raw", "raw": "top-secret-body"}
+    }));
+    let debug = format!("{prepared:?}");
+    assert!(!debug.contains("s3cret") && !debug.contains("top-secret-body"));
+}
+
+#[test]
+fn api_key_after_a_trailing_question_mark_adds_no_extra_separator() {
+    let prepared = prepare(json!({
+        "method": "GET", "url": "http://x/p?",
+        "auth": {"type": "apikey", "apikey": [
+            {"key": "key", "value": "k"}, {"key": "value", "value": "v"}, {"key": "in", "value": "query"}
+        ]}
+    }));
+    assert_eq!(prepared.url, "http://x/p?k=v");
+}
+
+#[test]
+fn empty_bearer_token_sends_no_authorization_header() {
+    let prepared = prepare(json!({
+        "method": "GET", "url": "http://x/",
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": ""}]}
+    }));
+    assert!(prepared.header("Authorization").is_none());
 }

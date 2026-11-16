@@ -2,27 +2,37 @@ mod auth;
 mod body;
 mod multipart;
 
-use crate::collection::{Param, Request, Url};
+use crate::collection::{Request, Url};
 use crate::error::CoreError;
-use crate::header::{find_header, Header};
+use crate::header::{find_header, Header, CONTENT_TYPE};
 use crate::identity::random_uuid;
 use crate::method::HttpMethod;
 use crate::settings::RequestSettings;
-use crate::variables::VariableScope;
+use crate::variables::{placeholder_names, VariableScope};
 
 use body::EncodedBody;
 
-const CONTENT_TYPE: &str = "Content-Type";
 const CACHE_CONTROL: &str = "Cache-Control";
 const NO_CACHE: &str = "no-cache";
 const POSTMAN_TOKEN: &str = "Postman-Token";
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct PreparedRequest {
     pub method: HttpMethod,
     pub url: String,
     pub headers: Vec<Header>,
     pub body: Option<Vec<u8>>,
+}
+
+impl std::fmt::Debug for PreparedRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PreparedRequest")
+            .field("method", &self.method)
+            .field("headers", &self.headers.len())
+            .field("body_bytes", &self.body.as_ref().map(Vec::len))
+            .finish()
+    }
 }
 
 impl PreparedRequest {
@@ -40,7 +50,11 @@ impl PreparedRequest {
         let mut prepared = PreparedRequest {
             method: request.http_method(),
             url: scope.resolve(&url).text,
-            headers: resolved_headers(request, scope),
+            headers: request
+                .enabled_headers()
+                .into_iter()
+                .filter_map(|param| Header::from_param(param, scope))
+                .collect(),
             body: None,
         };
         if let Some(body) = request.body.as_ref().filter(|body| body.is_enabled()) {
@@ -57,10 +71,28 @@ impl PreparedRequest {
         find_header(&self.headers, name).map(|header| header.value.as_str())
     }
 
+    pub fn unresolved_variables(&self) -> Vec<String> {
+        let mut names = placeholder_names(&self.url);
+        for header in &self.headers {
+            names.extend(placeholder_names(&header.name));
+            names.extend(placeholder_names(&header.value));
+        }
+        if let Some(body) = &self.body {
+            names.extend(placeholder_names(&String::from_utf8_lossy(body)));
+        }
+        names.sort();
+        names.dedup();
+        names
+    }
+
     fn apply_body(&mut self, encoded: Option<EncodedBody>) {
         let Some(encoded) = encoded else { return };
-        if let Some(content_type) = encoded.content_type {
-            self.add_header_if_absent(CONTENT_TYPE, content_type);
+        match encoded.content_type.clone() {
+            Some(content_type) if encoded.is_multipart() => {
+                self.set_header(CONTENT_TYPE, content_type)
+            }
+            Some(content_type) => self.add_header_if_absent(CONTENT_TYPE, content_type),
+            None => {}
         }
         self.body = Some(encoded.data);
     }
@@ -79,20 +111,9 @@ impl PreparedRequest {
             self.headers.push(Header::new(name, value));
         }
     }
-}
 
-fn resolved_headers(request: &Request, scope: &VariableScope) -> Vec<Header> {
-    request
-        .enabled_headers()
-        .into_iter()
-        .filter_map(|param| resolved_header(param, scope))
-        .collect()
-}
-
-fn resolved_header(param: &Param, scope: &VariableScope) -> Option<Header> {
-    let name = scope.resolve(param.key.as_deref()?).text;
-    let value = scope
-        .resolve(param.value.as_deref().unwrap_or_default())
-        .text;
-    Some(Header::new(name, value))
+    fn set_header(&mut self, name: &str, value: String) {
+        self.headers.retain(|header| !header.is_named(name));
+        self.headers.push(Header::new(name, value));
+    }
 }

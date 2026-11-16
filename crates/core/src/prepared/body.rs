@@ -4,19 +4,8 @@ use super::multipart;
 use crate::collection::{Body, BodyMode};
 use crate::encoding::percent_encode;
 use crate::error::CoreError;
+use crate::media_type;
 use crate::variables::VariableScope;
-
-const RAW_LANGUAGE_CONTENT_TYPES: [(&str, &str); 5] = [
-    ("json", "application/json"),
-    ("xml", "application/xml"),
-    ("html", "text/html"),
-    ("javascript", "application/javascript"),
-    ("text", "text/plain"),
-];
-const DEFAULT_RAW_CONTENT_TYPE: &str = "text/plain";
-const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
-const JSON_CONTENT_TYPE: &str = "application/json";
-const BINARY_CONTENT_TYPE: &str = "application/octet-stream";
 
 pub(super) struct EncodedBody {
     pub content_type: Option<String>,
@@ -31,16 +20,22 @@ impl EncodedBody {
             Some(BodyMode::Formdata) => {
                 multipart::encode(&body.enabled_form_params(), scope).map(Some)
             }
-            Some(BodyMode::File) => Self::file(body).map(Some),
+            Some(BodyMode::File) => Self::file(body),
             Some(BodyMode::Graphql) => Ok(Self::graphql(body, scope)),
             None => Ok(None),
         }
     }
 
+    pub(super) fn is_multipart(&self) -> bool {
+        self.content_type
+            .as_deref()
+            .is_some_and(|content_type| content_type.starts_with(media_type::MULTIPART_PREFIX))
+    }
+
     fn raw(body: &Body, scope: &VariableScope) -> Self {
         let text = scope.resolve(body.raw.as_deref().unwrap_or_default()).text;
         EncodedBody {
-            content_type: Some(raw_content_type(body).to_string()),
+            content_type: Some(body.raw_content_type().to_string()),
             data: text.into_bytes(),
         }
     }
@@ -58,26 +53,23 @@ impl EncodedBody {
             })
             .collect();
         EncodedBody {
-            content_type: Some(FORM_CONTENT_TYPE.to_string()),
+            content_type: Some(media_type::FORM_URLENCODED.to_string()),
             data: pairs.join("&").into_bytes(),
         }
     }
 
-    fn file(body: &Body) -> Result<Self, CoreError> {
-        let path = body
-            .file
-            .as_ref()
-            .and_then(|file| file.get("src"))
-            .and_then(Value::as_str)
-            .unwrap_or_default();
+    fn file(body: &Body) -> Result<Option<Self>, CoreError> {
+        let Some(path) = body.file_source() else {
+            return Ok(None);
+        };
         let data = std::fs::read(path).map_err(|error| CoreError::UnreadableFile {
             path: path.to_string(),
             reason: error.to_string(),
         })?;
-        Ok(EncodedBody {
-            content_type: Some(BINARY_CONTENT_TYPE.to_string()),
+        Ok(Some(EncodedBody {
+            content_type: Some(media_type::OCTET_STREAM.to_string()),
             data,
-        })
+        }))
     }
 
     fn graphql(body: &Body, scope: &VariableScope) -> Option<Self> {
@@ -86,7 +78,7 @@ impl EncodedBody {
         let variables = graphql_variables(definition, scope);
         let payload = json!({ "query": query, "variables": variables });
         Some(EncodedBody {
-            content_type: Some(JSON_CONTENT_TYPE.to_string()),
+            content_type: Some(media_type::JSON.to_string()),
             data: payload.to_string().into_bytes(),
         })
     }
@@ -99,15 +91,4 @@ fn graphql_variables(definition: &Value, scope: &VariableScope) -> Value {
         .map(|text| scope.resolve(text).text)
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_else(|| Value::Object(Map::new()))
-}
-
-fn raw_content_type(body: &Body) -> &'static str {
-    let language = body
-        .options
-        .as_ref()
-        .and_then(|options| options.get("raw")?.get("language")?.as_str());
-    RAW_LANGUAGE_CONTENT_TYPES
-        .iter()
-        .find(|(name, _)| Some(*name) == language)
-        .map_or(DEFAULT_RAW_CONTENT_TYPE, |(_, content_type)| content_type)
 }
