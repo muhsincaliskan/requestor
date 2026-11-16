@@ -1,5 +1,6 @@
 mod auth;
 mod body;
+mod curl;
 mod multipart;
 
 use crate::collection::{Request, Url};
