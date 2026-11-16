@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use crate::secret::Secret;
@@ -64,9 +66,33 @@ impl Default for RequestSettings {
     }
 }
 
+impl RequestSettings {
+    pub fn request_timeout(&self) -> Option<Duration> {
+        Self::optional_duration(self.request_timeout_ms)
+    }
+
+    pub fn connect_timeout(&self) -> Option<Duration> {
+        Self::optional_duration(self.connect_timeout_ms)
+    }
+
+    fn optional_duration(milliseconds: u64) -> Option<Duration> {
+        (milliseconds > 0).then(|| Duration::from_millis(milliseconds))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{HttpVersion, RequestSettings};
+
+    #[test]
+    fn zero_timeout_means_no_timeout() {
+        let settings = RequestSettings {
+            request_timeout_ms: 0,
+            ..RequestSettings::default()
+        };
+        assert_eq!(settings.request_timeout(), None);
+        assert!(settings.connect_timeout().is_some());
+    }
 
     #[test]
     fn defaults_are_safe() {
