@@ -40,3 +40,37 @@ impl Param {
         }
     }
 }
+
+impl Param {
+    pub fn text(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Param {
+            key: Some(key.into()),
+            value: Some(value.into()),
+            src: None,
+            kind: None,
+            content_type: None,
+            disabled: None,
+            description: None,
+            extra: Map::new(),
+        }
+    }
+
+    pub fn from_query_pair(pair: &str) -> Self {
+        match pair.split_once('=') {
+            Some((key, value)) => Param::text(key, value),
+            None => Param {
+                value: None,
+                ..Param::text(pair, "")
+            },
+        }
+    }
+
+    pub fn file(key: impl Into<String>, path: impl Into<String>) -> Self {
+        Param {
+            value: None,
+            src: Some(StringOrList::Single(path.into())),
+            kind: Some("file".to_string()),
+            ..Param::text(key, "")
+        }
+    }
+}

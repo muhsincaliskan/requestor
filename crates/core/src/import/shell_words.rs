@@ -1,0 +1,142 @@
+use super::ImportError;
+
+const LINE_CONTINUATIONS: [&str; 2] = ["\\\r\n", "\\\n"];
+
+pub(super) fn split(command: &str) -> Result<Vec<String>, ImportError> {
+    let mut text = command.to_string();
+    for continuation in LINE_CONTINUATIONS {
+        text = text.replace(continuation, " ");
+    }
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut started = false;
+    let mut characters = text.chars().peekable();
+    while let Some(character) = characters.next() {
+        match character {
+            '\'' => read_single_quoted(&mut characters, &mut current, &mut started)?,
+            '"' => read_double_quoted(&mut characters, &mut current, &mut started)?,
+            '$' if characters.peek() == Some(&'\'') => {
+                characters.next();
+                read_ansi_quoted(&mut characters, &mut current, &mut started)?;
+            }
+            '\\' => {
+                started = true;
+                current.extend(characters.next());
+            }
+            space if space.is_whitespace() => {
+                if started {
+                    words.push(std::mem::take(&mut current));
+                    started = false;
+                }
+            }
+            other => {
+                started = true;
+                current.push(other);
+            }
+        }
+    }
+    if started {
+        words.push(current);
+    }
+    Ok(words)
+}
+
+type Characters<'a> = std::iter::Peekable<std::str::Chars<'a>>;
+
+fn read_single_quoted(
+    characters: &mut Characters,
+    current: &mut String,
+    started: &mut bool,
+) -> Result<(), ImportError> {
+    *started = true;
+    for character in characters.by_ref() {
+        if character == '\'' {
+            return Ok(());
+        }
+        current.push(character);
+    }
+    Err(ImportError::UnterminatedQuote)
+}
+
+fn read_double_quoted(
+    characters: &mut Characters,
+    current: &mut String,
+    started: &mut bool,
+) -> Result<(), ImportError> {
+    *started = true;
+    while let Some(character) = characters.next() {
+        match character {
+            '"' => return Ok(()),
+            '\\' => match characters.peek().copied() {
+                Some(escaped @ ('"' | '\\' | '$' | '`')) => {
+                    current.push(escaped);
+                    characters.next();
+                }
+                _ => current.push('\\'),
+            },
+            other => current.push(other),
+        }
+    }
+    Err(ImportError::UnterminatedQuote)
+}
+
+fn read_ansi_quoted(
+    characters: &mut Characters,
+    current: &mut String,
+    started: &mut bool,
+) -> Result<(), ImportError> {
+    *started = true;
+    while let Some(character) = characters.next() {
+        match character {
+            '\'' => return Ok(()),
+            '\\' => current.push(ansi_escape(characters.next().unwrap_or('\\'))),
+            other => current.push(other),
+        }
+    }
+    Err(ImportError::UnterminatedQuote)
+}
+
+fn ansi_escape(escaped: char) -> char {
+    match escaped {
+        'n' => '\n',
+        't' => '\t',
+        'r' => '\r',
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split;
+    use crate::import::ImportError;
+
+    #[test]
+    fn splits_plain_single_double_and_ansi_quoted_words() {
+        let words = split(r#"curl -H 'A: b c' "x \"y\" $z" $'l1\nl2' plain\ word"#).unwrap();
+        assert_eq!(
+            words,
+            ["curl", "-H", "A: b c", "x \"y\" $z", "l1\nl2", "plain word"]
+        );
+    }
+
+    #[test]
+    fn joins_line_continuations() {
+        assert_eq!(
+            split("curl \\\n  -X POST \\\r\n  url").unwrap(),
+            ["curl", "-X", "POST", "url"]
+        );
+    }
+
+    #[test]
+    fn keeps_empty_quoted_words() {
+        assert_eq!(split("a '' b").unwrap(), ["a", "", "b"]);
+    }
+
+    #[test]
+    fn unterminated_quotes_are_errors() {
+        assert_eq!(
+            split("curl 'oops").unwrap_err(),
+            ImportError::UnterminatedQuote
+        );
+    }
+}

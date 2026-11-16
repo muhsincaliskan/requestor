@@ -45,6 +45,50 @@ const RAW_LANGUAGE_CONTENT_TYPES: [(&str, &str); 5] = [
 ];
 
 impl Body {
+    fn empty(mode: BodyMode) -> Self {
+        Body {
+            mode: Some(mode),
+            raw: None,
+            urlencoded: None,
+            formdata: None,
+            file: None,
+            graphql: None,
+            options: None,
+            disabled: None,
+            extra: Map::new(),
+        }
+    }
+
+    pub fn raw(text: impl Into<String>, language: Option<&str>) -> Self {
+        let options = language.map(|name| serde_json::json!({ "raw": { "language": name } }));
+        Body {
+            raw: Some(text.into()),
+            options,
+            ..Body::empty(BodyMode::Raw)
+        }
+    }
+
+    pub fn urlencoded(params: Vec<Param>) -> Self {
+        Body {
+            urlencoded: Some(params),
+            ..Body::empty(BodyMode::Urlencoded)
+        }
+    }
+
+    pub fn formdata(params: Vec<Param>) -> Self {
+        Body {
+            formdata: Some(params),
+            ..Body::empty(BodyMode::Formdata)
+        }
+    }
+
+    pub fn file(path: impl Into<String>) -> Self {
+        Body {
+            file: Some(serde_json::json!({ "src": path.into() })),
+            ..Body::empty(BodyMode::File)
+        }
+    }
+
     pub fn raw_content_type(&self) -> &'static str {
         let language = self
             .options

@@ -27,7 +27,39 @@ pub struct Auth {
     pub parameters: BTreeMap<String, Option<Vec<AuthAttribute>>>,
 }
 
+impl AuthAttribute {
+    pub fn string(key: &str, value: impl Into<String>) -> Self {
+        AuthAttribute {
+            key: Some(key.to_string()),
+            value: Some(Value::String(value.into())),
+            kind: Some("string".to_string()),
+            extra: Map::new(),
+        }
+    }
+}
+
 impl Auth {
+    pub fn basic(username: impl Into<String>, password: impl Into<String>) -> Self {
+        Auth::with_attributes(
+            "basic",
+            vec![
+                AuthAttribute::string("username", username),
+                AuthAttribute::string("password", password),
+            ],
+        )
+    }
+
+    pub fn bearer(token: impl Into<String>) -> Self {
+        Auth::with_attributes("bearer", vec![AuthAttribute::string("token", token)])
+    }
+
+    fn with_attributes(kind: &str, attributes: Vec<AuthAttribute>) -> Self {
+        Auth {
+            kind: kind.to_string(),
+            parameters: BTreeMap::from([(kind.to_string(), Some(attributes))]),
+        }
+    }
+
     pub fn value_of(&self, key: &str) -> Option<&str> {
         self.parameters
             .get(&self.kind)?

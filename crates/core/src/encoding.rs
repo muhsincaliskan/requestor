@@ -38,9 +38,36 @@ pub fn percent_encode(text: &str) -> String {
         })
 }
 
+pub fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        let (byte, consumed) = decode_at(bytes, index);
+        decoded.push(byte);
+        index += consumed;
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
+fn decode_at(bytes: &[u8], index: usize) -> (u8, usize) {
+    match (bytes[index], bytes.get(index + 1), bytes.get(index + 2)) {
+        (b'%', Some(high), Some(low)) => match (hex_value(*high), hex_value(*low)) {
+            (Some(high), Some(low)) => (high << 4 | low, 3),
+            _ => (b'%', 1),
+        },
+        (b'+', _, _) => (b' ', 1),
+        (byte, _, _) => (byte, 1),
+    }
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    char::from(byte).to_digit(16).map(|digit| digit as u8)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{base64_encode, percent_encode};
+    use super::{base64_encode, percent_decode, percent_encode};
 
     #[test]
     fn base64_matches_rfc_vectors() {
@@ -49,6 +76,14 @@ mod tests {
         assert_eq!(base64_encode(b"fo"), "Zm8=");
         assert_eq!(base64_encode(b"foo"), "Zm9v");
         assert_eq!(base64_encode(b"user:pass"), "dXNlcjpwYXNz");
+    }
+
+    #[test]
+    fn percent_decoding_reverses_encoding_and_tolerates_garbage() {
+        assert_eq!(percent_decode("a%20b%26c+d"), "a b&c d");
+        assert_eq!(percent_decode("%C3%BC"), "ü");
+        assert_eq!(percent_decode("100%"), "100%");
+        assert_eq!(percent_decode("%zz"), "%zz");
     }
 
     #[test]
