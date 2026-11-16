@@ -66,7 +66,7 @@ impl ImportedRequest {
     }
 
     fn new(method: &str, url: &str) -> Self {
-        let url = if url.contains(SCHEME_SEPARATOR) {
+        let url = if Url::split_scheme(url).is_some() {
             url.to_string()
         } else {
             format!("{DEFAULT_SCHEME}{SCHEME_SEPARATOR}{url}")
@@ -80,9 +80,7 @@ impl ImportedRequest {
 }
 
 fn display_path(url: &str) -> String {
-    let without_scheme = url
-        .split_once(SCHEME_SEPARATOR)
-        .map_or(url, |(_, rest)| rest);
+    let without_scheme = Url::split_scheme(url).map_or(url, |(_, rest)| rest);
     without_scheme
         .split(['?', '#'])
         .next()

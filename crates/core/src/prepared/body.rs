@@ -3,6 +3,7 @@ use serde_json::{json, Map, Value};
 use super::body_source::BodySource;
 use super::multipart;
 use crate::collection::{Body, BodyMode, Param};
+use crate::encoding::FORM_PAIR_SEPARATOR;
 use crate::error::CoreError;
 use crate::media_type;
 use crate::variables::VariableScope;
@@ -58,7 +59,10 @@ impl EncodedBody {
                 Param::encode_form_pair(&key, &value)
             })
             .collect();
-        EncodedBody::inline(media_type::FORM_URLENCODED, pairs.join("&").into_bytes())
+        EncodedBody::inline(
+            media_type::FORM_URLENCODED,
+            pairs.join(FORM_PAIR_SEPARATOR).into_bytes(),
+        )
     }
 
     fn file(body: &Body) -> Result<Option<Self>, CoreError> {

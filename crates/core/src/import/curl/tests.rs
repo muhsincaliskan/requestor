@@ -241,3 +241,69 @@ fn url_text_keeps_a_bare_host_scheme_default() {
         "http://localhost:8080/x"
     );
 }
+
+#[test]
+fn newly_listed_value_options_never_become_the_url() {
+    let imported = import(
+        "curl --socks5-hostname h:1 --pinnedpubkey sha256//x --proxy-cacert a.pem --crlfile c --keepalive-time 5 --mail-from a@b --tlsuser u --proto-default https --create-file-mode 0644 --expand-data '{{x}}' https://x.test/ok",
+    );
+    assert_eq!(imported.request.url.unwrap().to_text(), "https://x.test/ok");
+}
+
+#[test]
+fn later_bare_words_never_replace_the_url() {
+    let imported = import("curl --url https://a.test stray https://b.test");
+    assert_eq!(
+        imported.request.url.as_ref().unwrap().to_text(),
+        "https://a.test"
+    );
+    assert_eq!(imported.warnings.len(), 2);
+    let positional = import("curl https://a.test other");
+    assert_eq!(
+        positional.request.url.as_ref().unwrap().to_text(),
+        "https://a.test"
+    );
+    assert!(warnings(&positional).contains("additional argument"));
+}
+
+#[test]
+fn text_data_next_to_data_urlencode_is_kept_or_reported() {
+    let merged = import("curl https://x.test -d a=1 --data-urlencode 'b=x y'");
+    assert_eq!(merged.request.body.unwrap().urlencoded.unwrap().len(), 2);
+    assert!(merged.warnings.is_empty());
+    let dropped = import("curl https://x.test -d plain --data-urlencode 'b=1'");
+    assert!(warnings(&dropped).contains("not name=value"));
+}
+
+#[test]
+fn get_flag_reports_data_it_cannot_put_in_the_query() {
+    for command in [
+        "curl -G https://x.test -F a=b",
+        "curl -G https://x.test -d @/tmp/f",
+        "curl -G https://x.test --json '{}'",
+    ] {
+        assert!(warnings(&import(command)).contains("-G"), "{command}");
+    }
+    assert!(import("curl -G https://x.test -d a=1").warnings.is_empty());
+}
+
+#[test]
+fn quoted_form_file_paths_are_unquoted() {
+    let imported =
+        import(r#"curl -F 'doc=@"/tmp/a;b \"c\".pdf";type=application/pdf' https://x.test"#);
+    let params = imported.request.body.unwrap().formdata.unwrap();
+    assert_eq!(
+        params[0].src,
+        Some(crate::text::StringOrList::Single(
+            "/tmp/a;b \"c\".pdf".to_string()
+        ))
+    );
+    assert_eq!(params[0].content_type.as_deref(), Some("application/pdf"));
+}
+
+#[test]
+fn json_looking_data_without_content_type_stays_raw_and_exact() {
+    let imported = import(r#"curl https://x.test -d '{"a":"b=c%20d"}'"#);
+    let body = imported.request.body.unwrap();
+    assert_eq!(body.raw.as_deref(), Some(r#"{"a":"b=c%20d"}"#));
+}

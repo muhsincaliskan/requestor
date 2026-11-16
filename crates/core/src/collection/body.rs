@@ -36,6 +36,7 @@ pub struct Body {
     pub extra: Map<String, Value>,
 }
 
+const JSON_OPENERS: [char; 2] = ['{', '['];
 const RAW_LANGUAGE_CONTENT_TYPES: [(&str, &str); 5] = [
     ("json", media_type::JSON),
     ("xml", media_type::XML),
@@ -99,13 +100,18 @@ impl Body {
             Some(kind) if !Body::is_form_content_type(kind) => {
                 Body::raw_for_content_type(data, Some(kind))
             }
+            None if Body::looks_like_json(data) => Body::raw(data, None),
             _ => {
                 Param::from_form_text(data).map_or_else(|| Body::raw(data, None), Body::urlencoded)
             }
         }
     }
 
-    fn is_form_content_type(content_type: &str) -> bool {
+    fn looks_like_json(data: &str) -> bool {
+        data.trim_start().starts_with(JSON_OPENERS)
+    }
+
+    pub fn is_form_content_type(content_type: &str) -> bool {
         content_type
             .to_ascii_lowercase()
             .contains(media_type::FORM_URLENCODED)

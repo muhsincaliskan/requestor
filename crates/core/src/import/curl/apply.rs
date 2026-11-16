@@ -1,6 +1,8 @@
 use super::{options, CurlArguments};
 use crate::collection::Param;
 
+const QUOTE: char = '"';
+const ESCAPE: char = '\\';
 const FILE_MARK: char = '@';
 const STDIN_MARK: &str = "-";
 const TYPE_PREFIX: &str = "type=";
@@ -9,6 +11,8 @@ const REFERER: &str = "Referer";
 const COOKIE: &str = "Cookie";
 const INSECURE_WARNING: &str =
     "--insecure was ignored; turn off SSL verification in the settings instead";
+const EXTRA_ARGUMENT_WARNING: &str =
+    "an additional argument was ignored because the URL is already set";
 const COOKIE_FILE_WARNING: &str = "cookie files are not supported; the option was ignored";
 const STDIN_WARNING: &str =
     "reading data from standard input is not supported; the option was ignored";
@@ -29,7 +33,7 @@ impl CurlArguments {
         } else if word.len() > 1 && word.starts_with('-') {
             self.consume_short_cluster(&word[1..], remaining);
         } else {
-            self.url.get_or_insert_with(|| word.to_string());
+            self.push_bare_word(word);
         }
     }
 
@@ -79,6 +83,14 @@ impl CurlArguments {
                 "unsupported curl option ignored: {}",
                 options::display_flag(other)
             )),
+        }
+    }
+
+    fn push_bare_word(&mut self, word: &str) {
+        if self.url.is_none() {
+            self.url = Some(word.to_string());
+        } else {
+            self.warnings.push(EXTRA_ARGUMENT_WARNING.to_string());
         }
     }
 
@@ -133,9 +145,10 @@ impl CurlArguments {
         };
         match value.strip_prefix(FILE_MARK).filter(|_| allow_files) {
             Some(spec) => {
-                let mut segments = spec.split(';');
-                let path = segments.next().unwrap_or(spec);
-                let content_type = segments.find_map(|segment| segment.strip_prefix(TYPE_PREFIX));
+                let (path, options) = split_file_spec(spec);
+                let content_type = options
+                    .split(';')
+                    .find_map(|segment| segment.strip_prefix(TYPE_PREFIX));
                 self.form
                     .push(Param::file_with_type(name, path, content_type));
             }
@@ -158,4 +171,21 @@ impl CurlArguments {
             None => self.json_data.push(value),
         }
     }
+}
+
+fn split_file_spec(spec: &str) -> (String, &str) {
+    let Some(quoted) = spec.strip_prefix(QUOTE) else {
+        let (path, options) = spec.split_once(';').unwrap_or((spec, ""));
+        return (path.to_string(), options);
+    };
+    let mut path = String::new();
+    let mut characters = quoted.char_indices();
+    while let Some((position, character)) = characters.next() {
+        match character {
+            QUOTE => return (path, &quoted[position + 1..]),
+            ESCAPE => path.extend(characters.next().map(|(_, escaped)| escaped)),
+            other => path.push(other),
+        }
+    }
+    (path, "")
 }

@@ -1,6 +1,7 @@
 const BASE64_ALPHABET: &[u8; 64] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const BASE64_PADDING: char = '=';
+pub const FORM_PAIR_SEPARATOR: &str = "&";
 const UNRESERVED_EXTRA: &[u8] = b"-._~";
 
 pub fn base64_encode(data: &[u8]) -> String {

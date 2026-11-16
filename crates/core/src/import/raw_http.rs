@@ -1,5 +1,5 @@
 use super::{ImportError, ImportedRequest};
-use crate::collection::{Body, Request, Url, UrlParts, SCHEME_SEPARATOR};
+use crate::collection::{Body, Url, SCHEME_SEPARATOR};
 use crate::header::CONTENT_TYPE;
 
 const HTTP_VERSION_PREFIX: &str = "HTTP/";
@@ -27,22 +27,18 @@ impl ImportedRequest {
             .find(|(name, _)| name.eq_ignore_ascii_case(HOST_HEADER))
             .map(|(_, value)| *value);
         let url = absolute_url(target, host)?;
-        let mut request = Request::new(&method, Url::Parts(Box::new(UrlParts::parse(&url))));
+        let mut imported = ImportedRequest::new(&method, &url);
         for (name, value) in headers
             .iter()
             .filter(|(name, _)| !name.eq_ignore_ascii_case(HOST_HEADER))
         {
-            request.push_header(*name, *value);
+            imported.request.push_header(*name, *value);
         }
         if !body.trim().is_empty() {
-            let content_type = request.header_value(CONTENT_TYPE);
-            request.body = Some(Body::raw_for_content_type(body.trim_end(), content_type));
+            let content_type = imported.request.header_value(CONTENT_TYPE);
+            imported.request.body = Some(Body::raw_for_content_type(body.trim_end(), content_type));
         }
-        Ok(ImportedRequest {
-            name: format!("{method} {}", target.split('?').next().unwrap_or(target)),
-            request,
-            warnings: Vec::new(),
-        })
+        Ok(imported)
     }
 }
 
@@ -62,7 +58,7 @@ fn parse_request_line(line: &str) -> Result<(String, &str), ImportError> {
 }
 
 fn absolute_url(target: &str, host: Option<&str>) -> Result<String, ImportError> {
-    if target.contains(SCHEME_SEPARATOR) {
+    if Url::split_scheme(target).is_some() {
         return Ok(target.to_string());
     }
     let host = host.ok_or(ImportError::MissingUrl)?;

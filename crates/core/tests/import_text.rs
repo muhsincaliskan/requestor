@@ -101,3 +101,24 @@ fn bare_urls_with_shell_characters_are_kept_verbatim() {
         "https://x.test/a?q='1'&b=$HOME"
     );
 }
+
+#[test]
+fn scheme_detection_ignores_separators_inside_paths_and_queries() {
+    let Imported::Request(curl) = import_text("curl 'x.test/redirect?to=http://y.test'").unwrap()
+    else {
+        panic!("expected a request");
+    };
+    assert_eq!(
+        curl.request.url.unwrap().to_text(),
+        "http://x.test/redirect?to=http://y.test"
+    );
+    let Imported::Request(raw) =
+        import_text("GET /r?to=http://y.test HTTP/1.1\nHost: x.test").unwrap()
+    else {
+        panic!("expected a request");
+    };
+    assert_eq!(
+        raw.request.url.unwrap().to_text(),
+        "http://x.test/r?to=http://y.test"
+    );
+}

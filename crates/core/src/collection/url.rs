@@ -5,6 +5,7 @@ use super::param::Param;
 use super::variable::Variable;
 use crate::text::StringOrList;
 
+const SCHEME_EXTRA: &str = "+-.";
 pub const SCHEME_SEPARATOR: &str = "://";
 const HOST_SEPARATOR: &str = ".";
 const PORT_SEPARATOR: &str = ":";
@@ -43,6 +44,15 @@ pub enum Url {
 }
 
 impl Url {
+    pub fn split_scheme(text: &str) -> Option<(&str, &str)> {
+        let (scheme, rest) = text.split_once(SCHEME_SEPARATOR)?;
+        let valid = !scheme.is_empty()
+            && scheme.chars().all(|character| {
+                character.is_ascii_alphanumeric() || SCHEME_EXTRA.contains(character)
+            });
+        valid.then_some((scheme, rest))
+    }
+
     pub fn to_text(&self) -> String {
         match self {
             Url::Raw(text) => text.clone(),

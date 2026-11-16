@@ -1,10 +1,12 @@
-use crate::collection::SCHEME_SEPARATOR;
+use crate::collection::{Body, Url, SCHEME_SEPARATOR};
+use crate::encoding::FORM_PAIR_SEPARATOR;
 use crate::header::Header;
-use crate::media_type;
 use crate::secret::{is_secret_name, REDACTED};
+use serde_json::Value;
 
 const QUERY_MARK: char = '?';
-const PAIR_SEPARATOR: &str = "&";
+const JSON_MARK: &str = "json";
+const JSON_OPENERS: [char; 2] = ['{', '['];
 const VALUE_SEPARATOR: char = '=';
 const PATH_START: char = '/';
 const USERINFO_END: char = '@';
@@ -42,21 +44,21 @@ impl SecretExposure {
     }
 
     pub(super) fn inline_body(self, body: &str, content_type: Option<&str>) -> String {
-        let is_form =
-            content_type.is_some_and(|kind| kind.starts_with(media_type::FORM_URLENCODED));
-        if self.masks() && is_form {
-            mask_pairs(body)
-        } else {
-            body.to_string()
+        if !self.masks() {
+            return body.to_string();
         }
+        if content_type.is_some_and(Body::is_form_content_type) {
+            return mask_pairs(body);
+        }
+        mask_json_text(body, content_type)
     }
 }
 
 fn mask_pairs(text: &str) -> String {
-    text.split(PAIR_SEPARATOR)
+    text.split(FORM_PAIR_SEPARATOR)
         .map(mask_pair)
         .collect::<Vec<_>>()
-        .join(PAIR_SEPARATOR)
+        .join(FORM_PAIR_SEPARATOR)
 }
 
 fn mask_pair(pair: &str) -> String {
@@ -67,7 +69,7 @@ fn mask_pair(pair: &str) -> String {
 }
 
 fn mask_userinfo(base: &str) -> String {
-    let Some((scheme, rest)) = base.split_once(SCHEME_SEPARATOR) else {
+    let Some((scheme, rest)) = Url::split_scheme(base) else {
         return base.to_string();
     };
     let (authority, path) = rest.split_at(rest.find(PATH_START).unwrap_or(rest.len()));
@@ -77,5 +79,37 @@ fn mask_userinfo(base: &str) -> String {
             format!("{scheme}{SCHEME_SEPARATOR}{user}{PASSWORD_START}{REDACTED}{USERINFO_END}{host}{path}")
         }
         _ => base.to_string(),
+    }
+}
+
+fn mask_json_text(body: &str, content_type: Option<&str>) -> String {
+    let declared_json =
+        content_type.is_some_and(|kind| kind.to_ascii_lowercase().contains(JSON_MARK));
+    if !declared_json && !body.trim_start().starts_with(JSON_OPENERS) {
+        return body.to_string();
+    }
+    match serde_json::from_str::<Value>(body) {
+        Ok(mut document) => {
+            mask_json(&mut document);
+            document.to_string()
+        }
+        Err(_) if declared_json => REDACTED.to_string(),
+        Err(_) => body.to_string(),
+    }
+}
+
+fn mask_json(value: &mut Value) {
+    match value {
+        Value::Object(members) => {
+            for (key, member) in members.iter_mut() {
+                if is_secret_name(key) {
+                    *member = Value::String(REDACTED.to_string());
+                } else {
+                    mask_json(member);
+                }
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(mask_json),
+        _ => {}
     }
 }

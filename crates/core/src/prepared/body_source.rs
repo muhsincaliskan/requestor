@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::secret::{is_secret_name, REDACTED};
 
 const FORM_FLAG: &str = "-F";
@@ -5,7 +7,7 @@ const FORM_STRING_FLAG: &str = "--form-string";
 const FILE_MARK: char = '@';
 const QUOTED_PATH_MARKS: [char; 3] = [';', ',', '"'];
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Clone, PartialEq, Default)]
 pub enum BodySource {
     #[default]
     Inline,
@@ -13,19 +15,45 @@ pub enum BodySource {
     Form(Vec<FormField>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct FormField {
     pub name: String,
     pub value: FormValue,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum FormValue {
     Text(String),
     File {
         path: String,
         content_type: Option<String>,
     },
+}
+
+impl fmt::Debug for BodySource {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BodySource::Inline => formatter.write_str("Inline"),
+            BodySource::File(_) => formatter.write_str("File"),
+            BodySource::Form(fields) => write!(formatter, "Form({} fields)", fields.len()),
+        }
+    }
+}
+
+impl fmt::Debug for FormField {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("FormField")
+            .field("name", &self.name)
+            .field("value", &REDACTED)
+            .finish()
+    }
+}
+
+impl fmt::Debug for FormValue {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(REDACTED)
+    }
 }
 
 impl FormField {

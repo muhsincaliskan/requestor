@@ -114,3 +114,44 @@ fn exported_multipart_and_head_commands_import_back() {
     };
     assert_eq!(head.request.method.as_deref(), Some("HEAD"));
 }
+
+#[test]
+fn json_and_graphql_bodies_are_masked_at_any_depth() {
+    let mut prepared = request(HttpMethod::Post, "https://x.test");
+    prepared.headers = vec![Header::new("Content-Type", "application/json")];
+    prepared.body = Some(
+        br#"{"user":"ada","password":"p1","nested":[{"client_secret":"s1"}],"variables":{"apiKey":"k1","id":7}}"#.to_vec(),
+    );
+    let masked = prepared.to_curl();
+    for leaked in ["p1", "s1", "k1"] {
+        assert!(!masked.contains(leaked), "{leaked} leaked in {masked}");
+    }
+    assert!(masked.contains("\"user\":\"ada\""));
+    assert!(masked.contains("\"id\":7"));
+    assert!(prepared
+        .to_curl_with_secrets()
+        .contains("\"password\":\"p1\""));
+}
+
+#[test]
+fn unparseable_json_bodies_are_fully_redacted_and_form_types_ignore_case() {
+    let mut prepared = request(HttpMethod::Post, "https://x.test");
+    prepared.headers = vec![Header::new("Content-Type", "application/json")];
+    prepared.body = Some(b"{broken \"password\":\"p1\"".to_vec());
+    assert!(!prepared.to_curl().contains("p1"));
+    prepared.headers = vec![Header::new(
+        "Content-Type",
+        "Application/X-WWW-Form-Urlencoded",
+    )];
+    prepared.body = Some(b"password=p1&a=2".to_vec());
+    let masked = prepared.to_curl();
+    assert!(!masked.contains("p1"));
+    assert!(masked.contains("a=2"));
+}
+
+#[test]
+fn debug_output_of_form_sources_hides_values() {
+    let source = BodySource::Form(vec![FormField::text("token", "hunter2")]);
+    assert!(!format!("{source:?}").contains("hunter2"));
+    assert!(!format!("{:?}", FormField::text("token", "hunter2")).contains("hunter2"));
+}

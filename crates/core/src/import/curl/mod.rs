@@ -7,12 +7,17 @@ use super::shell_words;
 use super::{ImportError, ImportedRequest};
 use crate::collection::{Auth, Body, Param};
 use crate::curl_command::COMMAND_NAME;
+use crate::encoding::FORM_PAIR_SEPARATOR;
 use crate::header::CONTENT_TYPE;
 use crate::media_type;
 
 const ACCEPT: &str = "Accept";
-const QUERY_SEPARATOR: &str = "&";
 const DATA_CONFLICT_WARNING: &str = "data given together with a file body was ignored";
+const URLENCODE_CONFLICT_WARNING: &str =
+    "-d data that is not name=value pairs was ignored because --data-urlencode was also used";
+const QUERY_DATA_WARNING: &str =
+    "-G only moves -d and --data-urlencode data into the query; file, form and JSON data was ignored";
+const QUERY_MARK: &str = "?";
 
 #[derive(Default)]
 struct CurlArguments {
@@ -49,9 +54,7 @@ impl ImportedRequest {
 impl CurlArguments {
     fn into_imported(mut self) -> Result<ImportedRequest, ImportError> {
         let url = self.url.clone().ok_or(ImportError::MissingUrl)?;
-        if self.data_file.is_some() && !self.data_text().is_empty() {
-            self.warnings.push(DATA_CONFLICT_WARNING.to_string());
-        }
+        self.warn_about_dropped_data();
         let method = self.resolved_method();
         let mut imported = ImportedRequest::new(&method, &self.url_with_query_data(url));
         for (name, value) in &self.headers {
@@ -64,6 +67,26 @@ impl CurlArguments {
         imported.request.auth = self.user.as_deref().map(Auth::from_credentials);
         imported.warnings = self.warnings;
         Ok(imported)
+    }
+
+    fn warn_about_dropped_data(&mut self) {
+        let data = self.data_text();
+        if self.query_data {
+            if self.dropped_by_query_data() {
+                self.warnings.push(QUERY_DATA_WARNING.to_string());
+            }
+        } else if self.data_file.is_some() && !data.is_empty() {
+            self.warnings.push(DATA_CONFLICT_WARNING.to_string());
+        } else if !self.url_encoded.is_empty()
+            && !data.is_empty()
+            && Param::from_form_text(&data).is_none()
+        {
+            self.warnings.push(URLENCODE_CONFLICT_WARNING.to_string());
+        }
+    }
+
+    fn dropped_by_query_data(&self) -> bool {
+        !self.form.is_empty() || self.data_file.is_some() || !self.json_data.is_empty()
     }
 
     fn has_body(&self) -> bool {
@@ -89,18 +112,18 @@ impl CurlArguments {
     fn data_text(&self) -> String {
         let mut parts = Vec::new();
         if !self.data.is_empty() {
-            parts.push(self.data.join(QUERY_SEPARATOR));
+            parts.push(self.data.join(FORM_PAIR_SEPARATOR));
         }
         if !self.json_data.is_empty() {
             parts.push(self.json_data.concat());
         }
-        parts.join(QUERY_SEPARATOR)
+        parts.join(FORM_PAIR_SEPARATOR)
     }
 
     fn query_text(&self) -> String {
         let mut pairs = self.data.clone();
         pairs.extend(self.url_encoded.iter().map(Param::form_pair));
-        pairs.join(QUERY_SEPARATOR)
+        pairs.join(FORM_PAIR_SEPARATOR)
     }
 
     fn url_with_query_data(&self, url: String) -> String {
@@ -108,7 +131,11 @@ impl CurlArguments {
         if !self.query_data || query.is_empty() {
             return url;
         }
-        let separator = if url.contains('?') { '&' } else { '?' };
+        let separator = if url.contains(QUERY_MARK) {
+            FORM_PAIR_SEPARATOR
+        } else {
+            QUERY_MARK
+        };
         format!("{url}{separator}{query}")
     }
 

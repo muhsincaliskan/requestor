@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::encoding::{percent_decode, percent_encode};
+use crate::encoding::{percent_decode, percent_encode, FORM_PAIR_SEPARATOR};
 use crate::text::{Description, StringOrList};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,7 +82,7 @@ impl Param {
     }
 
     pub fn from_form_text(text: &str) -> Option<Vec<Param>> {
-        text.split('&')
+        text.split(FORM_PAIR_SEPARATOR)
             .map(|pair| {
                 pair.split_once('=')
                     .map(|(key, value)| Param::text(percent_decode(key), percent_decode(value)))
