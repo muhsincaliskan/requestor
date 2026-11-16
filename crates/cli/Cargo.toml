@@ -1,0 +1,13 @@
+[package]
+name = "requestor-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "requestor"
+path = "src/main.rs"
+
+[dependencies]
+
+[lints]
+workspace = true
