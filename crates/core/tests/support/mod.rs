@@ -76,15 +76,17 @@ fn request_complete(data: &[u8]) -> bool {
     let Some((head, body)) = text.split_once("\r\n\r\n") else {
         return false;
     };
-    let length = head
-        .lines()
-        .find_map(|line| {
+    body.len() >= content_length(head)
+}
+
+fn content_length(head: &str) -> usize {
+    head.lines()
+        .filter_map(|line| {
             line.to_ascii_lowercase()
                 .strip_prefix("content-length:")
                 .map(str::trim)
-                .and_then(|value| value.parse::<usize>().ok().map(|_| value.to_string()))
+                .map(str::to_string)
         })
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(0);
-    body.len() >= length
+        .find_map(|value| value.parse().ok())
+        .unwrap_or(0)
 }
