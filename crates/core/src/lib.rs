@@ -1,5 +1,13 @@
 pub mod collection;
+pub mod encoding;
 pub mod environment;
 pub mod error;
+pub mod header;
+pub mod identity;
 pub mod method;
+pub mod prepared;
+pub mod response;
+pub mod secret;
+pub mod settings;
 pub mod text;
+pub mod variables;
