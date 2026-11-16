@@ -3,9 +3,11 @@ use serde_json::{Map, Value};
 
 use super::auth::Auth;
 use super::event::Event;
-use super::request::RequestSpec;
+use super::request::{Request, RequestSpec};
 use super::variable::Variable;
 use crate::text::Description;
+
+const UNNAMED_ITEM: &str = "Untitled";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Item {
@@ -32,6 +34,54 @@ pub struct Item {
 }
 
 impl Item {
+    pub fn request_item(name: impl Into<String>, request: Request) -> Self {
+        Item {
+            name: Some(name.into()),
+            request: Some(RequestSpec::Full(Box::new(request))),
+            response: Some(Vec::new()),
+            ..Item::blank()
+        }
+    }
+
+    pub fn folder(name: impl Into<String>) -> Self {
+        Item {
+            name: Some(name.into()),
+            item: Some(Vec::new()),
+            ..Item::blank()
+        }
+    }
+
+    fn blank() -> Self {
+        Item {
+            id: None,
+            name: None,
+            description: None,
+            variable: None,
+            event: None,
+            auth: None,
+            item: None,
+            request: None,
+            response: None,
+            extra: Map::new(),
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
+        self.name.as_deref().unwrap_or(UNNAMED_ITEM)
+    }
+
+    pub fn children(&self) -> &[Item] {
+        self.item.as_deref().unwrap_or_default()
+    }
+
+    pub fn full_request(&self) -> Option<Request> {
+        self.request.as_ref().map(RequestSpec::to_request)
+    }
+
+    pub fn replace_request(&mut self, request: Request) {
+        self.request = Some(RequestSpec::Full(Box::new(request)));
+    }
+
     pub fn is_folder(&self) -> bool {
         self.item.is_some()
     }
