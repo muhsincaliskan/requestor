@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Usage: scripts/measure-ram.sh <tabs> <response-megabytes> <budget-megabytes>
 # Opens <tabs> request tabs, loads a response of the given size into the active
-# one, then reports the memory footprint. Exits 2 above the hard ceiling and 0
-# otherwise; a footprint above the budget is reported as a warning.
+# one, then reports the memory footprint. Exits 1 when the app or the fixture
+# server fails, 2 above the hard ceiling and 0 otherwise; a footprint above the
+# budget is reported as a warning.
 set -uo pipefail
 
 TABS="${1:-5}"

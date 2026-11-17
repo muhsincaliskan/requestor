@@ -83,7 +83,7 @@ impl RequestDraft {
             .map(|pair| {
                 let parsed = KeyValueRow::from_query_pair(pair);
                 match previous.next().filter(|old| old.key == parsed.key) {
-                    Some(old) => old.with_value(parsed.value),
+                    Some(old) => old.refreshed_by(parsed),
                     None => parsed,
                 }
             })

@@ -1,6 +1,7 @@
 use crate::collection::auth::{
     API_KEY_IN_HEADER, API_KEY_IN_QUERY, API_KEY_KIND, API_KEY_LOCATION_KEY, API_KEY_NAME_KEY,
-    API_KEY_VALUE_KEY, BASIC_KIND, BEARER_KIND, PASSWORD_KEY, TOKEN_KEY, USERNAME_KEY,
+    API_KEY_VALUE_KEY, BASIC_KIND, BEARER_KIND, NO_AUTH_KIND, PASSWORD_KEY, TOKEN_KEY,
+    USERNAME_KEY,
 };
 use crate::collection::Auth;
 
@@ -84,7 +85,7 @@ impl AuthDraft {
         }
         match self.kind {
             AuthKind::Inherit => None,
-            AuthKind::None => Some(Auth::none()),
+            AuthKind::None => Some(self.based_on(NO_AUTH_KIND)),
             AuthKind::Bearer => Some(self.edited(BEARER_KIND, &[(TOKEN_KEY, &self.token)])),
             AuthKind::Basic => Some(self.edited(
                 BASIC_KIND,
@@ -112,17 +113,18 @@ impl AuthDraft {
     }
 
     fn edited(&self, kind: &str, attributes: &[(&str, &str)]) -> Auth {
-        let base = self
-            .source
-            .as_ref()
-            .filter(|auth| auth.kind == kind || auth.has_section(kind))
-            .cloned()
-            .unwrap_or_else(Auth::none);
-        let mut auth = base.with_kind(kind);
+        let mut auth = self.based_on(kind);
         for (key, value) in attributes {
             auth.set_attribute(kind, key, value);
         }
         auth
+    }
+
+    fn based_on(&self, kind: &str) -> Auth {
+        self.source
+            .clone()
+            .unwrap_or_else(Auth::none)
+            .with_kind(kind)
     }
 
     fn api_key_location(&self) -> &'static str {
@@ -208,5 +210,22 @@ mod tests {
         assert_eq!(api_key.value_of("in"), Some("query"));
         draft.kind = AuthKind::None;
         assert!(draft.to_auth().unwrap().is_none());
+    }
+
+    #[test]
+    fn switching_kind_or_to_none_keeps_every_other_section() {
+        let source: Auth = serde_json::from_str(MIXED_AUTH).unwrap();
+        let mut draft = AuthDraft::from_auth(Some(&source));
+        draft.kind = AuthKind::Basic;
+        draft.username = "u".to_string();
+        let basic = serde_json::to_value(draft.to_auth().unwrap()).unwrap();
+        assert_eq!(basic["type"], "basic");
+        assert_eq!(basic["bearer"][0]["x-attr"], 1);
+        assert_eq!(basic["oauth2"][0]["key"], "accessToken");
+        draft.kind = AuthKind::None;
+        let none = serde_json::to_value(draft.to_auth().unwrap()).unwrap();
+        assert_eq!(none["type"], "noauth");
+        assert_eq!(none["bearer"][0]["value"], "old");
+        assert_eq!(none["oauth2"][0]["key"], "accessToken");
     }
 }

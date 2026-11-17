@@ -103,9 +103,17 @@ impl KeyValueRow {
         variable
     }
 
-    pub fn with_value(&self, value: String) -> Self {
+    pub fn refreshed_by(&self, parsed: KeyValueRow) -> Self {
+        let source = match (&self.source, parsed.source) {
+            (Some(previous), Some(parsed_source)) => Some(Param {
+                value: parsed_source.value,
+                ..previous.clone()
+            }),
+            (previous, parsed_source) => previous.clone().or(parsed_source),
+        };
         KeyValueRow {
-            value,
+            value: parsed.value,
+            source,
             ..self.clone()
         }
     }

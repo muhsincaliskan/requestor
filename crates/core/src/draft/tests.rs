@@ -222,3 +222,23 @@ fn editing_auth_through_the_draft_keeps_other_auth_sections() {
     assert_eq!(json["auth"]["bearer"][0]["x-attr"], 1);
     assert_eq!(json["auth"]["oauth2"][0]["key"], "accessToken");
 }
+
+#[test]
+fn query_value_presence_follows_the_typed_url_in_both_directions() {
+    let (_, mut draft) = draft_of(
+        r#"{"method":"GET","url":{"raw":"https://x.test/?flag&a=","query":[{"key":"flag"},{"key":"a","value":""}]}}"#,
+    );
+    for typed in ["https://x.test/?flag=&a", "https://x.test/?flag&a="] {
+        draft.url = typed.to_string();
+        draft.url_edited();
+        draft.query_edited();
+        assert_eq!(draft.url, typed);
+    }
+    let mut blank = RequestDraft::blank("r");
+    blank.url = "https://x.test/?a=1".to_string();
+    blank.url_edited();
+    blank.url = "https://x.test/?a".to_string();
+    blank.url_edited();
+    blank.query_edited();
+    assert_eq!(blank.url, "https://x.test/?a");
+}
