@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icon/requestor-512.png" width="128" alt="Requestor icon"></p>
+
 # Requestor
 
 A lightweight HTTP request client written in Rust, built to keep memory use small.

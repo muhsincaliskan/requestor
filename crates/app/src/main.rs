@@ -18,6 +18,10 @@ const FALLBACK_STORE_DIRECTORY: &str = ".requestor";
 const SEND_ON_START_FLAG: &str = "--send-active-tab";
 const INITIAL_WINDOW_SIZE: [f32; 2] = [1280.0, 800.0];
 const MIN_WINDOW_SIZE: [f32; 2] = [720.0, 480.0];
+#[cfg(not(target_os = "macos"))]
+const WINDOW_ICON_RGBA: &[u8] = include_bytes!("../../../assets/icon/window-64.rgba");
+#[cfg(not(target_os = "macos"))]
+const WINDOW_ICON_SIZE: u32 = 64;
 
 fn main() -> eframe::Result {
     let store = WorkspaceStore::in_default_location()
@@ -26,9 +30,11 @@ fn main() -> eframe::Result {
     eframe::run_native(
         APP_NAME,
         eframe::NativeOptions {
-            viewport: ViewportBuilder::default()
-                .with_inner_size(INITIAL_WINDOW_SIZE)
-                .with_min_inner_size(MIN_WINDOW_SIZE),
+            viewport: with_window_icon(
+                ViewportBuilder::default()
+                    .with_inner_size(INITIAL_WINDOW_SIZE)
+                    .with_min_inner_size(MIN_WINDOW_SIZE),
+            ),
             ..eframe::NativeOptions::default()
         },
         Box::new(move |_creation_context| {
@@ -37,4 +43,18 @@ fn main() -> eframe::Result {
             ))
         }),
     )
+}
+
+#[cfg(not(target_os = "macos"))]
+fn with_window_icon(viewport: ViewportBuilder) -> ViewportBuilder {
+    viewport.with_icon(eframe::egui::IconData {
+        rgba: WINDOW_ICON_RGBA.to_vec(),
+        width: WINDOW_ICON_SIZE,
+        height: WINDOW_ICON_SIZE,
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn with_window_icon(viewport: ViewportBuilder) -> ViewportBuilder {
+    viewport
 }
