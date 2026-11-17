@@ -6,6 +6,7 @@ const NEW_LABEL: &str = "New";
 const IMPORT_LABEL: &str = "Import";
 const SETTINGS_LABEL: &str = "Settings";
 const EDIT_ENVIRONMENT_LABEL: &str = "Edit";
+const EDIT_ENVIRONMENT_HINT: &str = "Edit the active environment";
 const NO_ENVIRONMENT_LABEL: &str = "No environment";
 const NEW_ENVIRONMENT_LABEL: &str = "New environment…";
 const ENVIRONMENT_PICKER_ID: &str = "environment-picker";
@@ -31,7 +32,11 @@ fn environment_picker(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) 
     let active = state.workspace.active_environment();
     let active_id = active.and_then(|environment| environment.id.clone());
     if let Some(environment_id) = active_id.clone() {
-        if ui.button(EDIT_ENVIRONMENT_LABEL).clicked() {
+        if ui
+            .button(EDIT_ENVIRONMENT_LABEL)
+            .on_hover_text(EDIT_ENVIRONMENT_HINT)
+            .clicked()
+        {
             actions.push(Action::Show(Overlay::EnvironmentEditor { environment_id }));
         }
     }

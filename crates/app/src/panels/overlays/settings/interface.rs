@@ -43,17 +43,17 @@ const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 10] = [
         field: |settings| &mut settings.two_pane_view,
     },
     Toggle {
-        label: "Show workbench",
-        description: "",
+        label: "Show middle workbench",
+        description: "Turn off to give the whole window to the sidebar.",
         field: |settings| &mut settings.show_workbench,
     },
     Toggle {
         label: "Show sidebar",
-        description: "",
+        description: "Show collections and environments.",
         field: |settings| &mut settings.show_sidebar,
     },
     Toggle {
-        label: "Swap sidebars",
+        label: "Swap left and right sidebars",
         description: "Move the sidebar to the other side.",
         field: |settings| &mut settings.sidebars_swapped,
     },

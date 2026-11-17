@@ -7,8 +7,8 @@ use crate::state::Action;
 const COPY_LABEL: &str = "Copy";
 const HEADERS_GRID_ID: &str = "response-headers";
 const COOKIES_GRID_ID: &str = "response-cookies";
-const NO_HEADERS_TEXT: &str = "No headers";
-const NO_COOKIES_TEXT: &str = "No cookies";
+const NO_HEADERS_TEXT: &str = "This response has no headers.";
+const NO_COOKIES_TEXT: &str = "This response did not set any cookies.";
 const GRID_SPACING: [f32; 2] = [16.0, 4.0];
 
 fn selectable_mono(ui: &mut Ui, text: &str) {

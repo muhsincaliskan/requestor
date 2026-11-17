@@ -33,7 +33,7 @@ impl AppState {
         }
         match std::fs::read_to_string(path) {
             Ok(text) => self.import(&text),
-            Err(error) => self.import_failed(format!("Cannot read {}: {error}", path.display())),
+            Err(error) => self.import_failed(format!("Could not read {}: {error}", path.display())),
         }
     }
 
@@ -41,7 +41,7 @@ impl AppState {
         let imported = match import_text(text) {
             Ok(imported) => imported,
             Err(error) => {
-                self.import_failed(format!("Import failed: {error}"));
+                self.import_failed(format!("Could not import: {error}"));
                 return;
             }
         };
@@ -109,7 +109,7 @@ impl AppState {
                 });
                 self.overlay = None;
             }
-            Some(Err(error)) => self.report_error(format!("Export failed: {error}")),
+            Some(Err(error)) => self.report_error(format!("Could not export: {error}")),
             None => self.report_error("Nothing to export"),
         }
     }
