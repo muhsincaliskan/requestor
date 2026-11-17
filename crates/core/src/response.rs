@@ -52,6 +52,33 @@ impl ResponseFormat {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatusClass {
+    Informational,
+    Success,
+    Redirect,
+    ClientError,
+    ServerError,
+    Unknown,
+}
+
+impl StatusClass {
+    pub fn of(status: u16) -> Self {
+        match status {
+            100..=199 => Self::Informational,
+            200..=299 => Self::Success,
+            300..=399 => Self::Redirect,
+            400..=499 => Self::ClientError,
+            500..=599 => Self::ServerError,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn is_error(self) -> bool {
+        matches!(self, Self::ClientError | Self::ServerError)
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct HttpResponse {
     pub status: u16,
@@ -84,6 +111,10 @@ impl HttpResponse {
         ResponseFormat::detect(self.header(CONTENT_TYPE), &self.body)
     }
 
+    pub fn status_class(&self) -> StatusClass {
+        StatusClass::of(self.status)
+    }
+
     pub fn is_success(&self) -> bool {
         (200..300).contains(&self.status)
     }
@@ -101,7 +132,7 @@ impl HttpResponse {
 mod tests {
     use std::time::Duration;
 
-    use super::{HttpResponse, ResponseFormat};
+    use super::{HttpResponse, ResponseFormat, StatusClass};
 
     fn with_status(status: u16) -> HttpResponse {
         HttpResponse {
@@ -130,6 +161,24 @@ mod tests {
             assert_eq!(response.is_success(), success, "{status}");
             assert_eq!(response.is_client_or_server_error(), error, "{status}");
         }
+    }
+
+    #[test]
+    fn status_codes_map_to_their_class() {
+        let expectations = [
+            (99, StatusClass::Unknown),
+            (101, StatusClass::Informational),
+            (204, StatusClass::Success),
+            (301, StatusClass::Redirect),
+            (404, StatusClass::ClientError),
+            (500, StatusClass::ServerError),
+            (600, StatusClass::Unknown),
+        ];
+        for (status, class) in expectations {
+            assert_eq!(with_status(status).status_class(), class, "{status}");
+        }
+        assert!(StatusClass::ServerError.is_error());
+        assert!(!StatusClass::Redirect.is_error());
     }
 
     #[test]

@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use requestor_core::header::Header;
 use requestor_core::json_layout;
-use requestor_core::response::{HttpResponse, ResponseFormat};
+use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
 
 const BINARY_NOTICE: &str = "Binary response body";
 const SET_COOKIE: &str = "set-cookie";
@@ -45,6 +45,10 @@ impl ResponseView {
             body: response.body,
             display: None,
         }
+    }
+
+    pub fn status_class(&self) -> StatusClass {
+        StatusClass::of(self.status)
     }
 
     pub fn body_bytes(&self) -> &[u8] {
