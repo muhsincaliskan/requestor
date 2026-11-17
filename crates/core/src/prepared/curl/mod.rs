@@ -60,7 +60,7 @@ impl PreparedRequest {
             BodySource::File(path) => {
                 vec![format!(
                     "--data-binary {}",
-                    shell_quote(&format!("{FILE_MARK}{path}"))
+                    shell_quote(&exposure.text(&format!("{FILE_MARK}{path}")))
                 )]
             }
             BodySource::Form(fields) => fields

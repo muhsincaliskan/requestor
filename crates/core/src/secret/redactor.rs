@@ -4,6 +4,7 @@ use super::{is_secret_name, REDACTED};
 use crate::collection::{Auth, Url, SCHEME_SEPARATOR};
 use crate::encoding::percent_encode;
 use crate::variables::VariableScope;
+use serde_json::Value;
 
 const MIN_MASKED_VALUE_BYTES: usize = 4;
 const PUBLIC_AUTH_KEYS: [&str; 6] = [
@@ -41,7 +42,10 @@ impl Redactor {
         if let Some(auth) = auth {
             values.extend(auth_secret_values(auth, scope));
         }
-        let encoded: Vec<String> = values.iter().map(|value| percent_encode(value)).collect();
+        let encoded: Vec<String> = values
+            .iter()
+            .flat_map(|value| [percent_encode(value), json_escaped(value)])
+            .collect();
         values.extend(encoded);
         values.retain(|value| value.len() >= MIN_MASKED_VALUE_BYTES);
         values.sort_by(|left, right| right.len().cmp(&left.len()).then_with(|| left.cmp(right)));
@@ -70,6 +74,11 @@ impl Redactor {
         }
         text
     }
+}
+
+fn json_escaped(value: &str) -> String {
+    let quoted = Value::String(value.to_string()).to_string();
+    quoted[1..quoted.len() - 1].to_string()
 }
 
 fn auth_secret_values(auth: &Auth, scope: &VariableScope) -> Vec<String> {

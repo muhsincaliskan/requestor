@@ -104,3 +104,17 @@ fn values_shorter_than_the_minimum_are_not_substring_masked() {
     let redactor = Redactor::for_request(&scope, None);
     assert_eq!(redactor.redact_text("a b abc ab"), "a b abc ab");
 }
+
+#[test]
+fn json_escaped_secret_values_are_masked() {
+    let environment = Environment::from_json(
+        r#"{"name":"E","values":[{"key":"s","value":"pa\"ss123","type":"secret"}]}"#,
+    )
+    .unwrap();
+    let scope = VariableScope::layered(&[], &[], Some(&environment), &[]);
+    let redactor = Redactor::for_request(&scope, None);
+    assert_eq!(
+        redactor.redact_text(r#"{"note":"pa\"ss123"}"#),
+        format!(r#"{{"note":"{REDACTED}"}}"#)
+    );
+}

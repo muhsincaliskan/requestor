@@ -56,9 +56,7 @@ impl ResponseRules {
                 .collect(),
         }
     }
-}
 
-impl ResponseRules {
     fn reads_json(&self) -> bool {
         self.checks
             .iter()
