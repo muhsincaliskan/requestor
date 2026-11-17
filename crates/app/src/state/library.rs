@@ -162,9 +162,11 @@ impl AppState {
             LibraryTarget::Collection { collection_id } => {
                 if self.workspace.remove_collection(collection_id).is_some() {
                     self.unsaved.forget_collection(collection_id);
-                    effects.push(Effect::DeleteFile(
-                        self.store.collection_path(collection_id),
-                    ));
+                    effects.extend(
+                        self.store
+                            .release_collection_path(collection_id)
+                            .map(Effect::DeleteFile),
+                    );
                 }
             }
             LibraryTarget::Item {
@@ -182,9 +184,11 @@ impl AppState {
             LibraryTarget::Environment { environment_id } => {
                 if self.workspace.remove_environment(environment_id).is_some() {
                     self.unsaved.forget_environment(environment_id);
-                    effects.push(Effect::DeleteFile(
-                        self.store.environment_path(environment_id),
-                    ));
+                    effects.extend(
+                        self.store
+                            .release_environment_path(environment_id)
+                            .map(Effect::DeleteFile),
+                    );
                 }
             }
         }

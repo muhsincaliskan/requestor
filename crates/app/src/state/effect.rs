@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
-use requestor_core::workspace::PendingWrite;
+use requestor_core::workspace::{PendingDelete, PendingWrite};
 
 use super::tab::TabId;
 
@@ -28,12 +28,9 @@ impl Effect {
     pub fn store(self) -> Result<(), String> {
         match self {
             Effect::Persist(write) => write.commit().map_err(|error| error.to_string()),
-            Effect::DeleteFile(path) => match std::fs::remove_file(&path) {
-                Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-                    Err(format!("{}: {error}", path.display()))
-                }
-                _ => Ok(()),
-            },
+            Effect::DeleteFile(path) => PendingDelete::new(path)
+                .commit()
+                .map_err(|error| error.to_string()),
             Effect::WriteFile { path, contents } => PendingWrite::new(path, contents)
                 .commit()
                 .map_err(|error| error.to_string()),

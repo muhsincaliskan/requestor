@@ -2,11 +2,13 @@ use std::path::PathBuf;
 
 use super::{safe_file_stem, WorkspaceStore};
 
-mod documents;
 use crate::collection::Collection;
 use crate::environment::Environment;
 use crate::identity::random_uuid;
 use crate::workspace::{AppSettings, Session, SessionTab, Workspace};
+
+mod documents;
+mod lifecycle;
 
 pub(super) struct TemporaryRoot(pub PathBuf);
 
@@ -66,8 +68,8 @@ fn everything_written_is_read_back() {
     let loaded = store.load();
     assert!(loaded.warnings.is_empty());
     assert_eq!(loaded.workspace, workspace);
-    std::fs::remove_file(store.collection_path(&collection_id)).unwrap();
-    std::fs::remove_file(store.environment_path(&environment_id)).unwrap();
+    std::fs::remove_file(store.release_collection_path(&collection_id).unwrap()).unwrap();
+    std::fs::remove_file(store.release_environment_path(&environment_id).unwrap()).unwrap();
     let emptied = store.load().workspace;
     assert!(emptied.collections.is_empty());
     assert!(emptied.session.active_environment.is_none());

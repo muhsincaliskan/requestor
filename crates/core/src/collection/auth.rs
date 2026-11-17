@@ -121,10 +121,6 @@ impl Auth {
         self
     }
 
-    pub fn has_section(&self, section: &str) -> bool {
-        self.parameters.contains_key(section)
-    }
-
     pub fn set_attribute(&mut self, section: &str, key: &str, value: &str) {
         let attributes = self
             .parameters
@@ -173,10 +169,8 @@ mod tests {
     }
 
     #[test]
-    fn switching_kind_only_changes_the_type_and_reports_sections() {
+    fn switching_kind_only_changes_the_type() {
         let auth: Auth = serde_json::from_str(MIXED_AUTH).unwrap();
-        assert!(auth.has_section("oauth2"));
-        assert!(!auth.has_section("basic"));
         assert_eq!(auth.with_kind("oauth2").kind, "oauth2");
     }
 

@@ -17,6 +17,11 @@ pub struct PendingWrite {
     contents: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PendingDelete {
+    path: PathBuf,
+}
+
 impl fmt::Display for StoreError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}: {}", self.path.display(), self.reason)
@@ -61,6 +66,25 @@ impl PendingWrite {
         let mut name = self.path.file_name().unwrap_or_default().to_os_string();
         name.push(format!(".{}.{TEMPORARY_SUFFIX}", std::process::id()));
         self.path.with_file_name(name)
+    }
+}
+
+impl PendingDelete {
+    pub fn new(path: PathBuf) -> Self {
+        PendingDelete { path }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn commit(self) -> Result<(), StoreError> {
+        match fs::remove_file(&self.path) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                Err(StoreError::at(&self.path, error))
+            }
+            _ => Ok(()),
+        }
     }
 }
 

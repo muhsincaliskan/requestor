@@ -304,20 +304,34 @@ fn deleting_an_item_unbinds_its_open_tab_instead_of_losing_the_work() {
 }
 
 #[test]
-fn deleting_a_collection_removes_its_file_and_never_rewrites_it() {
+fn deleting_a_saved_collection_removes_its_file_and_never_rewrites_it() {
     let (mut state, collection_id, _) = state_with_request();
     state.apply(Action::CollectionEdited(collection_id.clone()), 0.0);
+    assert_eq!(persisted_count(&state.tick(LATER)), 1);
+    state.apply(Action::CollectionEdited(collection_id.clone()), LATER);
     let effects = state.apply(
         Action::Delete(LibraryTarget::Collection {
             collection_id: collection_id.clone(),
         }),
-        0.0,
+        LATER,
     );
     assert!(matches!(
         effects.as_slice(),
         [Effect::DeleteFile(path)] if path.ends_with(format!("{collection_id}.json"))
     ));
-    assert_eq!(persisted_count(&state.tick(LATER)), 1);
+    assert_eq!(persisted_count(&state.tick(LATER * 3.0)), 1);
+}
+
+#[test]
+fn deleting_before_the_first_save_deletes_no_file() {
+    let (mut state, collection_id, _) = state_with_request();
+    let effects = state.apply(
+        Action::Delete(LibraryTarget::Collection { collection_id }),
+        0.0,
+    );
+    assert!(!effects
+        .iter()
+        .any(|effect| matches!(effect, Effect::DeleteFile(_))));
 }
 
 #[test]

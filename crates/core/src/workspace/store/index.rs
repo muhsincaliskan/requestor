@@ -6,7 +6,7 @@ use crate::identity::random_uuid;
 
 const CLASH_SUFFIX_LENGTH: usize = 8;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Default)]
 pub(super) struct DocumentIndex {
     paths: HashMap<String, PathBuf>,
 }
@@ -17,18 +17,17 @@ impl DocumentIndex {
     }
 
     pub(super) fn path_for(&mut self, directory: &Path, id: &str) -> PathBuf {
-        if let Some(path) = self.paths.get(id) {
+        if let Some(path) = self.paths.get(id).filter(|path| path.exists()) {
             return path.clone();
         }
+        self.paths.remove(id);
         let path = self.free_path(directory, &safe_file_stem(id));
         self.paths.insert(id.to_string(), path.clone());
         path
     }
 
-    pub(super) fn release(&mut self, directory: &Path, id: &str) -> PathBuf {
-        self.paths
-            .remove(id)
-            .unwrap_or_else(|| default_path(directory, &safe_file_stem(id)))
+    pub(super) fn release(&mut self, id: &str) -> Option<PathBuf> {
+        self.paths.remove(id)
     }
 
     fn free_path(&self, directory: &Path, stem: &str) -> PathBuf {
@@ -47,10 +46,21 @@ impl DocumentIndex {
     }
 
     fn is_free(&self, path: &Path) -> bool {
-        !path.exists() && !self.paths.values().any(|taken| taken == path)
+        let name = lowercase_name(path);
+        !path.exists()
+            && !self
+                .paths
+                .values()
+                .any(|taken| lowercase_name(taken) == name)
     }
 }
 
 fn default_path(directory: &Path, stem: &str) -> PathBuf {
     directory.join(format!("{stem}.{JSON_EXTENSION}"))
+}
+
+fn lowercase_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
 }

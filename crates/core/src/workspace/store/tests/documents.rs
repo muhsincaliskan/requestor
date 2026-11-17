@@ -4,22 +4,22 @@ use std::path::{Path, PathBuf};
 use super::TemporaryRoot;
 use crate::collection::Collection;
 
-const NO_ID_COLLECTION: &str = r#"{"info":{"name":"My API","schema":"s"},"item":[]}"#;
+pub(super) const NO_ID_COLLECTION: &str = r#"{"info":{"name":"My API","schema":"s"},"item":[]}"#;
 
-fn collections_directory(root: &TemporaryRoot) -> PathBuf {
+pub(super) fn collections_directory(root: &TemporaryRoot) -> PathBuf {
     let directory = root.0.join("collections");
     std::fs::create_dir_all(&directory).unwrap();
     directory
 }
 
-fn listing(directory: &Path) -> BTreeSet<String> {
+pub(super) fn listing(directory: &Path) -> BTreeSet<String> {
     std::fs::read_dir(directory)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())
         .collect()
 }
 
-fn document_with_id(id: &str, name: &str) -> String {
+pub(super) fn document_with_id(id: &str, name: &str) -> String {
     format!(r#"{{"info":{{"_postman_id":"{id}","name":"{name}","schema":"s"}},"item":[]}}"#)
 }
 
@@ -84,7 +84,10 @@ fn two_files_with_one_id_both_load_and_the_fresh_id_persists() {
         listing(&directory),
         BTreeSet::from(["a.json".into(), "b.json".into()])
     );
-    assert_eq!(store.collection_path(&second_id), directory.join("b.json"));
+    assert_eq!(
+        store.release_collection_path(&second_id),
+        Some(directory.join("b.json"))
+    );
 }
 
 #[test]
@@ -108,6 +111,21 @@ fn a_new_document_never_takes_the_path_of_an_unparsable_file() {
     );
     let rewritten = store.collection_write(&imported).unwrap();
     assert_ne!(rewritten.path(), directory.join("X.json"));
+}
+
+#[test]
+fn releasing_an_id_that_was_never_remembered_yields_nothing_and_keeps_the_file() {
+    let root = TemporaryRoot::new();
+    let directory = collections_directory(&root);
+    std::fs::write(directory.join("X.json"), "{ not json").unwrap();
+    let mut store = root.store();
+    store.load();
+    let mut imported = Collection::new("Imported");
+    imported.info.postman_id = Some("X".to_string());
+
+    assert_eq!(store.release_collection_path(imported.id()), None);
+    assert_eq!(store.release_environment_path("X"), None);
+    assert!(directory.join("X.json").exists());
 }
 
 #[test]
@@ -135,7 +153,7 @@ fn deleting_a_remembered_document_removes_its_original_path() {
     let mut store = root.store();
     let id = store.load().workspace.collections[0].id().to_string();
 
-    let path = store.collection_path(&id);
+    let path = store.release_collection_path(&id).unwrap();
     assert_eq!(path, original);
     std::fs::remove_file(path).unwrap();
     assert!(listing(&directory).is_empty());

@@ -2,6 +2,7 @@ pub mod auth;
 mod body;
 mod browse;
 mod event;
+mod identity;
 mod info;
 mod item;
 mod param;

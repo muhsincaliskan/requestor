@@ -3,7 +3,7 @@ mod session;
 mod settings;
 mod store;
 
-pub use pending_write::{PendingWrite, StoreError};
+pub use pending_write::{PendingDelete, PendingWrite, StoreError};
 pub use session::{Session, SessionTab};
 pub use settings::{AppSettings, InterfaceSettings, ThemeName};
 pub use store::{LoadedWorkspace, WorkspaceStore};

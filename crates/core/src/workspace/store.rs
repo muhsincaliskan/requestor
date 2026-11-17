@@ -1,7 +1,6 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-use std::collections::HashSet;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -22,7 +21,7 @@ pub(super) const JSON_EXTENSION: &str = "json";
 const FILE_NAME_FILLER: char = '_';
 const UNNAMED_FILE: &str = "unnamed";
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub struct WorkspaceStore {
     root: PathBuf,
     collections: DocumentIndex,
@@ -112,14 +111,12 @@ impl WorkspaceStore {
         pending(self.root.join(SESSION_FILE), session)
     }
 
-    pub fn collection_path(&mut self, id: &str) -> PathBuf {
-        let directory = self.root.join(COLLECTIONS_DIRECTORY);
-        self.collections.release(&directory, id)
+    pub fn release_collection_path(&mut self, id: &str) -> Option<PathBuf> {
+        self.collections.release(id)
     }
 
-    pub fn environment_path(&mut self, id: &str) -> PathBuf {
-        let directory = self.root.join(ENVIRONMENTS_DIRECTORY);
-        self.environments.release(&directory, id)
+    pub fn release_environment_path(&mut self, id: &str) -> Option<PathBuf> {
+        self.environments.release(id)
     }
 
     fn load_file<T: DeserializeOwned + Default>(
