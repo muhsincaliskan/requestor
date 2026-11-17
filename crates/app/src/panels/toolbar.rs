@@ -30,18 +30,10 @@ pub fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
 fn environment_picker(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
     let active = state.workspace.active_environment();
     let active_id = active.and_then(|environment| environment.id.clone());
-    if ui
-        .add_enabled(
-            active_id.is_some(),
-            eframe::egui::Button::new(EDIT_ENVIRONMENT_LABEL),
-        )
-        .clicked()
-    {
-        actions.extend(
-            active_id
-                .clone()
-                .map(|environment_id| Action::Show(Overlay::EnvironmentEditor { environment_id })),
-        );
+    if let Some(environment_id) = active_id.clone() {
+        if ui.button(EDIT_ENVIRONMENT_LABEL).clicked() {
+            actions.push(Action::Show(Overlay::EnvironmentEditor { environment_id }));
+        }
     }
     let selected = active.map_or(NO_ENVIRONMENT_LABEL, |environment| {
         environment.name.as_str()

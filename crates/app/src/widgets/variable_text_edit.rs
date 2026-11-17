@@ -1,10 +1,12 @@
 mod completion;
 mod popup;
 
-use eframe::egui::{Context, Id, Key, Modifiers, Response, TextEdit, TextStyle, Ui};
+use eframe::egui::{Context, Id, Key, Margin, Modifiers, Response, TextEdit, TextStyle, Ui};
 
 use completion::step_selection;
 use popup::{draw_popup, PopupState, Suggestion, POPUP_STATE_SALT};
+
+const FIELD_MARGIN: Margin = Margin::symmetric(6, 5);
 
 pub struct VariableTextEdit<'a> {
     text: &'a mut String,
@@ -75,7 +77,7 @@ impl<'a> VariableTextEdit<'a> {
                 .desired_rows(rows)
                 .font(TextStyle::Monospace)
                 .lock_focus(true),
-            None => TextEdit::singleline(&mut *self.text),
+            None => TextEdit::singleline(&mut *self.text).margin(FIELD_MARGIN),
         };
         edit = edit.id(id).password(self.password);
         if let Some(hint) = self.hint {

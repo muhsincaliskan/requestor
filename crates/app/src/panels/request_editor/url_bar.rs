@@ -1,4 +1,4 @@
-use eframe::egui::{Align, ComboBox, Event, Key, Layout, TextEdit, Ui};
+use eframe::egui::{Align, ComboBox, Event, Frame, Key, Layout, TextEdit, TextStyle, Ui};
 use requestor_core::method::HttpMethod;
 
 use crate::state::{Action, RequestTab};
@@ -27,6 +27,8 @@ pub fn show(
         .add(
             TextEdit::singleline(&mut open.draft.name)
                 .hint_text(NAME_HINT)
+                .font(TextStyle::Heading)
+                .frame(Frame::new())
                 .desired_width(f32::INFINITY),
         )
         .changed();
