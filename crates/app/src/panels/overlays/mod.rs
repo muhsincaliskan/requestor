@@ -3,6 +3,7 @@ mod dialogs;
 mod environment_editor;
 mod import;
 mod settings;
+mod table;
 
 use eframe::egui::{Context, Id, Modal, Ui};
 
