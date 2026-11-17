@@ -122,3 +122,30 @@ fn scheme_detection_ignores_separators_inside_paths_and_queries() {
         "http://x.test/r?to=http://y.test"
     );
 }
+
+#[test]
+fn postman_v20_collections_that_do_not_parse_name_the_supported_version() {
+    let legacy = r#"{
+        "info": {"name": "Old", "schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"},
+        "item": [{"name": "r", "request": {"url": "https://x.test", "auth": {"type": "basic", "basic": {"username": "u"}}}}]
+    }"#;
+    match import_text(legacy) {
+        Err(ImportError::UnsupportedFormat(reason)) => assert!(reason.contains("v2.1")),
+        other => panic!("expected an unsupported format error, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_curl_import_exports_as_a_postman_collection() {
+    let Imported::Request(imported) =
+        import_text("curl -X POST https://x.test/items -d a=1").unwrap()
+    else {
+        panic!("expected a request");
+    };
+    let collection = imported.into_collection();
+    let exported = collection.to_json_pretty().unwrap();
+    let reloaded = requestor_core::collection::Collection::from_json(&exported).unwrap();
+    assert_eq!(reloaded, collection);
+    assert_eq!(reloaded.request_count(), 1);
+    assert!(exported.contains("v2.1.0"));
+}

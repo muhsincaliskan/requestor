@@ -1,8 +1,10 @@
 use serde_json::Value;
 
 use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
+use crate::collection::Info;
 use crate::curl_command::COMMAND_NAME;
 
+const COLLECTION_SCHEMA_POINTER: &str = "/info/schema";
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
 const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
 const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
@@ -59,11 +61,7 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
         return openapi::from_json(&document).map(Imported::Collection);
     }
     if document.get("info").is_some() && document.get("item").is_some() {
-        return serde_json::from_value(document)
-            .map(|collection| {
-                Imported::Collection(ImportedCollection::without_warnings(collection))
-            })
-            .map_err(|error| ImportError::InvalidJson(error.to_string()));
+        return import_collection(document);
     }
     if document.get("values").is_some() && document.get("name").is_some() {
         return serde_json::from_value(document)
@@ -73,6 +71,23 @@ fn import_json(text: &str) -> Result<Imported, ImportError> {
     Err(ImportError::UnsupportedFormat(
         "the JSON document is not a Postman collection, environment or OpenAPI file".to_string(),
     ))
+}
+
+fn import_collection(document: Value) -> Result<Imported, ImportError> {
+    let declared_schema = document
+        .pointer(COLLECTION_SCHEMA_POINTER)
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    serde_json::from_value(document)
+        .map(|collection| Imported::Collection(ImportedCollection::without_warnings(collection)))
+        .map_err(|error| match declared_schema {
+            Some(schema) if !Info::is_supported_schema(&schema) => {
+                ImportError::UnsupportedFormat(format!(
+                    "only Postman Collection v2.1 is supported, but this file declares {schema}"
+                ))
+            }
+            _ => ImportError::InvalidJson(error.to_string()),
+        })
 }
 
 fn is_curl_command(text: &str) -> bool {

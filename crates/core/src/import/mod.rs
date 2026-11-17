@@ -7,7 +7,7 @@ pub mod openapi;
 
 use std::fmt;
 
-use crate::collection::{Collection, Request, Url, UrlParts, SCHEME_SEPARATOR};
+use crate::collection::{Collection, Item, Request, Url, UrlParts, SCHEME_SEPARATOR};
 use crate::environment::Environment;
 
 pub use detect::import_text;
@@ -76,6 +76,16 @@ pub enum Imported {
 }
 
 impl ImportedRequest {
+    pub fn into_item(self) -> Item {
+        Item::for_request(self.name, self.request)
+    }
+
+    pub fn into_collection(self) -> Collection {
+        let mut collection = Collection::new(self.name.clone());
+        collection.item.push(self.into_item());
+        collection
+    }
+
     pub fn from_url(url: &str) -> Self {
         ImportedRequest::new(GET_METHOD, url)
     }
