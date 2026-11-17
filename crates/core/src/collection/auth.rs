@@ -5,7 +5,18 @@ use serde_json::{Map, Value};
 
 use crate::variables::VariableScope;
 
-const NO_AUTH_KIND: &str = "noauth";
+pub const NO_AUTH_KIND: &str = "noauth";
+pub const BEARER_KIND: &str = "bearer";
+pub const BASIC_KIND: &str = "basic";
+pub const API_KEY_KIND: &str = "apikey";
+pub const TOKEN_KEY: &str = "token";
+pub const USERNAME_KEY: &str = "username";
+pub const PASSWORD_KEY: &str = "password";
+pub const API_KEY_NAME_KEY: &str = "key";
+pub const API_KEY_VALUE_KEY: &str = "value";
+pub const API_KEY_LOCATION_KEY: &str = "in";
+pub const API_KEY_IN_QUERY: &str = "query";
+pub const API_KEY_IN_HEADER: &str = "header";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuthAttribute {
@@ -41,10 +52,10 @@ impl AuthAttribute {
 impl Auth {
     pub fn basic(username: impl Into<String>, password: impl Into<String>) -> Self {
         Auth::with_attributes(
-            "basic",
+            BASIC_KIND,
             vec![
-                AuthAttribute::string("username", username),
-                AuthAttribute::string("password", password),
+                AuthAttribute::string(USERNAME_KEY, username),
+                AuthAttribute::string(PASSWORD_KEY, password),
             ],
         )
     }
@@ -58,11 +69,11 @@ impl Auth {
 
     pub fn api_key(name: &str, value: &str, location: &str) -> Self {
         Auth::with_attributes(
-            "apikey",
+            API_KEY_KIND,
             vec![
-                AuthAttribute::string("key", name),
-                AuthAttribute::string("value", value),
-                AuthAttribute::string("in", location),
+                AuthAttribute::string(API_KEY_NAME_KEY, name),
+                AuthAttribute::string(API_KEY_VALUE_KEY, value),
+                AuthAttribute::string(API_KEY_LOCATION_KEY, location),
             ],
         )
     }
@@ -73,7 +84,7 @@ impl Auth {
     }
 
     pub fn bearer(token: impl Into<String>) -> Self {
-        Auth::with_attributes("bearer", vec![AuthAttribute::string("token", token)])
+        Auth::with_attributes(BEARER_KIND, vec![AuthAttribute::string(TOKEN_KEY, token)])
     }
 
     fn with_attributes(kind: &str, attributes: Vec<AuthAttribute>) -> Self {

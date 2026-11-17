@@ -1,11 +1,13 @@
-mod auth;
+pub mod auth;
 mod body;
 mod event;
 mod info;
 mod item;
 mod param;
+mod path_variables;
 mod request;
 mod run;
+mod tree;
 mod url;
 mod variable;
 
@@ -15,6 +17,7 @@ pub use event::{Event, Script};
 pub use info::{Info, POSTMAN_COLLECTION_SCHEMA_V21};
 pub use item::Item;
 pub use param::Param;
+pub use path_variables::path_variable_names;
 pub use request::{Request, RequestSpec};
 pub use run::RunnableRequest;
 pub use url::{Url, UrlParts, SCHEME_SEPARATOR};

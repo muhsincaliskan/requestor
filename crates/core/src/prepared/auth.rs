@@ -1,19 +1,13 @@
 use super::PreparedRequest;
+use crate::collection::auth::{
+    API_KEY_IN_QUERY, API_KEY_KIND, API_KEY_LOCATION_KEY, API_KEY_NAME_KEY, API_KEY_VALUE_KEY,
+    BASIC_KIND, BEARER_KIND, PASSWORD_KEY, TOKEN_KEY, USERNAME_KEY,
+};
 use crate::collection::Auth;
 use crate::encoding::{base64_encode, percent_encode};
 use crate::variables::VariableScope;
 
 const AUTHORIZATION: &str = "Authorization";
-const BEARER_KIND: &str = "bearer";
-const BASIC_KIND: &str = "basic";
-const API_KEY_KIND: &str = "apikey";
-const TOKEN_KEY: &str = "token";
-const USERNAME_KEY: &str = "username";
-const PASSWORD_KEY: &str = "password";
-const API_KEY_NAME_KEY: &str = "key";
-const API_KEY_VALUE_KEY: &str = "value";
-const API_KEY_LOCATION_KEY: &str = "in";
-const API_KEY_IN_QUERY: &str = "query";
 const FRAGMENT_MARK: char = '#';
 const QUERY_MARK: char = '?';
 const QUERY_SEPARATOR: char = '&';
