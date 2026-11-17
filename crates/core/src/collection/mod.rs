@@ -15,6 +15,7 @@ mod variable;
 
 pub use auth::{Auth, AuthAttribute};
 pub use body::{Body, BodyMode};
+pub use browse::RequestLocation;
 pub use event::{Event, Script};
 pub use info::{Info, POSTMAN_COLLECTION_SCHEMA_V21};
 pub use item::Item;

@@ -19,6 +19,7 @@ enum Command {
     ToggleTwoPaneView,
     ToggleWorkbench,
     SwapSidebars,
+    Palette,
 }
 
 pub struct Shortcut {
@@ -31,7 +32,7 @@ const COMMAND_SHIFT: Modifiers = Modifiers::COMMAND.plus(Modifiers::SHIFT);
 const COMMAND_ALT: Modifiers = Modifiers::COMMAND.plus(Modifiers::ALT);
 const CONTROL_SHIFT: Modifiers = Modifiers::CTRL.plus(Modifiers::SHIFT);
 
-pub const ALL: [Shortcut; 13] = [
+pub const ALL: [Shortcut; 14] = [
     Shortcut::new(
         "Send request",
         Modifiers::COMMAND,
@@ -54,6 +55,12 @@ pub const ALL: [Shortcut; 13] = [
         Command::PreviousTab,
     ),
     Shortcut::new("Next tab", Modifiers::CTRL, Key::Tab, Command::NextTab),
+    Shortcut::new(
+        "Command palette",
+        Modifiers::COMMAND,
+        Key::K,
+        Command::Palette,
+    ),
     Shortcut::new("Import", Modifiers::COMMAND, Key::O, Command::Import),
     Shortcut::new(
         "Settings",
@@ -100,6 +107,10 @@ impl Shortcut {
         self.keys.modifiers.alt || self.keys.modifiers.shift
     }
 
+    pub fn run(&self, state: &mut AppState, actions: &mut Vec<Action>) {
+        self.command.run(state, actions);
+    }
+
     pub fn keys_text(&self, ctx: &Context) -> String {
         ctx.format_shortcut(&self.keys)
     }
@@ -111,6 +122,9 @@ impl Command {
             Command::NewTab => actions.push(Action::NewTab),
             Command::Import => actions.push(Action::Show(Overlay::Import(Default::default()))),
             Command::Settings => actions.push(Action::Show(Overlay::Settings)),
+            Command::Palette => {
+                actions.push(Action::Show(Overlay::CommandPalette(Default::default())))
+            }
             Command::NextTab => actions.push(Action::ActivateNeighbourTab { forward: true }),
             Command::PreviousTab => actions.push(Action::ActivateNeighbourTab { forward: false }),
             Command::ToggleSidebar => toggle(state, actions, |ui| &mut ui.show_sidebar),
@@ -150,7 +164,7 @@ pub fn collect(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
     let (chorded, plain): (Vec<_>, Vec<_>) = ALL.iter().partition(|shortcut| shortcut.is_chorded());
     for shortcut in chorded.into_iter().chain(plain) {
         if ctx.input_mut(|input| input.consume_shortcut(&shortcut.keys)) {
-            shortcut.command.run(state, actions);
+            shortcut.run(state, actions);
         }
     }
 }

@@ -1,6 +1,12 @@
 use super::{Collection, Item, RequestSpec};
 
 const DEFAULT_METHOD: &str = "GET";
+const PATH_SEPARATOR: &str = " / ";
+
+pub struct RequestLocation<'a> {
+    pub item: &'a Item,
+    pub folders: String,
+}
 
 impl Item {
     pub fn matches_filter(&self, filter: &str) -> bool {
@@ -32,12 +38,32 @@ impl Collection {
             || self.item.iter().any(|item| item.matches_lowercase(&needle))
     }
 
+    pub fn request_locations(&self) -> Vec<RequestLocation<'_>> {
+        let mut found = Vec::new();
+        collect_requests(&self.item, &self.info.name, &mut found);
+        found
+    }
+
     pub fn position_of(&self, id: &str) -> Option<(Option<String>, usize)> {
         let trail = self.ancestors_of(id)?;
         let parent = trail.last();
         let siblings = parent.map_or(self.item.as_slice(), |folder| folder.children());
         let index = siblings.iter().position(|item| item.has_id(id))?;
         Some((parent.and_then(|folder| folder.id.clone()), index))
+    }
+}
+
+fn collect_requests<'a>(items: &'a [Item], folders: &str, found: &mut Vec<RequestLocation<'a>>) {
+    for item in items {
+        if item.is_folder() {
+            let nested = format!("{folders}{PATH_SEPARATOR}{}", item.display_name());
+            collect_requests(item.children(), &nested, found);
+        } else if item.id.is_some() {
+            found.push(RequestLocation {
+                item,
+                folders: folders.to_string(),
+            });
+        }
     }
 }
 
@@ -72,6 +98,24 @@ mod tests {
         assert!(folder.matches_filter("ORDERS"));
         assert!(!folder.matches_filter("ping"));
         assert!(folder.matches_filter(""));
+    }
+
+    #[test]
+    fn request_locations_list_every_request_with_its_folders() {
+        let (collection, _, nested) = sample();
+        let locations: Vec<_> = collection
+            .request_locations()
+            .into_iter()
+            .map(|location| (location.item.display_name().to_string(), location.folders))
+            .collect();
+        assert_eq!(
+            locations,
+            [
+                ("Create Order".to_string(), "Shop / Orders".to_string()),
+                ("Ping".to_string(), "Shop".to_string())
+            ]
+        );
+        assert!(collection.find_item(&nested).is_some());
     }
 
     #[test]

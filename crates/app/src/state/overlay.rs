@@ -9,6 +9,12 @@ pub struct ImportForm {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PaletteForm {
+    pub query: String,
+    pub selected: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SaveTabForm {
     pub tab: TabId,
@@ -62,6 +68,7 @@ pub enum Overlay {
     SaveTab(SaveTabForm),
     Rename(RenameForm),
     Export(ExportForm),
+    CommandPalette(PaletteForm),
 }
 
 const COLLECTION_FILE_SUFFIX: &str = ".postman_collection.json";
@@ -116,6 +123,22 @@ impl ExportForm {
             target: self.target.clone(),
             suggested: PathBuf::from(self.file_path.trim()),
         }
+    }
+}
+
+impl PaletteForm {
+    pub fn move_selection(&mut self, forward: bool, count: usize) {
+        if count == 0 {
+            self.selected = 0;
+        } else if forward {
+            self.selected = (self.selected + 1) % count;
+        } else {
+            self.selected = (self.selected + count - 1) % count;
+        }
+    }
+
+    pub fn query_changed(&mut self) {
+        self.selected = 0;
     }
 }
 

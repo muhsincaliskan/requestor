@@ -170,6 +170,10 @@ impl RequestTab {
                 .is_some_and(|edited| now - edited >= quiet_seconds)
     }
 
+    pub fn awaits_manual_save(&self, autosave: bool) -> bool {
+        self.unsaved && !(autosave && self.binding.is_some())
+    }
+
     pub fn is_bound_to(&self, collection_id: &str, item_id: &str) -> bool {
         self.binding
             .as_ref()
