@@ -1,10 +1,13 @@
 use eframe::egui::{Context, Theme, ThemePreference, Visuals};
 use requestor_core::workspace::{InterfaceSettings, ThemeName};
 
+mod contrast;
 mod palette;
 mod style;
 
-use palette::{DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
+pub use contrast::label_on;
+
+pub use palette::{Palette, DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Look {

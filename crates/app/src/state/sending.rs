@@ -51,7 +51,10 @@ impl AppState {
         };
         let unresolved = request.unresolved_variables();
         if !unresolved.is_empty() {
-            self.warn(format!("Unresolved variables: {}", unresolved.join(", ")));
+            self.warn(format!(
+                "Not defined: {}. Add them to the environment or collection.",
+                unresolved.join(", ")
+            ));
         }
         self.abandon_send(id);
         self.next_job += 1;

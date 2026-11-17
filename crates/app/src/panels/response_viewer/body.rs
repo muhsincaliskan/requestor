@@ -1,7 +1,7 @@
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    vec2, Align, Button, Key, KeyboardShortcut, Label, Layout, Modifiers, Rect, ScrollArea,
-    TextEdit, TextFormat, TextStyle, TextWrapMode, Ui,
+    vec2, Align, Key, KeyboardShortcut, Label, Layout, Modifiers, Rect, ScrollArea, TextEdit,
+    TextFormat, TextStyle, TextWrapMode, Ui,
 };
 use requestor_core::response::ResponseFormat;
 
@@ -9,7 +9,7 @@ use super::readout::ByteSize;
 use crate::response::{BodySearch, ResponseBuffer, ResponseView};
 use crate::state::Action;
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
-use crate::widgets::{append_row, layout_row, SyntaxPalette};
+use crate::widgets::{append_row, icon_button, layout_row, SyntaxPalette};
 
 const PRETTY_LABEL: &str = "Pretty";
 const RAW_LABEL: &str = "Raw";
@@ -20,6 +20,8 @@ const FIND_HINT: &str = "Find";
 const FIND_WIDTH: f32 = 180.0;
 const PREVIOUS_LABEL: &str = "‹";
 const NEXT_LABEL: &str = "›";
+const PREVIOUS_HINT: &str = "Previous match";
+const NEXT_HINT: &str = "Next match";
 const NO_MATCHES: &str = "No matches";
 const ROWS_ABOVE_MATCH: f32 = 3.0;
 const FIND_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::F);
@@ -63,10 +65,10 @@ fn toolbar(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
 }
 
 fn find_box(ui: &mut Ui, search: &mut BodySearch) {
-    if ui.add(Button::new(NEXT_LABEL).frame(false)).clicked() {
+    if icon_button(ui, NEXT_LABEL, NEXT_HINT).clicked() {
         search.step(true);
     }
-    if ui.add(Button::new(PREVIOUS_LABEL).frame(false)).clicked() {
+    if icon_button(ui, PREVIOUS_LABEL, PREVIOUS_HINT).clicked() {
         search.step(false);
     }
     match search.position() {

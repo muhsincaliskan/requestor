@@ -10,6 +10,7 @@ use eframe::egui::{
 };
 
 use crate::state::{Action, AppState, Overlay};
+use crate::widgets::icon_button;
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
 
 const TITLE: &str = "Collections";
@@ -17,6 +18,7 @@ const NEW_LABEL: &str = "+";
 const IMPORT_LABEL: &str = "Import";
 const NEW_COLLECTION_LABEL: &str = "New collection";
 const CLEAR_LABEL: &str = "×";
+const CLEAR_HINT: &str = "Clear filter";
 const FILTER_HINT: &str = "Filter requests";
 const FILTER_ID: &str = "sidebar-filter";
 const SCROLL_ID: &str = "sidebar-scroll";
@@ -57,9 +59,7 @@ fn header(ui: &mut Ui, actions: &mut Vec<Action>) {
 
 fn trailing_add_button(ui: &mut Ui, hint: &str) -> bool {
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-        ui.add(Button::new(NEW_LABEL).frame(false))
-            .on_hover_text(hint)
-            .clicked()
+        icon_button(ui, NEW_LABEL, hint).clicked()
     })
     .inner
 }
@@ -77,7 +77,7 @@ fn filter_field(ui: &mut Ui) -> String {
     let mut changed = false;
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if !text.is_empty() && ui.add(Button::new(CLEAR_LABEL).frame(false)).clicked() {
+            if !text.is_empty() && icon_button(ui, CLEAR_LABEL, CLEAR_HINT).clicked() {
                 text.clear();
                 changed = true;
             }

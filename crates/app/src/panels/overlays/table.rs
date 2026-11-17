@@ -1,7 +1,7 @@
 use eframe::egui::{vec2, Align, Button, Grid, Layout, ScrollArea, TextEdit, Ui};
 
-use crate::widgets::action_button;
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
+use crate::widgets::{action_button, icon_button};
 
 const ADD_VARIABLE_LABEL: &str = "+ Add variable";
 pub(super) const KEY_HINT: &str = "Variable";
@@ -94,9 +94,7 @@ pub(super) fn enabled_cell(ui: &mut Ui, enabled: bool) -> Option<bool> {
 }
 
 pub(super) fn delete_cell(ui: &mut Ui) -> bool {
-    ui.add(Button::new(DELETE_LABEL).frame(false))
-        .on_hover_text(DELETE_HINT)
-        .clicked()
+    icon_button(ui, DELETE_LABEL, DELETE_HINT).clicked()
 }
 
 pub(super) fn footer(ui: &mut Ui) -> (bool, bool) {

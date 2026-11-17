@@ -1,7 +1,9 @@
 mod highlight;
+mod icon_button;
 mod method_badge;
 
 pub use highlight::{append_row, layout_row, SyntaxPalette};
+pub use icon_button::icon_button;
 pub use method_badge::{aligned_request_title, method_color, request_title};
 
 pub mod action_button;

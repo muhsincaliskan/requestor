@@ -85,7 +85,7 @@ fn an_unreadable_file_reports_on_the_form_or_in_the_status_bar() {
     assert!(form
         .error
         .as_deref()
-        .is_some_and(|error| error.starts_with("Cannot read")));
+        .is_some_and(|error| error.starts_with("Could not read")));
     state.overlay = None;
     state.apply(Action::ImportFile(missing), 0.0);
     assert!(state.overlay.is_none());

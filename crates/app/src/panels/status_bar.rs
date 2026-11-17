@@ -3,14 +3,16 @@ use std::time::Duration;
 use eframe::egui::{Color32, Ui};
 
 use crate::state::{Action, AppState, NoticeLevel, SaveStatus};
+use crate::widgets::icon_button;
 
 const DISMISS_LABEL: &str = "×";
+const DISMISS_HINT: &str = "Dismiss";
 
 pub fn show(ui: &mut Ui, state: &AppState, now: f64, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| match state.notice(now) {
         Some(notice) => {
             ui.colored_label(level_color(ui, notice.level), &notice.text);
-            if ui.small_button(DISMISS_LABEL).clicked() {
+            if icon_button(ui, DISMISS_LABEL, DISMISS_HINT).clicked() {
                 actions.push(Action::DismissNotice);
             }
         }

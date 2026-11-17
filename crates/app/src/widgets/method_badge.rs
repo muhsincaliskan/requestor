@@ -15,17 +15,17 @@ const METHOD_COLORS: [MethodColor; 7] = [
     MethodColor::new(
         "GET",
         Color32::from_rgb(107, 203, 119),
-        Color32::from_rgb(0, 127, 49),
+        Color32::from_rgb(0, 112, 43),
     ),
     MethodColor::new(
         "POST",
         Color32::from_rgb(255, 196, 87),
-        Color32::from_rgb(173, 122, 3),
+        Color32::from_rgb(140, 96, 0),
     ),
     MethodColor::new(
         "PUT",
         Color32::from_rgb(116, 174, 246),
-        Color32::from_rgb(9, 123, 237),
+        Color32::from_rgb(0, 98, 204),
     ),
     MethodColor::new(
         "PATCH",
@@ -40,7 +40,7 @@ const METHOD_COLORS: [MethodColor; 7] = [
     MethodColor::new(
         "HEAD",
         Color32::from_rgb(94, 214, 199),
-        Color32::from_rgb(0, 122, 110),
+        Color32::from_rgb(0, 108, 97),
     ),
     MethodColor::new(
         "OPTIONS",
