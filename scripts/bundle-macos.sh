@@ -21,6 +21,8 @@ BUNDLE_DIR="target/bundle"
 UNIVERSAL_DIR="target/universal"
 HOST_TARGET=""
 DMG_VOLUME_NAME="$APP_NAME"
+ICON_SOURCE="assets/icon/requestor.icns"
+ICON_FILE="Requestor.icns"
 
 fail() {
   echo "error: $*" >&2
@@ -97,6 +99,7 @@ write_info_plist() {
   <key>CFBundleVersion</key><string>$version</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleIconFile</key><string>$ICON_FILE</string>
   <key>LSMinimumSystemVersion</key><string>$MIN_MACOS_VERSION</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>
@@ -109,6 +112,7 @@ assemble_app() {
   rm -rf "$app_dir"
   mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
   cp "$source_dir/$APP_BINARY" "$app_dir/Contents/MacOS/$APP_BINARY"
+  cp "$ICON_SOURCE" "$app_dir/Contents/Resources/$ICON_FILE"
   write_info_plist "$app_dir/Contents/Info.plist" "$version"
 }
 
