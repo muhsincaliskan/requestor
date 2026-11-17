@@ -2592,6 +2592,9 @@ dependencies = [
 [[package]]
 name = "requestor-cli"
 version = "0.1.0"
+dependencies = [
+ "requestor-core",
+]
 
 [[package]]
 name = "requestor-core"
