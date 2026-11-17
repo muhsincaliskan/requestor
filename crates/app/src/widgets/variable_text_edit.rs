@@ -121,6 +121,9 @@ impl<'a> VariableTextEdit<'a> {
         response: &Response,
         state: &mut PopupState,
     ) -> bool {
+        if self.names.is_empty() {
+            return false;
+        }
         let shown = response.has_focus() || state.visible;
         let suggestion = Suggestion::find(ctx, id, self.text, self.names);
         let Some(suggestion) = suggestion

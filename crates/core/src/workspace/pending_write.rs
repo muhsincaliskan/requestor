@@ -39,6 +39,10 @@ impl PendingWrite {
         PendingWrite { path, contents }
     }
 
+    pub fn to_file(path: PathBuf, contents: String) -> Self {
+        PendingWrite { path, contents }
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }

@@ -188,6 +188,7 @@ fn a_scratch_tab_is_saved_into_a_collection_and_becomes_bound() {
             name: "created".to_string(),
             collection_id: collection_id.clone(),
             folder_id: None,
+            close_after: false,
         },
         0.0,
     );
@@ -384,4 +385,53 @@ fn neighbour_activation_wraps_around() {
     assert_eq!(state.active_tab, Some(ids[0]));
     state.apply(Action::ActivateNeighbourTab { forward: false }, 0.0);
     assert_eq!(state.active_tab, Some(ids[2]));
+}
+
+#[test]
+fn saving_from_the_close_prompt_also_closes_the_tab() {
+    let (mut state, collection_id, item_id) = state_with_request();
+    state.workspace.settings.interface.autosave = false;
+    let tab = open(&mut state, &collection_id, &item_id);
+    edit_url(&mut state, tab, "https://example.test/changed", 0.0);
+    state.apply(Action::CloseTab(tab), 0.0);
+    state.apply(Action::SaveAndCloseTab(tab), 0.0);
+    assert!(state.tabs.is_empty());
+    assert_eq!(state.overlay, None);
+    assert_eq!(
+        stored_url(&state, &collection_id, &item_id),
+        "https://example.test/changed"
+    );
+}
+
+#[test]
+fn closing_other_tabs_asks_about_the_first_unsaved_one() {
+    let mut state = state_with(Workspace::default());
+    for _ in 0..3 {
+        state.apply(Action::NewTab, 0.0);
+    }
+    let ids: Vec<TabId> = state.tabs.iter().map(|tab| tab.id).collect();
+    edit_url(&mut state, ids[0], "https://example.test/kept", 0.0);
+    state.apply(Action::CloseOtherTabs(ids[2]), 0.0);
+    assert_eq!(state.tabs.len(), 2);
+    assert_eq!(state.overlay, Some(Overlay::ConfirmCloseTab(ids[0])));
+    assert_eq!(state.active_tab, Some(ids[2]));
+}
+
+#[test]
+fn unsaved_work_restored_from_the_session_is_autosaved() {
+    let (mut state, collection_id, item_id) = state_with_request();
+    state.workspace.settings.interface.autosave = false;
+    let tab = open(&mut state, &collection_id, &item_id);
+    edit_url(&mut state, tab, "https://example.test/draft", 0.0);
+    state.flush();
+
+    let mut workspace = state.workspace.clone();
+    workspace.settings.interface.autosave = true;
+    let mut restored = state_with(workspace);
+    restored.tick(LATER);
+    assert!(!restored.tabs[0].unsaved);
+    assert_eq!(
+        stored_url(&restored, &collection_id, &item_id),
+        "https://example.test/draft"
+    );
 }

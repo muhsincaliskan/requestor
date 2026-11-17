@@ -34,8 +34,9 @@ impl Effect {
             Effect::DeleteEnvironmentFile(id) => store
                 .delete_environment(&id)
                 .map_err(|error| error.to_string()),
-            Effect::WriteFile { path, contents } => std::fs::write(&path, contents)
-                .map_err(|error| format!("{}: {error}", path.display())),
+            Effect::WriteFile { path, contents } => PendingWrite::to_file(path, contents)
+                .commit()
+                .map_err(|error| error.to_string()),
             Effect::Send { .. } | Effect::CopyText(_) => Ok(()),
         }
     }

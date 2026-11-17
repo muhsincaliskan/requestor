@@ -14,6 +14,7 @@ pub struct SaveTabForm {
     pub name: String,
     pub collection_id: Option<String>,
     pub folder_id: Option<String>,
+    pub close_after: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -102,11 +103,16 @@ impl ExportForm {
 
 impl SaveTabForm {
     pub fn submission(&self) -> Option<Action> {
+        let name = self.name.trim();
+        if name.is_empty() {
+            return None;
+        }
         Some(Action::SaveTabInto {
             tab: self.tab,
-            name: self.name.trim().to_string(),
+            name: name.to_string(),
             collection_id: self.collection_id.clone()?,
             folder_id: self.folder_id.clone(),
+            close_after: self.close_after,
         })
     }
 }

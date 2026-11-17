@@ -22,11 +22,13 @@ pub enum Action {
     DuplicateTab(TabId),
     TabEdited(TabId),
     SaveTab(TabId),
+    SaveAndCloseTab(TabId),
     SaveTabInto {
         tab: TabId,
         name: String,
         collection_id: String,
         folder_id: Option<String>,
+        close_after: bool,
     },
     Send(TabId),
     CancelSend(TabId),

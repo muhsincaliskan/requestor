@@ -5,6 +5,7 @@ use requestor_core::workspace::{SessionTab, Workspace};
 use crate::response::ResponseView;
 
 pub const UNTITLED_REQUEST: &str = "Untitled request";
+const RESTORED_AT: f64 = 0.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TabId(pub u64);
@@ -134,7 +135,9 @@ impl RequestTab {
             Some(request) => RequestDraft::from_request(saved.name.as_str(), request),
             None => RequestDraft::blank(saved.name.as_str()),
         };
-        RequestTab::with_draft(id, binding, draft, unsaved)
+        let mut tab = RequestTab::with_draft(id, binding, draft, unsaved);
+        tab.edited_at = unsaved.then_some(RESTORED_AT);
+        tab
     }
 
     pub fn to_session(&self) -> SessionTab {

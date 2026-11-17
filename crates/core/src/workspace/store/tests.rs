@@ -143,3 +143,51 @@ fn identifiers_cannot_escape_the_storage_directory() {
     let write = root.store().collection_write(&collection).unwrap();
     assert!(write.path().starts_with(root.0.join("collections")));
 }
+
+#[test]
+fn a_dropped_in_file_is_adopted_once_and_keeps_its_identity() {
+    let scratch = TemporaryRoot::new();
+    let store = scratch.store();
+    let directory = store.root().join("collections");
+    std::fs::create_dir_all(&directory).unwrap();
+    let dropped = directory.join("My API.json");
+    std::fs::write(
+        &dropped,
+        r#"{"info":{"name":"My API","schema":"s"},"item":[]}"#,
+    )
+    .unwrap();
+
+    let first = store.load();
+    assert!(first.warnings.is_empty());
+    assert_eq!(first.workspace.collections.len(), 1);
+    assert!(!dropped.exists());
+
+    let second = store.load();
+    assert_eq!(second.workspace.collections.len(), 1);
+    assert_eq!(
+        second.workspace.collections[0].id(),
+        first.workspace.collections[0].id()
+    );
+}
+
+#[test]
+fn two_files_claiming_one_identity_both_survive_under_their_own() {
+    let scratch = TemporaryRoot::new();
+    let store = scratch.store();
+    let directory = store.root().join("collections");
+    std::fs::create_dir_all(&directory).unwrap();
+    let document = |name: &str| {
+        format!(r#"{{"info":{{"_postman_id":"shared","name":"{name}","schema":"s"}},"item":[]}}"#)
+    };
+    std::fs::write(directory.join("shared.json"), document("original")).unwrap();
+    std::fs::write(directory.join("a copy.json"), document("copy")).unwrap();
+
+    let loaded = store.load().workspace;
+    assert_eq!(loaded.collections.len(), 2);
+    assert_eq!(loaded.collection("shared").unwrap().info.name, "original");
+    assert_ne!(loaded.collections[1].id(), "shared");
+
+    let again = store.load().workspace;
+    assert_eq!(again.collections.len(), 2);
+    assert_eq!(again.collection("shared").unwrap().info.name, "original");
+}

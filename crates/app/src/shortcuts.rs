@@ -119,6 +119,9 @@ impl Command {
 }
 
 pub fn collect(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
+    if state.overlay.is_some() {
+        return;
+    }
     for shortcut in &ALL {
         if ctx.input_mut(|input| input.consume_shortcut(&shortcut.keys)) {
             shortcut.command.run(state, actions);

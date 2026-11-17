@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::{Auth, Collection, Item, Request, RequestSpec, Variable};
 use crate::identity::random_uuid;
 
@@ -20,7 +22,10 @@ impl Collection {
         if self.info.postman_id.is_none() {
             self.info.postman_id = Some(random_uuid());
         }
-        self.item.iter_mut().for_each(Item::assign_missing_ids);
+        let mut seen = HashSet::new();
+        for item in &mut self.item {
+            item.assign_unique_ids(&mut seen);
+        }
     }
 
     pub fn find_item(&self, id: &str) -> Option<&Item> {
@@ -32,7 +37,8 @@ impl Collection {
     }
 
     pub fn add_item(&mut self, parent: Option<&str>, mut item: Item) -> Option<String> {
-        item.assign_missing_ids();
+        let mut seen = self.item_ids();
+        item.assign_unique_ids(&mut seen);
         let id = item.id.clone();
         self.children_of_mut(parent)?.push(item);
         id
@@ -102,6 +108,14 @@ impl Collection {
         paths
     }
 
+    fn item_ids(&self) -> HashSet<String> {
+        let mut ids = HashSet::new();
+        for item in &self.item {
+            item.collect_ids(&mut ids);
+        }
+        ids
+    }
+
     fn can_move(&self, id: &str, parent: Option<&str>) -> bool {
         let Some(item) = self.find_item(id) else {
             return false;
@@ -144,14 +158,23 @@ impl Item {
         self.request = Some(RequestSpec::Full(Box::new(request)));
     }
 
-    fn assign_missing_ids(&mut self) {
-        if self.id.is_none() {
-            self.id = Some(random_uuid());
+    fn assign_unique_ids(&mut self, seen: &mut HashSet<String>) {
+        let unique = self.id.as_ref().is_some_and(|id| seen.insert(id.clone()));
+        if !unique {
+            let fresh = random_uuid();
+            seen.insert(fresh.clone());
+            self.id = Some(fresh);
         }
-        self.item
-            .iter_mut()
-            .flatten()
-            .for_each(Item::assign_missing_ids);
+        for child in self.item.iter_mut().flatten() {
+            child.assign_unique_ids(seen);
+        }
+    }
+
+    fn collect_ids(&self, ids: &mut HashSet<String>) {
+        ids.extend(self.id.clone());
+        for child in self.children() {
+            child.collect_ids(ids);
+        }
     }
 
     fn find(&self, id: &str) -> Option<&Item> {
@@ -172,7 +195,7 @@ impl Item {
         let mut copy = self.clone();
         copy.name = Some(format!("{}{COPY_SUFFIX}", self.display_name()));
         copy.forget_ids();
-        copy.assign_missing_ids();
+        copy.assign_unique_ids(&mut HashSet::new());
         copy
     }
 

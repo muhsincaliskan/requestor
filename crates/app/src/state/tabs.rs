@@ -21,13 +21,18 @@ impl AppState {
             Action::CloseOtherTabs(tab) => self.close_other_tabs(tab),
             Action::DuplicateTab(tab) => self.duplicate_tab(tab),
             Action::TabEdited(tab) => self.tab_edited(tab),
-            Action::SaveTab(tab) => self.save_tab(tab),
+            Action::SaveTab(tab) => self.save_tab(tab, false),
+            Action::SaveAndCloseTab(tab) => self.save_tab(tab, true),
             Action::SaveTabInto {
                 tab,
                 name,
                 collection_id,
                 folder_id,
-            } => self.save_tab_into(tab, name, &collection_id, folder_id.as_deref()),
+                close_after,
+            } => {
+                self.save_tab_into(tab, name, &collection_id, folder_id.as_deref());
+                self.close_saved_tab(tab, close_after);
+            }
             other => self.dispatch_sending_action(other, effects),
         }
     }
@@ -164,10 +169,13 @@ impl AppState {
             .map(|tab| tab.id)
             .filter(|id| *id != keep)
             .collect();
+        self.overlay = None;
+        let mut awaiting_confirmation = None;
         for id in others {
             self.close_tab(id);
+            awaiting_confirmation = awaiting_confirmation.or(self.overlay.take());
         }
-        self.overlay = None;
+        self.overlay = awaiting_confirmation;
         self.activate(keep);
     }
 
@@ -187,10 +195,17 @@ impl AppState {
         }
     }
 
-    fn save_tab(&mut self, id: TabId) {
+    fn close_saved_tab(&mut self, id: TabId, wanted: bool) {
+        if wanted && self.tab(id).is_some_and(|tab| !tab.unsaved) {
+            self.force_close_tab(id);
+        }
+    }
+
+    fn save_tab(&mut self, id: TabId, close_after: bool) {
         let Some(tab) = self.tab(id) else { return };
         if tab.binding.is_some() {
             self.commit_tab(id);
+            self.close_saved_tab(id, close_after);
             return;
         }
         self.overlay = Some(Overlay::SaveTab(SaveTabForm {
@@ -202,6 +217,7 @@ impl AppState {
                 .first()
                 .map(|collection| collection.id().to_string()),
             folder_id: None,
+            close_after,
         }));
     }
 

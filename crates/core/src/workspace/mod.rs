@@ -1,3 +1,4 @@
+mod adoption;
 mod pending_write;
 mod session;
 mod settings;

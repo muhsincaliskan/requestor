@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+use super::adoption::{Adoption, LoadedDocument, StoredDocument};
 use super::pending_write::{PendingWrite, StoreError};
 use super::settings::AppSettings;
 use super::{Session, Workspace};
@@ -50,8 +51,8 @@ impl WorkspaceStore {
     pub fn load(&self) -> LoadedWorkspace {
         let mut warnings = Vec::new();
         let mut workspace = Workspace {
-            collections: self.load_directory(COLLECTIONS_DIRECTORY, &mut warnings),
-            environments: self.load_directory(ENVIRONMENTS_DIRECTORY, &mut warnings),
+            collections: self.load_documents(COLLECTIONS_DIRECTORY, &mut warnings),
+            environments: self.load_documents(ENVIRONMENTS_DIRECTORY, &mut warnings),
             settings: self.load_file(SETTINGS_FILE, &mut warnings),
             session: self.load_file(SESSION_FILE, &mut warnings),
         };
@@ -102,11 +103,43 @@ impl WorkspaceStore {
             .join(format!("{}.{JSON_EXTENSION}", safe_file_stem(id)))
     }
 
-    fn load_directory<T: DeserializeOwned>(
+    fn load_documents<T: DeserializeOwned + Serialize + StoredDocument>(
         &self,
         directory: &str,
         warnings: &mut Vec<StoreError>,
     ) -> Vec<T> {
+        let loaded = self.load_directory(directory, warnings);
+        let adoption = Adoption::of(loaded, |id| self.document_path(directory, id));
+        let mut documents: Vec<T> = adoption
+            .settled
+            .into_iter()
+            .map(|entry| entry.document)
+            .collect();
+        for entry in adoption.misplaced {
+            if let Err(error) = self.move_home(directory, &entry) {
+                warnings.push(error);
+            }
+            documents.push(entry.document);
+        }
+        documents
+    }
+
+    fn move_home<T: Serialize + StoredDocument>(
+        &self,
+        directory: &str,
+        entry: &LoadedDocument<T>,
+    ) -> Result<(), StoreError> {
+        let id = entry.document.stored_id().unwrap_or_default();
+        self.document_write(directory, id, &entry.document)?
+            .commit()?;
+        remove_if_present(&entry.path)
+    }
+
+    fn load_directory<T: DeserializeOwned>(
+        &self,
+        directory: &str,
+        warnings: &mut Vec<StoreError>,
+    ) -> Vec<LoadedDocument<T>> {
         let Ok(entries) = fs::read_dir(self.root.join(directory)) else {
             return Vec::new();
         };
@@ -116,11 +149,13 @@ impl WorkspaceStore {
             .collect();
         paths.sort();
         paths
-            .iter()
-            .filter_map(|path| {
-                read_document(path)
-                    .map_err(|error| warnings.push(error))
-                    .ok()
+            .into_iter()
+            .filter_map(|path| match read_document(&path) {
+                Ok(document) => Some(LoadedDocument { path, document }),
+                Err(error) => {
+                    warnings.push(error);
+                    None
+                }
             })
             .collect()
     }

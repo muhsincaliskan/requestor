@@ -36,7 +36,7 @@ pub fn confirm_close_tab(
         ui.label("This request has changes that are not saved.");
         buttons(ui, |ui| {
             if ui.button(SAVE_LABEL).clicked() {
-                actions.push(Action::SaveTab(tab));
+                actions.push(Action::SaveAndCloseTab(tab));
                 return false;
             }
             if ui.button(DISCARD_LABEL).clicked() {

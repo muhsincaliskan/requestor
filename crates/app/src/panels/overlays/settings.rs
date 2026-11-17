@@ -93,10 +93,11 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> b
     if edited {
         actions.push(Action::SettingsEdited);
     }
-    if done {
+    let stays_open = !done && !shown.should_close();
+    if !stays_open {
         proxy::forget_transient_state(ctx);
     }
-    !done && !shown.should_close()
+    stays_open
 }
 
 fn pane(ui: &mut Ui, width: f32, contents: impl FnOnce(&mut Ui)) {

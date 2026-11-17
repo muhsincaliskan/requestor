@@ -1,5 +1,6 @@
 const INDENT: &str = "  ";
 const NEWLINE: char = '\n';
+const MAX_INDENT_LEVELS: usize = 32;
 
 struct Layout {
     output: String,
@@ -90,7 +91,7 @@ impl Layout {
 
     fn break_line(&mut self) {
         self.output.push(NEWLINE);
-        for _ in 0..self.depth {
+        for _ in 0..self.depth.min(MAX_INDENT_LEVELS) {
             self.output.push_str(INDENT);
         }
     }
@@ -99,6 +100,16 @@ impl Layout {
 #[cfg(test)]
 mod tests {
     use super::reindent;
+
+    #[test]
+    fn deep_nesting_does_not_multiply_the_size() {
+        let depth = 4_000;
+        let document = format!("{}{}", "[".repeat(depth), "]".repeat(depth));
+        let laid_out = reindent(&document);
+        let longest_line = 2 * super::MAX_INDENT_LEVELS + 2;
+        assert!(laid_out.len() <= 2 * depth * longest_line);
+        assert_eq!(laid_out.lines().count(), 2 * depth - 1);
+    }
 
     #[test]
     fn minified_documents_are_spread_over_lines() {
