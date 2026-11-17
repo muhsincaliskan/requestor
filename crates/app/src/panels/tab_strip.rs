@@ -1,12 +1,13 @@
-use eframe::egui::{Button, ScrollArea, Ui};
+use eframe::egui::{ScrollArea, Ui};
 
 use crate::state::{Action, AppState, RequestTab};
-use crate::widgets::request_title;
+use crate::widgets::{icon_button, request_title};
 
 const STRIP_SCROLL_ID: &str = "tab-strip-scroll";
 const NEW_TAB_LABEL: &str = "+";
 const NEW_TAB_HINT: &str = "New tab";
 const CLOSE_LABEL: &str = "×";
+const CLOSE_HINT: &str = "Close tab";
 const UNSAVED_MARK: &str = " •";
 const SAVE_ITEM: &str = "Save";
 const DUPLICATE_ITEM: &str = "Duplicate";
@@ -50,7 +51,7 @@ fn tab_button(
     if button.clicked() {
         actions.push(Action::ActivateTab(tab.id));
     }
-    if button.middle_clicked() || ui.add(Button::new(CLOSE_LABEL).frame(false)).clicked() {
+    if button.middle_clicked() || icon_button(ui, CLOSE_LABEL, CLOSE_HINT).clicked() {
         actions.push(Action::CloseTab(tab.id));
     }
     button.context_menu(|ui| {

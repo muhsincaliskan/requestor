@@ -1,6 +1,7 @@
-use eframe::egui::{Button, Checkbox, Id, Label, RichText, Ui};
+use eframe::egui::{Checkbox, Id, Label, RichText, Ui};
 use requestor_core::draft::KeyValueRow;
 
+use super::icon_button;
 use super::variable_text_edit::{VariableHints, VariableTextEdit};
 
 const KEY_HINT: &str = "Key";
@@ -8,6 +9,7 @@ const VALUE_HINT: &str = "Value";
 const FILE_HINT: &str = "File path";
 const DESCRIPTION_HINT: &str = "Description";
 const DELETE_LABEL: &str = "×";
+const DELETE_HINT: &str = "Delete row";
 const TEXT_KIND_LABEL: &str = "Text";
 const FILE_KIND_LABEL: &str = "File";
 const GRID_SALT: &str = "grid";
@@ -155,7 +157,7 @@ impl<'a> KeyValueTable<'a> {
             outcome.changed |=
                 value_cell(ui, row, widths.value, files_allowed, hints, id.with(index));
             outcome.changed |= description_cell(ui, row, widths.description, id.with(index));
-            outcome.delete = deletable && ui.add(Button::new(DELETE_LABEL).frame(false)).clicked();
+            outcome.delete = deletable && icon_button(ui, DELETE_LABEL, DELETE_HINT).clicked();
         });
         outcome
     }

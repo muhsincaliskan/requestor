@@ -18,6 +18,7 @@ pub struct Palette {
     pub border: Color32,
     pub accent: Color32,
     pub danger: Color32,
+    pub muted: Color32,
 }
 
 pub const DAYLIGHT: Palette = Palette {
@@ -31,7 +32,8 @@ pub const DAYLIGHT: Palette = Palette {
     widget_active: Color32::from_rgb(208, 215, 228),
     border: Color32::from_rgb(214, 219, 227),
     accent: Color32::from_rgb(37, 99, 235),
-    danger: Color32::from_rgb(220, 38, 38),
+    danger: Color32::from_rgb(208, 32, 32),
+    muted: Color32::from_rgb(96, 103, 115),
 };
 
 pub const NIGHT: Palette = Palette {
@@ -46,6 +48,7 @@ pub const NIGHT: Palette = Palette {
     border: Color32::from_rgb(54, 59, 70),
     accent: Color32::from_rgb(76, 139, 255),
     danger: Color32::from_rgb(239, 83, 80),
+    muted: Color32::from_rgb(145, 148, 154),
 };
 
 pub const MIDNIGHT: Palette = Palette {
@@ -60,6 +63,7 @@ pub const MIDNIGHT: Palette = Palette {
     border: Color32::from_rgb(38, 47, 74),
     accent: Color32::from_rgb(64, 110, 214),
     danger: Color32::from_rgb(224, 82, 82),
+    muted: Color32::from_rgb(126, 132, 149),
 };
 
 pub const SEPIA: Palette = Palette {
@@ -74,6 +78,7 @@ pub const SEPIA: Palette = Palette {
     border: Color32::from_rgb(214, 201, 170),
     accent: Color32::from_rgb(176, 120, 52),
     danger: Color32::from_rgb(178, 58, 42),
+    muted: Color32::from_rgb(112, 92, 68),
 };
 
 impl Palette {
@@ -87,6 +92,7 @@ impl Palette {
         visuals.selection.stroke = Stroke::new(BORDER_WIDTH, self.accent);
         visuals.hyperlink_color = self.accent;
         visuals.error_fg_color = self.danger;
+        visuals.weak_text_color = Some(self.muted);
         visuals.window_stroke = Stroke::new(BORDER_WIDTH, self.border);
         visuals.window_corner_radius = CornerRadius::same(WINDOW_RADIUS);
         visuals.menu_corner_radius = CornerRadius::same(MENU_RADIUS);

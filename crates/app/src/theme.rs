@@ -1,8 +1,11 @@
 use eframe::egui::{Context, Theme, ThemePreference, Visuals};
 use requestor_core::workspace::{InterfaceSettings, ThemeName};
 
+mod contrast;
 mod palette;
 mod style;
+
+pub use contrast::label_on;
 
 use palette::{DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
 
