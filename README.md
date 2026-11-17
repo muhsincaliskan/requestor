@@ -70,6 +70,8 @@ requestor send "curl -X POST https://example.test/pets -d '{\"name\":\"Rex\"}'"
 requestor import openapi.json --to postman
 ```
 
+`run` evaluates the checks saved with each request and passes values extracted from a response to the requests after it. A failed check fails the request.
+
 Run `requestor --help` for every option. The exit code is 0 when every request succeeded, 1 when one failed and 2 for usage or input errors.
 
 ## Layout

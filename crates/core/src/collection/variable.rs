@@ -41,6 +41,19 @@ impl Variable {
         }
     }
 
+    pub fn set_in(variables: &mut Vec<Variable>, key: &str, text: &str) {
+        match variables
+            .iter_mut()
+            .find(|variable| variable.key_text() == key)
+        {
+            Some(variable) => {
+                variable.set_value_text(text);
+                variable.set_enabled(true);
+            }
+            None => variables.push(Variable::text(key, text)),
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         !self.disabled.unwrap_or(false)
     }

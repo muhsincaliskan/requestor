@@ -119,6 +119,22 @@ impl Environment {
         Ok(serde_json::to_string_pretty(self)?)
     }
 
+    pub fn set_value(&mut self, key: &str, text: &str) {
+        let index = match self.values.iter().position(|entry| entry.key == key) {
+            Some(index) => index,
+            None => {
+                self.values.push(EnvironmentValue {
+                    key: key.to_string(),
+                    ..EnvironmentValue::blank()
+                });
+                self.values.len() - 1
+            }
+        };
+        let entry = &mut self.values[index];
+        entry.set_value_text(text);
+        entry.set_enabled(true);
+    }
+
     pub fn value_of(&self, key: &str) -> Option<String> {
         self.values
             .iter()
