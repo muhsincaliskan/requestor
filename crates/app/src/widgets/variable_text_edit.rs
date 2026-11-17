@@ -6,7 +6,7 @@ use eframe::egui::{Context, Id, Key, Margin, Modifiers, Response, TextEdit, Text
 use completion::step_selection;
 use popup::{draw_popup, PopupState, Suggestion, POPUP_STATE_SALT};
 
-const FIELD_MARGIN: Margin = Margin::symmetric(6, 5);
+pub const FIELD_MARGIN: Margin = Margin::symmetric(6, 5);
 
 pub struct VariableTextEdit<'a> {
     text: &'a mut String,

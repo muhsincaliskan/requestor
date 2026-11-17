@@ -1,7 +1,9 @@
 use eframe::egui::text::LayoutJob;
-use eframe::egui::{Color32, TextFormat, TextStyle, Ui};
+use eframe::egui::{vec2, Align2, Atom, AtomExt, Color32, RichText, TextFormat, TextStyle, Ui};
 
 const METHOD_GAP: &str = " ";
+const METHOD_COLUMN_WIDTH: f32 = 42.0;
+const METHOD_ABBREVIATIONS: [(&str, &str); 2] = [("DELETE", "DEL"), ("OPTIONS", "OPT")];
 
 struct MethodColor {
     method: &'static str,
@@ -82,4 +84,32 @@ pub fn request_title(ui: &Ui, method: Option<&str>, name: &str) -> LayoutJob {
     };
     job.append(name, 0.0, title);
     job
+}
+
+pub fn method_column<'a>(ui: &Ui, method: Option<&str>) -> Atom<'a> {
+    let method = method.unwrap_or_default();
+    RichText::new(abbreviated(method))
+        .small()
+        .color(method_color(ui, method))
+        .atom_size(vec2(METHOD_COLUMN_WIDTH, 0.0))
+        .atom_align(Align2::LEFT_CENTER)
+}
+
+fn abbreviated(method: &str) -> &str {
+    METHOD_ABBREVIATIONS
+        .iter()
+        .find(|(full, _)| full.eq_ignore_ascii_case(method))
+        .map_or(method, |(_, short)| short)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::abbreviated;
+
+    #[test]
+    fn long_methods_are_abbreviated_and_others_kept() {
+        assert_eq!(abbreviated("delete"), "DEL");
+        assert_eq!(abbreviated("OPTIONS"), "OPT");
+        assert_eq!(abbreviated("PATCH"), "PATCH");
+    }
 }

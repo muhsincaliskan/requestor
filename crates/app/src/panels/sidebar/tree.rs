@@ -3,12 +3,13 @@ use eframe::egui::{Button, Id, Label, Response, RichText, Sense, Ui, WidgetText}
 use requestor_core::collection::{Collection, Item};
 
 use super::drag::{self, DropSlot};
-use super::menus;
+use super::{menus, row, row_label};
 use crate::state::{Action, AppState, ItemBinding};
-use crate::widgets::request_title;
+use crate::widgets::method_column;
 
 const COLLECTION_NODE_ID: &str = "sidebar-collection";
 const FOLDER_NODE_ID: &str = "sidebar-folder";
+const NO_MATCH_TEXT: &str = "No requests match the filter.";
 
 struct TreeView<'a> {
     collection: &'a Collection,
@@ -19,8 +20,10 @@ struct TreeView<'a> {
 
 pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Vec<Action>) {
     let active = state.active().and_then(|tab| tab.binding.as_ref());
+    let mut shown_any = false;
     for collection in &state.workspace.collections {
         if collection.matches_filter(filter) {
+            shown_any = true;
             let mut view = TreeView {
                 collection,
                 active,
@@ -29,6 +32,9 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
             };
             collection_node(ui, &mut view);
         }
+    }
+    if !shown_any {
+        ui.weak(NO_MATCH_TEXT);
     }
 }
 
@@ -137,11 +143,11 @@ fn request_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
     let selected = view
         .active
         .is_some_and(|binding| binding.points_at(collection.id(), item_id));
-    let title = request_title(ui, item.method_name(), item.display_name());
-    let button = Button::selectable(selected, title)
-        .sense(Sense::click_and_drag())
-        .min_size(eframe::egui::vec2(ui.available_width(), 0.0));
-    let response = ui.add(button);
+    let atoms = (
+        method_column(ui, item.method_name()),
+        row_label(item.display_name()),
+    );
+    let response = ui.add(row(ui, selected, atoms).sense(Sense::click_and_drag()));
     if response.clicked() {
         view.actions.push(Action::OpenItem {
             collection_id: collection.id().to_string(),
