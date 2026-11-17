@@ -5,6 +5,7 @@ mod sidebar;
 mod status_bar;
 mod tab_strip;
 mod toolbar;
+mod welcome;
 
 use eframe::egui::{CentralPanel, Frame, Margin, Panel, Ui};
 use requestor_core::workspace::InterfaceSettings;
@@ -23,8 +24,6 @@ const REQUEST_SHARE: f32 = 0.5;
 const CONTENT_MARGIN: i8 = 14;
 const BAR_MARGIN_X: i8 = 12;
 const BAR_MARGIN_Y: i8 = 6;
-const EMPTY_WORKBENCH_TEXT: &str = "No open request";
-const NEW_REQUEST_LABEL: &str = "New request";
 
 pub fn show(ui: &mut Ui, state: &mut AppState, now: f64, actions: &mut Vec<Action>) {
     Panel::top(TOOLBAR_ID)
@@ -94,14 +93,7 @@ fn workbench(
         .frame(bar_frame(ui))
         .show(ui, |ui| tab_strip::show(ui, state, actions));
     let Some(tab) = state.active_tab else {
-        ui.centered_and_justified(|ui| {
-            ui.vertical_centered(|ui| {
-                ui.weak(EMPTY_WORKBENCH_TEXT);
-                if ui.button(NEW_REQUEST_LABEL).clicked() {
-                    actions.push(Action::NewTab);
-                }
-            });
-        });
+        welcome::show(ui, actions);
         return;
     };
     let request_panel = if interface.two_pane_view {
