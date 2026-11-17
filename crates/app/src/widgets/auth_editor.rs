@@ -1,7 +1,7 @@
 use eframe::egui::{ComboBox, Grid, Id, Ui};
 use requestor_core::draft::{AuthDraft, AuthKind};
 
-use super::variable_text_edit::VariableTextEdit;
+use super::variable_text_edit::{VariableHints, VariableTextEdit};
 
 const KIND_SALT: &str = "auth-kind";
 const GRID_SALT: &str = "auth-fields";
@@ -24,7 +24,7 @@ const SHOW_LABEL: &str = "Show";
 const HIDE_LABEL: &str = "Hide";
 const FIELD_WIDTH: f32 = 320.0;
 
-pub fn show(ui: &mut Ui, auth: &mut AuthDraft, names: &[String], id_salt: &str) -> bool {
+pub fn show(ui: &mut Ui, auth: &mut AuthDraft, hints: &VariableHints, id_salt: &str) -> bool {
     let id = ui.id().with(id_salt);
     let mut changed = kind_picker(ui, auth, id);
     if let Some(kind) = auth.unsupported_kind() {
@@ -36,9 +36,9 @@ pub fn show(ui: &mut Ui, auth: &mut AuthDraft, names: &[String], id_salt: &str) 
     changed |= match auth.kind {
         AuthKind::Inherit => hint(ui, INHERIT_HINT),
         AuthKind::None => hint(ui, NONE_HINT),
-        AuthKind::Bearer => bearer_fields(ui, auth, names, id),
-        AuthKind::Basic => basic_fields(ui, auth, names, id),
-        AuthKind::ApiKey => api_key_fields(ui, auth, names, id),
+        AuthKind::Bearer => bearer_fields(ui, auth, hints, id),
+        AuthKind::Basic => basic_fields(ui, auth, hints, id),
+        AuthKind::ApiKey => api_key_fields(ui, auth, hints, id),
         AuthKind::Unsupported => false,
     };
     changed
@@ -64,23 +64,23 @@ fn kind_picker(ui: &mut Ui, auth: &mut AuthDraft, id: Id) -> bool {
     auth.kind != before
 }
 
-fn bearer_fields(ui: &mut Ui, auth: &mut AuthDraft, names: &[String], id: Id) -> bool {
+fn bearer_fields(ui: &mut Ui, auth: &mut AuthDraft, hints: &VariableHints, id: Id) -> bool {
     fields_grid(ui, id, |ui| {
-        secret_row(ui, TOKEN_LABEL, &mut auth.token, names, id)
+        secret_row(ui, TOKEN_LABEL, &mut auth.token, hints, id)
     })
 }
 
-fn basic_fields(ui: &mut Ui, auth: &mut AuthDraft, names: &[String], id: Id) -> bool {
+fn basic_fields(ui: &mut Ui, auth: &mut AuthDraft, hints: &VariableHints, id: Id) -> bool {
     fields_grid(ui, id, |ui| {
-        let user = text_row(ui, USERNAME_LABEL, &mut auth.username, names, id);
-        user | secret_row(ui, PASSWORD_LABEL, &mut auth.password, names, id)
+        let user = text_row(ui, USERNAME_LABEL, &mut auth.username, hints, id);
+        user | secret_row(ui, PASSWORD_LABEL, &mut auth.password, hints, id)
     })
 }
 
-fn api_key_fields(ui: &mut Ui, auth: &mut AuthDraft, names: &[String], id: Id) -> bool {
+fn api_key_fields(ui: &mut Ui, auth: &mut AuthDraft, hints: &VariableHints, id: Id) -> bool {
     fields_grid(ui, id, |ui| {
-        let name = text_row(ui, KEY_NAME_LABEL, &mut auth.api_key_name, names, id);
-        let value = secret_row(ui, KEY_VALUE_LABEL, &mut auth.api_key_value, names, id);
+        let name = text_row(ui, KEY_NAME_LABEL, &mut auth.api_key_name, hints, id);
+        let value = secret_row(ui, KEY_VALUE_LABEL, &mut auth.api_key_value, hints, id);
         name | value | location_row(ui, &mut auth.api_key_in_query)
     })
 }
@@ -92,9 +92,9 @@ fn fields_grid(ui: &mut Ui, id: Id, add_rows: impl FnOnce(&mut Ui) -> bool) -> b
         .inner
 }
 
-fn text_row(ui: &mut Ui, label: &str, value: &mut String, names: &[String], id: Id) -> bool {
+fn text_row(ui: &mut Ui, label: &str, value: &mut String, hints: &VariableHints, id: Id) -> bool {
     ui.label(label);
-    let changed = VariableTextEdit::new(value, names)
+    let changed = VariableTextEdit::new(value, hints)
         .desired_width(FIELD_WIDTH)
         .id(id.with(label))
         .show(ui)
@@ -103,13 +103,13 @@ fn text_row(ui: &mut Ui, label: &str, value: &mut String, names: &[String], id: 
     changed
 }
 
-fn secret_row(ui: &mut Ui, label: &str, value: &mut String, names: &[String], id: Id) -> bool {
+fn secret_row(ui: &mut Ui, label: &str, value: &mut String, hints: &VariableHints, id: Id) -> bool {
     ui.label(label);
     let reveal_id = id.with(label).with(REVEAL_SALT);
     let revealed: bool = ui.data(|data| data.get_temp(reveal_id)).unwrap_or(false);
     let changed = ui
         .horizontal(|ui| {
-            let edit = VariableTextEdit::new(value, names)
+            let edit = VariableTextEdit::new(value, hints)
                 .desired_width(FIELD_WIDTH)
                 .password(!revealed)
                 .id(id.with(label))

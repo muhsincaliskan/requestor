@@ -21,6 +21,7 @@ pub use overlay::{
 pub use persistence::SaveStatus;
 pub use tab::{EditorSection, Exchange, ItemBinding, RequestTab, ResponseSection, TabId};
 
+use requestor_core::variables::VariableScope;
 use requestor_core::workspace::{InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore};
 
 use autosave::UnsavedChanges;
@@ -90,9 +91,9 @@ impl AppState {
         self.tab_mut(self.active_tab?)
     }
 
-    pub fn variable_names(&self, tab: TabId) -> Vec<String> {
+    pub fn variable_scope(&self, tab: TabId) -> VariableScope {
         let binding = self.tab(tab).and_then(|tab| tab.binding.as_ref());
-        self.workspace.variable_names(
+        self.workspace.scope_for(
             binding.map(|bound| bound.collection_id.as_str()),
             binding.map(|bound| bound.item_id.as_str()),
         )

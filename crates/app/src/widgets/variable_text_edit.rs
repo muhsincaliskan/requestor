@@ -1,4 +1,6 @@
 mod completion;
+mod hints;
+mod hover_preview;
 mod placeholder_layout;
 mod popup;
 
@@ -8,6 +10,7 @@ use eframe::egui::{
 };
 
 use completion::step_selection;
+pub use hints::VariableHints;
 use placeholder_layout::PlaceholderLayout;
 use popup::{draw_popup, PopupState, Suggestion, POPUP_STATE_SALT};
 
@@ -16,7 +19,7 @@ const EDITOR_MARGIN: Margin = Margin::same(8);
 
 pub struct VariableTextEdit<'a> {
     text: &'a mut String,
-    names: &'a [String],
+    hints: Option<&'a VariableHints>,
     hint: Option<&'a str>,
     width: Option<f32>,
     password: bool,
@@ -25,10 +28,17 @@ pub struct VariableTextEdit<'a> {
 }
 
 impl<'a> VariableTextEdit<'a> {
-    pub fn new(text: &'a mut String, names: &'a [String]) -> Self {
+    pub fn new(text: &'a mut String, hints: &'a VariableHints) -> Self {
+        VariableTextEdit {
+            hints: Some(hints),
+            ..VariableTextEdit::plain(text)
+        }
+    }
+
+    pub fn plain(text: &'a mut String) -> Self {
         VariableTextEdit {
             text,
-            names,
+            hints: None,
             hint: None,
             width: None,
             password: false,
@@ -68,9 +78,9 @@ impl<'a> VariableTextEdit<'a> {
         let state_id = id.with(POPUP_STATE_SALT);
         let mut state: PopupState = ctx.data(|data| data.get_temp(state_id)).unwrap_or_default();
         let mut changed = self.handle_keys(ui, id, &mut state);
-        let password = self.password;
+        let highlighted = self.hints.filter(|_| !self.password);
         let layout = PlaceholderLayout {
-            names: self.names,
+            names: highlighted.map_or(&[], VariableHints::names),
             font: FontSelection::from(self.text_style()).resolve(ui.style()),
             multiline: self.rows.is_some(),
         };
@@ -78,16 +88,24 @@ impl<'a> VariableTextEdit<'a> {
             layout.galley(ui, text.as_str(), wrap_width)
         };
         let mut edit = self.edit(id);
-        if !password {
+        if highlighted.is_some() {
             edit = edit.layouter(&mut layouter);
         }
-        let mut response = edit.show(ui).response.response;
+        let output = edit.show(ui);
+        let mut response = match highlighted {
+            Some(hints) => hover_preview::attach(hints, self.text, &output),
+            None => output.response.response,
+        };
         changed |= self.show_popup(&ctx, id, &response, &mut state);
         ctx.data_mut(|data| data.insert_temp(state_id, state));
         if changed {
             response.mark_changed();
         }
         response
+    }
+
+    fn suggestions(&self) -> &'a [String] {
+        self.hints.map_or(&[], VariableHints::suggestions)
     }
 
     fn text_style(&self) -> TextStyle {
@@ -119,8 +137,9 @@ impl<'a> VariableTextEdit<'a> {
     fn handle_keys(&mut self, ui: &Ui, id: Id, state: &mut PopupState) -> bool {
         let ctx = ui.ctx();
         let focused = ctx.memory(|memory| memory.has_focus(id));
-        let suggestion = match focused && !self.names.is_empty() {
-            true => Suggestion::find(ctx, id, self.text, self.names),
+        let names = self.suggestions();
+        let suggestion = match focused && !names.is_empty() {
+            true => Suggestion::find(ctx, id, self.text, names),
             false => None,
         };
         let Some(suggestion) = suggestion else {
@@ -150,11 +169,12 @@ impl<'a> VariableTextEdit<'a> {
         response: &Response,
         state: &mut PopupState,
     ) -> bool {
-        if self.names.is_empty() {
+        let names = self.suggestions();
+        if names.is_empty() {
             return false;
         }
         let shown = response.has_focus() || state.visible;
-        let suggestion = Suggestion::find(ctx, id, self.text, self.names);
+        let suggestion = Suggestion::find(ctx, id, self.text, names);
         let Some(suggestion) = suggestion
             .filter(|found| shown && state.dismissed_start != Some(found.partial.start()))
         else {

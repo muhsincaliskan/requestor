@@ -2,7 +2,7 @@ use eframe::egui::{Align, ComboBox, Event, Frame, Key, Layout, RichText, TextEdi
 use requestor_core::method::HttpMethod;
 
 use crate::state::{Action, RequestTab};
-use crate::widgets::variable_text_edit::VariableTextEdit;
+use crate::widgets::variable_text_edit::{VariableHints, VariableTextEdit};
 use crate::widgets::{action_button, method_color};
 
 const NAME_HINT: &str = "Request name";
@@ -20,7 +20,7 @@ const METHOD_WIDTH: f32 = 96.0;
 pub fn show(
     ui: &mut Ui,
     open: &mut RequestTab,
-    names: &[String],
+    hints: &VariableHints,
     actions: &mut Vec<Action>,
 ) -> bool {
     let name_changed = ui
@@ -33,7 +33,7 @@ pub fn show(
         )
         .changed();
     let request_changed = ui
-        .horizontal(|ui| request_line(ui, open, names, actions))
+        .horizontal(|ui| request_line(ui, open, hints, actions))
         .inner;
     name_changed | request_changed
 }
@@ -41,14 +41,14 @@ pub fn show(
 fn request_line(
     ui: &mut Ui,
     open: &mut RequestTab,
-    names: &[String],
+    hints: &VariableHints,
     actions: &mut Vec<Action>,
 ) -> bool {
     let method_changed = method_picker(ui, open);
     let url_changed = ui
         .with_layout(Layout::right_to_left(Align::Center), |ui| {
             buttons(ui, open, actions);
-            url_field(ui, open, names, actions)
+            url_field(ui, open, hints, actions)
         })
         .inner;
     method_changed | url_changed
@@ -82,10 +82,10 @@ fn colored_method(ui: &Ui, method: &str) -> RichText {
 fn url_field(
     ui: &mut Ui,
     open: &mut RequestTab,
-    names: &[String],
+    hints: &VariableHints,
     actions: &mut Vec<Action>,
 ) -> bool {
-    let response = VariableTextEdit::new(&mut open.draft.url, names)
+    let response = VariableTextEdit::new(&mut open.draft.url, hints)
         .hint_text(URL_HINT)
         .desired_width(ui.available_width())
         .id(ui.id().with(URL_SALT))

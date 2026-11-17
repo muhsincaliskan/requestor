@@ -34,6 +34,20 @@ impl<'a> TextSegments<'a> {
             pending: None,
         }
     }
+
+    pub fn placeholder_at(text: &'a str, char_index: usize) -> Option<&'a str> {
+        let mut start = 0;
+        for segment in TextSegments::new(text) {
+            let end = start + segment.text().chars().count();
+            if let TextSegment::Placeholder { name, .. } = segment {
+                if (start..=end).contains(&char_index) {
+                    return Some(name);
+                }
+            }
+            start = end;
+        }
+        None
+    }
 }
 
 impl<'a> Iterator for TextSegments<'a> {

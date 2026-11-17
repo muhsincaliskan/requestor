@@ -1,7 +1,7 @@
 use eframe::egui::{Button, Checkbox, Id, Label, RichText, Ui};
 use requestor_core::draft::KeyValueRow;
 
-use super::variable_text_edit::VariableTextEdit;
+use super::variable_text_edit::{VariableHints, VariableTextEdit};
 
 const KEY_HINT: &str = "Key";
 const VALUE_HINT: &str = "Value";
@@ -24,7 +24,7 @@ const DESCRIPTION_SHARE: f32 = 0.30;
 
 pub struct KeyValueTable<'a> {
     rows: &'a mut Vec<KeyValueRow>,
-    names: &'a [String],
+    hints: &'a VariableHints,
     id: Id,
     keys_editable: bool,
     rows_addable: bool,
@@ -57,10 +57,10 @@ impl ColumnWidths {
 }
 
 impl<'a> KeyValueTable<'a> {
-    pub fn new(rows: &'a mut Vec<KeyValueRow>, names: &'a [String], id_salt: &str) -> Self {
+    pub fn new(rows: &'a mut Vec<KeyValueRow>, hints: &'a VariableHints, id_salt: &str) -> Self {
         KeyValueTable {
             rows,
-            names,
+            hints,
             id: Id::new(id_salt),
             keys_editable: true,
             rows_addable: true,
@@ -141,7 +141,7 @@ impl<'a> KeyValueTable<'a> {
         pending: Option<&mut KeyValueRow>,
     ) -> RowOutcome {
         let is_pending = pending.is_some();
-        let names = self.names;
+        let hints = self.hints;
         let (keys_editable, files_allowed, id) = (self.keys_editable, self.files_allowed, self.id);
         let row = match pending {
             Some(row) => row,
@@ -151,9 +151,9 @@ impl<'a> KeyValueTable<'a> {
         let mut outcome = RowOutcome::default();
         ui.horizontal(|ui| {
             outcome.changed |= ui.add(Checkbox::without_text(&mut row.enabled)).changed();
-            outcome.changed |= key_cell(ui, row, widths.key, keys_editable, names, id.with(index));
+            outcome.changed |= key_cell(ui, row, widths.key, keys_editable, hints, id.with(index));
             outcome.changed |=
-                value_cell(ui, row, widths.value, files_allowed, names, id.with(index));
+                value_cell(ui, row, widths.value, files_allowed, hints, id.with(index));
             outcome.changed |= description_cell(ui, row, widths.description, id.with(index));
             outcome.delete = deletable && ui.add(Button::new(DELETE_LABEL).frame(false)).clicked();
         });
@@ -166,7 +166,7 @@ fn key_cell(
     row: &mut KeyValueRow,
     width: f32,
     editable: bool,
-    names: &[String],
+    hints: &VariableHints,
     id: Id,
 ) -> bool {
     if !editable {
@@ -177,7 +177,7 @@ fn key_cell(
         );
         return false;
     }
-    VariableTextEdit::new(&mut row.key, names)
+    VariableTextEdit::new(&mut row.key, hints)
         .hint_text(KEY_HINT)
         .desired_width(width)
         .id(id.with(KEY_HINT))
@@ -190,7 +190,7 @@ fn value_cell(
     row: &mut KeyValueRow,
     width: f32,
     files_allowed: bool,
-    names: &[String],
+    hints: &VariableHints,
     id: Id,
 ) -> bool {
     let mut changed = false;
@@ -201,7 +201,7 @@ fn value_cell(
             changed |= kind_toggle(ui, row);
         }
         let hint = if row.is_file { FILE_HINT } else { VALUE_HINT };
-        changed |= VariableTextEdit::new(&mut row.value, names)
+        changed |= VariableTextEdit::new(&mut row.value, hints)
             .hint_text(hint)
             .desired_width(edit_width)
             .id(id.with(VALUE_HINT))
@@ -225,7 +225,7 @@ fn kind_toggle(ui: &mut Ui, row: &mut KeyValueRow) -> bool {
 }
 
 fn description_cell(ui: &mut Ui, row: &mut KeyValueRow, width: f32, id: Id) -> bool {
-    VariableTextEdit::new(&mut row.description, &[])
+    VariableTextEdit::plain(&mut row.description)
         .hint_text(DESCRIPTION_HINT)
         .desired_width(width)
         .id(id.with(DESCRIPTION_HINT))
