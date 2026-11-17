@@ -1,9 +1,14 @@
 mod completion;
+mod placeholder_layout;
 mod popup;
 
-use eframe::egui::{Context, Id, Key, Margin, Modifiers, Response, TextEdit, TextStyle, Ui};
+use eframe::egui::{
+    Context, FontSelection, Id, Key, Margin, Modifiers, Response, TextBuffer, TextEdit, TextStyle,
+    Ui,
+};
 
 use completion::step_selection;
+use placeholder_layout::PlaceholderLayout;
 use popup::{draw_popup, PopupState, Suggestion, POPUP_STATE_SALT};
 
 pub const FIELD_MARGIN: Margin = Margin::symmetric(6, 5);
@@ -63,7 +68,20 @@ impl<'a> VariableTextEdit<'a> {
         let state_id = id.with(POPUP_STATE_SALT);
         let mut state: PopupState = ctx.data(|data| data.get_temp(state_id)).unwrap_or_default();
         let mut changed = self.handle_keys(ui, id, &mut state);
-        let mut response = self.edit(id).show(ui).response.response;
+        let password = self.password;
+        let layout = PlaceholderLayout {
+            names: self.names,
+            font: FontSelection::from(self.text_style()).resolve(ui.style()),
+            multiline: self.rows.is_some(),
+        };
+        let mut layouter = |ui: &Ui, text: &dyn TextBuffer, wrap_width: f32| {
+            layout.galley(ui, text.as_str(), wrap_width)
+        };
+        let mut edit = self.edit(id);
+        if !password {
+            edit = edit.layouter(&mut layouter);
+        }
+        let mut response = edit.show(ui).response.response;
         changed |= self.show_popup(&ctx, id, &response, &mut state);
         ctx.data_mut(|data| data.insert_temp(state_id, state));
         if changed {
@@ -72,16 +90,23 @@ impl<'a> VariableTextEdit<'a> {
         response
     }
 
+    fn text_style(&self) -> TextStyle {
+        match self.rows {
+            Some(_) => TextStyle::Monospace,
+            None => TextStyle::Body,
+        }
+    }
+
     fn edit(&mut self, id: Id) -> TextEdit<'_> {
+        let style = self.text_style();
         let mut edit = match self.rows {
             Some(rows) => TextEdit::multiline(&mut *self.text)
                 .desired_rows(rows)
-                .font(TextStyle::Monospace)
                 .margin(EDITOR_MARGIN)
                 .lock_focus(true),
             None => TextEdit::singleline(&mut *self.text).margin(FIELD_MARGIN),
         };
-        edit = edit.id(id).password(self.password);
+        edit = edit.id(id).font(style).password(self.password);
         if let Some(hint) = self.hint {
             edit = edit.hint_text(hint);
         }

@@ -1,4 +1,4 @@
-use super::{placeholder_names, VariableLayer, VariableScope};
+use super::{placeholder_names, TextSegment, TextSegments, VariableLayer, VariableScope};
 use crate::collection::Variable;
 use crate::environment::Environment;
 
@@ -162,4 +162,43 @@ fn names_are_sorted_and_deduplicated_across_layers() {
         .with_layer(VariableLayer::default().with("a", "3").with("c", "4"));
     assert_eq!(scope.names(), ["a", "b", "c"]);
     assert!(VariableScope::new().names().is_empty());
+}
+
+#[test]
+fn segments_split_text_around_placeholders() {
+    let segments: Vec<_> = TextSegments::new("{{base}}/pets/{{ id }}?x={{").collect();
+    assert_eq!(
+        segments,
+        vec![
+            TextSegment::Placeholder {
+                literal: "{{base}}",
+                name: "base"
+            },
+            TextSegment::Plain("/pets/"),
+            TextSegment::Placeholder {
+                literal: "{{ id }}",
+                name: "id"
+            },
+            TextSegment::Plain("?x={{"),
+        ]
+    );
+}
+
+#[test]
+fn segments_rebuild_the_original_text() {
+    let text = "a{{}}b{{x}}{{y}}c}}";
+    let rebuilt: String = TextSegments::new(text)
+        .map(|s| s.text().to_string())
+        .collect();
+    assert_eq!(rebuilt, text);
+    assert_eq!(TextSegments::new("").count(), 0);
+}
+
+#[test]
+fn only_placeholders_with_known_names_match() {
+    let names = vec!["base".to_string()];
+    let mut segments = TextSegments::new("{{base}}{{other}}plain");
+    assert!(segments.next().unwrap().is_known_in(&names));
+    assert!(!segments.next().unwrap().is_known_in(&names));
+    assert!(!segments.next().unwrap().is_known_in(&names));
 }

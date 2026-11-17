@@ -63,15 +63,15 @@ impl Expansion<'_> {
     }
 }
 
-struct Placeholder<'a> {
-    before: &'a str,
-    literal: &'a str,
-    name: &'a str,
-    after: &'a str,
+pub(super) struct Placeholder<'a> {
+    pub(super) before: &'a str,
+    pub(super) literal: &'a str,
+    pub(super) name: &'a str,
+    pub(super) after: &'a str,
 }
 
 impl<'a> Placeholder<'a> {
-    fn find(text: &'a str) -> Option<Self> {
+    pub(super) fn find(text: &'a str) -> Option<Self> {
         let mut from = 0;
         while let Some(relative) = text[from..].find(CLOSE_MARK) {
             let close = from + relative;
