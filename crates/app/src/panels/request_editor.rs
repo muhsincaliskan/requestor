@@ -6,20 +6,21 @@ use eframe::egui::{ScrollArea, Ui};
 
 use crate::state::{Action, AppState, EditorSection, RequestTab, TabId};
 use crate::widgets::auth_editor;
+use crate::widgets::variable_text_edit::VariableHints;
 
 const SECTION_SCROLL_SALT: &str = "request-editor-section";
 const AUTH_SALT: &str = "request-auth";
 
 pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Action>) {
-    let names = match state.interface().variable_autocomplete {
-        true => state.variable_names(tab),
-        false => Vec::new(),
-    };
+    let hints = VariableHints::new(
+        state.variable_scope(tab),
+        state.interface().variable_autocomplete,
+    );
     let Some(open) = state.tab_mut(tab) else {
         return;
     };
     let changed = ui
-        .push_id(tab, |ui| show_tab(ui, open, &names, actions))
+        .push_id(tab, |ui| show_tab(ui, open, &hints, actions))
         .inner;
     if changed {
         actions.push(Action::TabEdited(tab));
@@ -29,10 +30,10 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
 fn show_tab(
     ui: &mut Ui,
     open: &mut RequestTab,
-    names: &[String],
+    hints: &VariableHints,
     actions: &mut Vec<Action>,
 ) -> bool {
-    let mut changed = url_bar::show(ui, open, names, actions);
+    let mut changed = url_bar::show(ui, open, hints, actions);
     ui.add_space(ui.spacing().item_spacing.y);
     section_selector(ui, open);
     ui.separator();
@@ -40,7 +41,7 @@ fn show_tab(
         .id_salt(SECTION_SCROLL_SALT)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            changed |= show_section(ui, open, names);
+            changed |= show_section(ui, open, hints);
         });
     changed
 }
@@ -67,11 +68,11 @@ fn section_label(open: &RequestTab, section: EditorSection) -> String {
     }
 }
 
-fn show_section(ui: &mut Ui, open: &mut RequestTab, names: &[String]) -> bool {
+fn show_section(ui: &mut Ui, open: &mut RequestTab, hints: &VariableHints) -> bool {
     match open.editor_section {
-        EditorSection::Params => tables::params(ui, &mut open.draft, names),
-        EditorSection::Headers => tables::headers(ui, &mut open.draft, names),
-        EditorSection::Body => body::show(ui, &mut open.draft.body, names),
-        EditorSection::Auth => auth_editor::show(ui, &mut open.draft.auth, names, AUTH_SALT),
+        EditorSection::Params => tables::params(ui, &mut open.draft, hints),
+        EditorSection::Headers => tables::headers(ui, &mut open.draft, hints),
+        EditorSection::Body => body::show(ui, &mut open.draft.body, hints),
+        EditorSection::Auth => auth_editor::show(ui, &mut open.draft.auth, hints, AUTH_SALT),
     }
 }

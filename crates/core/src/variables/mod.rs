@@ -1,5 +1,8 @@
 mod expansion;
 mod layer;
+mod preview;
+#[cfg(test)]
+mod preview_tests;
 mod segments;
 #[cfg(test)]
 mod tests;
@@ -12,6 +15,7 @@ use expansion::{sorted_unique, Expansion};
 
 pub use expansion::placeholder_names;
 pub use layer::VariableLayer;
+pub use preview::VariablePreview;
 pub use segments::{TextSegment, TextSegments};
 
 #[derive(Clone, PartialEq, Eq)]
