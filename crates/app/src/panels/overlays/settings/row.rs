@@ -1,6 +1,9 @@
 use eframe::egui::{Align, Layout, RichText, Ui};
 
+use crate::widgets::switch::Switch;
+
 const LABEL_SHARE: f32 = 0.62;
+const SCROLLBAR_GUTTER: f32 = 14.0;
 
 pub struct Toggle<T> {
     pub label: &'static str,
@@ -24,8 +27,11 @@ pub fn row(
                     ui.label(RichText::new(description).weak().small());
                 }
             });
-            ui.with_layout(Layout::right_to_left(Align::Center), control)
-                .inner
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.add_space(SCROLLBAR_GUTTER);
+                control(ui)
+            })
+            .inner
         })
         .inner;
     ui.separator();
@@ -36,7 +42,7 @@ pub fn toggles<T>(ui: &mut Ui, table: &[Toggle<T>], target: &mut T) -> bool {
     let mut changed = false;
     for toggle in table {
         changed |= row(ui, toggle.label, toggle.description, |ui| {
-            ui.checkbox((toggle.field)(target), "").changed()
+            ui.add(Switch::new((toggle.field)(target))).changed()
         });
     }
     changed

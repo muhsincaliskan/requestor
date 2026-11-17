@@ -2,6 +2,7 @@ use eframe::egui::{Context, Id, TextEdit, Ui};
 use requestor_core::settings::{ProxySettings, RequestSettings};
 
 use super::row::{row, toggles, Toggle};
+use crate::widgets::switch::Switch;
 
 const REVEAL_ID: &str = "settings-proxy-reveal";
 const BYPASS_ID: &str = "settings-proxy-bypass";
@@ -39,7 +40,7 @@ fn custom_proxy_toggle(ui: &mut Ui, settings: &mut RequestSettings) -> bool {
         "Send requests through the proxy configured below.",
         |ui| {
             let mut enabled = settings.proxy.is_some();
-            let changed = ui.checkbox(&mut enabled, "").changed();
+            let changed = ui.add(Switch::new(&mut enabled)).changed();
             if changed {
                 settings.proxy = enabled.then(ProxySettings::default);
                 forget_transient_state(ui.ctx());
