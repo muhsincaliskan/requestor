@@ -18,6 +18,7 @@ const TAB_STRIP_ID: &str = "tab-strip";
 const REQUEST_BESIDE_ID: &str = "request-beside-response";
 const REQUEST_ABOVE_ID: &str = "request-above-response";
 const SIDEBAR_WIDTH: f32 = 260.0;
+const SIDEBAR_MIN_WIDTH: f32 = 180.0;
 const REQUEST_SHARE: f32 = 0.5;
 const EMPTY_WORKBENCH_TEXT: &str = "No open request";
 const NEW_REQUEST_LABEL: &str = "New request";
@@ -45,7 +46,10 @@ fn sidebar_panel(interface: &InterfaceSettings) -> Panel {
     } else {
         Panel::left(SIDEBAR_ID)
     };
-    panel.resizable(true).default_size(SIDEBAR_WIDTH)
+    panel
+        .resizable(true)
+        .default_size(SIDEBAR_WIDTH)
+        .min_size(SIDEBAR_MIN_WIDTH)
 }
 
 fn workbench(

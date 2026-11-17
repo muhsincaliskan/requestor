@@ -16,6 +16,7 @@ pub struct RequestorApp {
     saver: Saver,
     started: Instant,
     look: Option<Look>,
+    sends_active_tab_on_start: bool,
 }
 
 impl RequestorApp {
@@ -27,7 +28,13 @@ impl RequestorApp {
             saver: Saver::start(store),
             started: Instant::now(),
             look: None,
+            sends_active_tab_on_start: false,
         }
+    }
+
+    pub fn sending_active_tab_on_start(mut self, enabled: bool) -> Self {
+        self.sends_active_tab_on_start = enabled;
+        self
     }
 
     fn now(&self) -> f64 {
@@ -72,8 +79,11 @@ impl RequestorApp {
 
 impl eframe::App for RequestorApp {
     fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        let finished: Vec<Action> = self.runner.finished().collect();
-        self.apply(finished, ctx);
+        let mut pending: Vec<Action> = self.runner.finished().collect();
+        if std::mem::take(&mut self.sends_active_tab_on_start) {
+            pending.extend(self.state.active_tab.map(Action::Send));
+        }
+        self.apply(pending, ctx);
         let failures: Vec<String> = self.saver.failures().collect();
         for failure in failures {
             self.state.report_error(format!("Could not save {failure}"));
