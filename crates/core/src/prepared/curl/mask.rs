@@ -1,16 +1,10 @@
-use crate::collection::{Body, Url, SCHEME_SEPARATOR};
-use crate::encoding::FORM_PAIR_SEPARATOR;
+use crate::collection::Body;
 use crate::header::Header;
-use crate::secret::{is_secret_name, REDACTED};
+use crate::secret::{is_secret_name, mask_pairs, Redactor, REDACTED};
 use serde_json::Value;
 
-const QUERY_MARK: char = '?';
 const JSON_MARK: &str = "json";
 const JSON_OPENERS: [char; 2] = ['{', '['];
-const VALUE_SEPARATOR: char = '=';
-const PATH_START: char = '/';
-const USERINFO_END: char = '@';
-const PASSWORD_START: char = ':';
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SecretExposure {
@@ -32,14 +26,10 @@ impl SecretExposure {
     }
 
     pub(super) fn url(self, url: &str) -> String {
-        if !self.masks() {
-            return url.to_string();
-        }
-        match url.split_once(QUERY_MARK) {
-            Some((base, query)) => {
-                format!("{}{QUERY_MARK}{}", mask_userinfo(base), mask_pairs(query))
-            }
-            None => mask_userinfo(url),
+        if self.masks() {
+            Redactor::default().redact_url(url)
+        } else {
+            url.to_string()
         }
     }
 
@@ -51,34 +41,6 @@ impl SecretExposure {
             return mask_pairs(body);
         }
         mask_json_text(body, content_type)
-    }
-}
-
-fn mask_pairs(text: &str) -> String {
-    text.split(FORM_PAIR_SEPARATOR)
-        .map(mask_pair)
-        .collect::<Vec<_>>()
-        .join(FORM_PAIR_SEPARATOR)
-}
-
-fn mask_pair(pair: &str) -> String {
-    match pair.split_once(VALUE_SEPARATOR) {
-        Some((key, _)) if is_secret_name(key) => format!("{key}{VALUE_SEPARATOR}{REDACTED}"),
-        _ => pair.to_string(),
-    }
-}
-
-fn mask_userinfo(base: &str) -> String {
-    let Some((scheme, rest)) = Url::split_scheme(base) else {
-        return base.to_string();
-    };
-    let (authority, path) = rest.split_at(rest.find(PATH_START).unwrap_or(rest.len()));
-    match authority.rsplit_once(USERINFO_END) {
-        Some((userinfo, host)) if userinfo.contains(PASSWORD_START) => {
-            let user = userinfo.split(PASSWORD_START).next().unwrap_or_default();
-            format!("{scheme}{SCHEME_SEPARATOR}{user}{PASSWORD_START}{REDACTED}{USERINFO_END}{host}{path}")
-        }
-        _ => base.to_string(),
     }
 }
 

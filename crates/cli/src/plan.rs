@@ -10,27 +10,29 @@ pub struct Selection {
 
 impl Selection {
     pub fn pick(&self, collection: &Collection) -> Result<Vec<RunnableRequest>, CliError> {
-        let all = collection.runnable_requests();
         if let Some(folder) = self
             .folder
             .as_ref()
-            .filter(|folder| !Self::has_folder(&all, folder))
+            .filter(|folder| !collection.has_folder_named(folder))
         {
             return Err(CliError::usage(format!("no folder named {folder:?}")));
         }
-        let chosen: Vec<RunnableRequest> = all
+        let chosen: Vec<RunnableRequest> = collection
+            .runnable_requests()
             .into_iter()
             .filter(|runnable| self.matches(runnable))
             .collect();
         if chosen.is_empty() {
-            return Err(CliError::usage("no request matches the selection"));
+            return Err(self.empty_selection());
         }
         Ok(chosen)
     }
 
-    fn has_folder(all: &[RunnableRequest], folder: &str) -> bool {
-        all.iter()
-            .any(|runnable| runnable.path.iter().any(|name| name == folder))
+    fn empty_selection(&self) -> CliError {
+        match (&self.folder, &self.request) {
+            (Some(folder), None) => CliError::usage(format!("folder {folder:?} has no requests")),
+            _ => CliError::usage("no request matches the selection"),
+        }
     }
 
     fn matches(&self, runnable: &RunnableRequest) -> bool {
@@ -57,7 +59,8 @@ mod tests {
             {"name": "Users", "item": [
                 {"name": "List", "request": {"method": "GET", "url": "http://h/u"}},
                 {"name": "Admin", "item": [{"name": "List", "request": "http://h/a"}]}
-            ]}
+            ]},
+            {"name": "Empty", "item": []}
         ]
     }"#;
 
@@ -102,6 +105,14 @@ mod tests {
             names(&select(Some("Admin"), Some("List"))).unwrap(),
             ["Users/Admin/List"]
         );
+    }
+
+    #[test]
+    fn an_empty_folder_is_reported_as_empty_not_missing() {
+        let error = names(&select(Some("Empty"), None)).unwrap_err();
+        assert!(error.to_string().contains("has no requests"), "{error}");
+        let missing = names(&select(Some("Nope"), None)).unwrap_err();
+        assert!(missing.to_string().contains("no folder named"), "{missing}");
     }
 
     #[test]

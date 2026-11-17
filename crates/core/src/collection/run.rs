@@ -29,6 +29,19 @@ impl Collection {
         root.collect(&self.item, &mut found);
         found
     }
+
+    pub fn has_folder_named(&self, name: &str) -> bool {
+        folder_named(&self.item, name)
+    }
+}
+
+fn folder_named(items: &[Item], name: &str) -> bool {
+    items
+        .iter()
+        .filter_map(|item| item.item.as_deref().map(|children| (item, children)))
+        .any(|(folder, children)| {
+            folder.name.as_deref() == Some(name) || folder_named(children, name)
+        })
 }
 
 struct Scope {
@@ -136,6 +149,20 @@ mod tests {
     fn explicit_no_auth_is_respected_on_requests_and_folders() {
         assert!(find("Open").request.auth.unwrap().is_none());
         assert!(find("Ping").request.auth.unwrap().is_none());
+    }
+
+    #[test]
+    fn folders_are_found_by_name_even_when_empty_or_nested() {
+        let collection = Collection::from_json(
+            r#"{"info":{"name":"c"},"item":[
+                {"name":"Outer","item":[{"name":"Inner","item":[]}]},
+                {"name":"Leaf","request":"http://h"}]}"#,
+        )
+        .unwrap();
+        assert!(collection.has_folder_named("Outer"));
+        assert!(collection.has_folder_named("Inner"));
+        assert!(!collection.has_folder_named("Leaf"));
+        assert!(!collection.has_folder_named("Missing"));
     }
 
     #[test]
