@@ -105,6 +105,22 @@ impl KeyValueRow {
         self.key.is_empty() && self.value.is_empty() && self.description.is_empty()
     }
 
+    pub fn is_active(&self) -> bool {
+        self.enabled && !self.is_blank()
+    }
+
+    pub fn active_count(rows: &[KeyValueRow]) -> usize {
+        rows.iter().filter(|row| row.is_active()).count()
+    }
+
+    pub fn commit_into(self, rows: &mut Vec<KeyValueRow>) -> Option<KeyValueRow> {
+        if self.is_blank() {
+            return Some(self);
+        }
+        rows.push(self);
+        None
+    }
+
     fn has_value(&self) -> bool {
         let valueless_source = self
             .source
@@ -206,5 +222,23 @@ mod tests {
         );
         assert_eq!(KeyValueRow::new("a", "").query_pair(), "a=");
         assert_eq!(KeyValueRow::new("a", "1").query_pair(), "a=1");
+    }
+
+    #[test]
+    fn a_typed_row_joins_the_table_and_a_blank_one_stays_pending() {
+        let mut rows = vec![KeyValueRow::new("a", "1")];
+        let pending = KeyValueRow::default().commit_into(&mut rows);
+        assert!(pending.is_some());
+        assert_eq!(rows.len(), 1);
+        assert!(KeyValueRow::new("b", "").commit_into(&mut rows).is_none());
+        assert_eq!(rows.len(), 2);
+    }
+
+    #[test]
+    fn active_count_skips_disabled_and_blank_rows() {
+        let mut disabled = KeyValueRow::new("off", "1");
+        disabled.enabled = false;
+        let rows = vec![KeyValueRow::new("a", "1"), disabled, KeyValueRow::default()];
+        assert_eq!(KeyValueRow::active_count(&rows), 1);
     }
 }

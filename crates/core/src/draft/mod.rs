@@ -47,6 +47,14 @@ impl RequestDraft {
         draft
     }
 
+    pub fn active_param_count(&self) -> usize {
+        KeyValueRow::active_count(&self.query) + KeyValueRow::active_count(&self.path_variables)
+    }
+
+    pub fn active_header_count(&self) -> usize {
+        KeyValueRow::active_count(&self.headers)
+    }
+
     pub fn to_request(&self) -> Request {
         if self.is_unchanged() {
             return self.source.clone();
