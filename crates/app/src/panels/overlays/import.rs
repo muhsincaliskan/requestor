@@ -1,7 +1,8 @@
 use eframe::egui::{Context, ScrollArea, TextEdit, Ui};
 
-use super::dialog;
+use super::{button_row, dialog};
 use crate::state::{Action, ImportForm};
+use crate::widgets::action_button;
 
 const DIALOG_ID: &str = "import";
 const TITLE: &str = "Import";
@@ -10,7 +11,7 @@ const SUPPORTED_TEXT: &str = "Postman collection v2.1, Postman environment, Open
 const CHOOSE_FILE_LABEL: &str = "Choose file…";
 const DROP_HINT: &str = "or drop a file anywhere on the window";
 const PASTE_HINT: &str = "Paste a collection, environment, cURL command or raw HTTP request";
-const IMPORT_TEXT_LABEL: &str = "Import pasted text";
+const IMPORT_TEXT_LABEL: &str = "Import";
 const CANCEL_LABEL: &str = "Cancel";
 const PASTE_HEIGHT: f32 = 200.0;
 const PASTE_ROWS: usize = 8;
@@ -22,11 +23,13 @@ pub fn show(ctx: &Context, form: &mut ImportForm, actions: &mut Vec<Action>) -> 
         ui.label(SUPPORTED_TEXT);
         file_row(ui, actions);
         paste_box(ui, &mut form.text);
-        text_button(ui, form, actions);
         if let Some(error) = &form.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
-        !ui.button(CANCEL_LABEL).clicked()
+        button_row(ui, |ui| {
+            text_button(ui, form, actions);
+            !ui.button(CANCEL_LABEL).clicked()
+        })
     })
 }
 
@@ -46,10 +49,11 @@ fn paste_box(ui: &mut Ui, text: &mut String) {
 
 fn text_button(ui: &mut Ui, form: &ImportForm, actions: &mut Vec<Action>) {
     let enabled = !form.text.trim().is_empty();
-    if ui
-        .add_enabled(enabled, eframe::egui::Button::new(IMPORT_TEXT_LABEL))
-        .clicked()
-    {
+    let clicked = ui
+        .add_enabled_ui(enabled, |ui| action_button::primary(ui, IMPORT_TEXT_LABEL))
+        .inner
+        .clicked();
+    if clicked {
         actions.push(Action::ImportText(form.text.clone()));
     }
 }

@@ -1,10 +1,11 @@
 use eframe::egui::{ComboBox, Context, Key, TextEdit, Ui};
 use requestor_core::collection::Collection;
 
-use super::dialog;
+use super::{button_row, dialog};
 use crate::state::{
     Action, AppState, DeleteConfirmation, ExportForm, RenameForm, SaveTabForm, TabId,
 };
+use crate::widgets::action_button;
 
 const CHOOSE_LOCATION_LABEL: &str = "Export to…";
 const CANCEL_LABEL: &str = "Cancel";
@@ -33,8 +34,8 @@ pub fn confirm_close_tab(
     let title = format!("Close \"{}\"?", open_tab.draft.name);
     dialog(ctx, "confirm-close-tab", &title, |ui| {
         ui.label("This request has changes that are not saved.");
-        buttons(ui, |ui| {
-            if ui.button(SAVE_LABEL).clicked() {
+        button_row(ui, |ui| {
+            if action_button::primary(ui, SAVE_LABEL).clicked() {
                 actions.push(Action::SaveAndCloseTab(tab));
                 return false;
             }
@@ -55,8 +56,8 @@ pub fn confirm_delete(
     let title = format!("Delete \"{}\"?", confirmation.name);
     dialog(ctx, "confirm-delete", &title, |ui| {
         ui.label("This cannot be undone.");
-        buttons(ui, |ui| {
-            if ui.button(DELETE_LABEL).clicked() {
+        button_row(ui, |ui| {
+            if action_button::destructive(ui, DELETE_LABEL).clicked() {
                 actions.push(Action::Delete(confirmation.target.clone()));
                 return false;
             }
@@ -78,8 +79,8 @@ pub fn save_tab(
             .and_then(|id| state.workspace.collection(id));
         let Some(collection) = chosen else {
             ui.label(NO_COLLECTION_TEXT);
-            return buttons(ui, |ui| {
-                if ui.button(NEW_COLLECTION_LABEL).clicked() {
+            return button_row(ui, |ui| {
+                if action_button::primary(ui, NEW_COLLECTION_LABEL).clicked() {
                     actions.push(Action::NewCollection);
                     return false;
                 }
@@ -89,8 +90,8 @@ pub fn save_tab(
         ui.add(TextEdit::singleline(&mut form.name).desired_width(FIELD_WIDTH));
         collection_choice(ui, state, collection, form);
         folder_choice(ui, collection, form);
-        buttons(ui, |ui| {
-            if ui.button(SAVE_LABEL).clicked() {
+        button_row(ui, |ui| {
+            if action_button::primary(ui, SAVE_LABEL).clicked() {
                 actions.extend(form.submission());
                 return false;
             }
@@ -142,8 +143,8 @@ pub fn rename(ctx: &Context, form: &mut RenameForm, actions: &mut Vec<Action>) -
         if !field.has_focus() && !confirmed {
             field.request_focus();
         }
-        buttons(ui, |ui| {
-            if ui.button(RENAME_LABEL).clicked() || confirmed {
+        button_row(ui, |ui| {
+            if action_button::primary(ui, RENAME_LABEL).clicked() || confirmed {
                 actions.push(Action::Rename {
                     target: form.target.clone(),
                     name: form.name.clone(),
@@ -170,8 +171,8 @@ pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -
         if let Some(error) = &form.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
-        buttons(ui, |ui| {
-            if ui.button(EXPORT_LABEL).clicked() {
+        button_row(ui, |ui| {
+            if action_button::primary(ui, EXPORT_LABEL).clicked() {
                 match form.submission() {
                     Some(action) => actions.push(action),
                     None => form.error = Some(EXPORT_PATH_MISSING.to_string()),
@@ -180,9 +181,4 @@ pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -
             !ui.button(CANCEL_LABEL).clicked()
         })
     })
-}
-
-fn buttons(ui: &mut Ui, contents: impl FnOnce(&mut Ui) -> bool) -> bool {
-    ui.add_space(super::TITLE_GAP);
-    ui.horizontal(contents).inner
 }

@@ -5,11 +5,12 @@ mod import;
 mod settings;
 mod table;
 
-use eframe::egui::{Context, Id, Modal, Ui};
+use eframe::egui::{vec2, Align, Context, Id, Layout, Modal, Ui};
 
 use crate::state::{Action, AppState, Overlay};
 
 pub(super) const TITLE_GAP: f32 = 8.0;
+const DIALOG_MIN_WIDTH: f32 = 320.0;
 
 pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
     let Some(mut overlay) = state.overlay.take() else {
@@ -42,9 +43,17 @@ pub(super) fn dialog(
     contents: impl FnOnce(&mut Ui) -> bool,
 ) -> bool {
     let shown = Modal::new(Id::new(id)).show(ctx, |ui| {
+        ui.set_min_width(DIALOG_MIN_WIDTH);
         ui.heading(title);
         ui.add_space(TITLE_GAP);
         contents(ui)
     });
     shown.inner && !shown.should_close()
+}
+
+pub(super) fn button_row<R>(ui: &mut Ui, contents: impl FnOnce(&mut Ui) -> R) -> R {
+    ui.add_space(TITLE_GAP);
+    let size = vec2(ui.min_rect().width(), ui.spacing().interact_size.y);
+    ui.allocate_ui_with_layout(size, Layout::right_to_left(Align::Center), contents)
+        .inner
 }
