@@ -5,7 +5,7 @@ use super::readout::{ByteSize, ElapsedText};
 use crate::response::ResponseView;
 
 const SUCCESS_ON_DARK: Color32 = Color32::from_rgb(107, 203, 119);
-const SUCCESS_ON_LIGHT: Color32 = Color32::from_rgb(0, 127, 49);
+const SUCCESS_ON_LIGHT: Color32 = Color32::from_rgb(0, 112, 43);
 const TRUNCATED_LABEL: &str = "Truncated";
 const TRUNCATED_HINT: &str = "The body exceeded the size limit and was cut off";
 const SEPARATOR: &str = "·";

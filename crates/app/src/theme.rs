@@ -7,7 +7,7 @@ mod style;
 
 pub use contrast::label_on;
 
-use palette::{DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
+pub use palette::{Palette, DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Look {
