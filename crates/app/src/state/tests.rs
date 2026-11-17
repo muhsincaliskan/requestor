@@ -352,27 +352,6 @@ fn renaming_an_item_renames_its_open_tab() {
 }
 
 #[test]
-fn imported_text_becomes_a_collection_a_tab_or_an_error_on_the_form() {
-    let mut state = state_with(Workspace::default());
-    state.apply(
-        Action::ImportText("curl https://example.test/a".to_string()),
-        0.0,
-    );
-    assert_eq!(state.active().unwrap().draft.url, "https://example.test/a");
-
-    let collection = Collection::new("Imported").to_json_pretty().unwrap();
-    state.apply(Action::ImportText(collection), 0.0);
-    assert_eq!(state.workspace.collections.len(), 1);
-
-    state.apply(Action::Show(Overlay::Import(Default::default())), 0.0);
-    state.apply(Action::ImportText("{\"neither\":true}".to_string()), 0.0);
-    let Some(Overlay::Import(form)) = &state.overlay else {
-        panic!("the import form stays open");
-    };
-    assert!(form.error.is_some());
-}
-
-#[test]
 fn the_session_is_restored_with_unsaved_work() {
     let (mut state, collection_id, item_id) = state_with_request();
     state.workspace.settings.interface.autosave = false;
@@ -450,3 +429,5 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
         "https://example.test/draft"
     );
 }
+
+mod transfer;

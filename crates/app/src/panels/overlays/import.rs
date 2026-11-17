@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use eframe::egui::{Context, ScrollArea, TextEdit, Ui};
 
 use super::dialog;
@@ -8,33 +6,23 @@ use crate::state::{Action, ImportForm};
 const DIALOG_ID: &str = "import";
 const TITLE: &str = "Import";
 const PASTE_ID: &str = "import-paste";
-const SUPPORTED_TEXT: &str = "Supported: Postman collection v2.1, Postman environment, OpenAPI 3 JSON, cURL command, raw HTTP request. Paste text below, enter a file path, or drop a file on the window.";
+const SUPPORTED_TEXT: &str = "Postman collection v2.1, Postman environment, OpenAPI 3 JSON, cURL command or raw HTTP request.";
+const CHOOSE_FILE_LABEL: &str = "Choose file…";
+const DROP_HINT: &str = "or drop a file anywhere on the window";
 const PASTE_HINT: &str = "Paste a collection, environment, cURL command or raw HTTP request";
-const PATH_HINT: &str = "Path of the file to import";
-const IMPORT_FILE_LABEL: &str = "Import file";
 const IMPORT_TEXT_LABEL: &str = "Import pasted text";
 const CANCEL_LABEL: &str = "Cancel";
 const PASTE_HEIGHT: f32 = 200.0;
 const PASTE_ROWS: usize = 8;
-const PATH_WIDTH: f32 = 360.0;
 const DIALOG_WIDTH: f32 = 520.0;
 
 pub fn show(ctx: &Context, form: &mut ImportForm, actions: &mut Vec<Action>) -> bool {
-    let dropped: Vec<PathBuf> = ctx.input(|input| {
-        input
-            .raw
-            .dropped_files
-            .iter()
-            .map(|file| file.path().to_path_buf())
-            .collect()
-    });
-    actions.extend(dropped.into_iter().map(Action::ImportFile));
     dialog(ctx, DIALOG_ID, TITLE, |ui| {
         ui.set_width(DIALOG_WIDTH);
         ui.label(SUPPORTED_TEXT);
+        file_row(ui, actions);
         paste_box(ui, &mut form.text);
         text_button(ui, form, actions);
-        file_row(ui, form, actions);
         if let Some(error) = &form.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
@@ -66,19 +54,11 @@ fn text_button(ui: &mut Ui, form: &ImportForm, actions: &mut Vec<Action>) {
     }
 }
 
-fn file_row(ui: &mut Ui, form: &mut ImportForm, actions: &mut Vec<Action>) {
+fn file_row(ui: &mut Ui, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
-        ui.add(
-            TextEdit::singleline(&mut form.file_path)
-                .hint_text(PATH_HINT)
-                .desired_width(PATH_WIDTH),
-        );
-        let enabled = !form.file_path.trim().is_empty();
-        if ui
-            .add_enabled(enabled, eframe::egui::Button::new(IMPORT_FILE_LABEL))
-            .clicked()
-        {
-            actions.push(Action::ImportFile(PathBuf::from(form.file_path.trim())));
+        if ui.button(CHOOSE_FILE_LABEL).clicked() {
+            actions.push(Action::ChooseImportFile);
         }
+        ui.weak(DROP_HINT);
     });
 }

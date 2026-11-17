@@ -16,6 +16,10 @@ impl AppState {
             Action::ImportText(text) => self.import(&text),
             Action::ImportFile(path) => self.import_file(&path),
             Action::Export { target, file_path } => self.export(&target, file_path, effects),
+            Action::ChooseImportFile => effects.push(Effect::PickImportFile),
+            Action::ChooseExportLocation { target, suggested } => {
+                effects.push(Effect::PickExportLocation { target, suggested })
+            }
             _ => {}
         }
     }
@@ -66,7 +70,9 @@ impl AppState {
                 ));
             }
         }
-        self.overlay = None;
+        if matches!(self.overlay, Some(Overlay::Import(_))) {
+            self.overlay = None;
+        }
     }
 
     fn import_failed(&mut self, reason: String) {

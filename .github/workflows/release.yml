@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_TAG: ${{ github.ref_name }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add Apple targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Build universal bundle
+        run: scripts/bundle-macos.sh aarch64-apple-darwin x86_64-apple-darwin
+      - name: Zip the app and the CLI
+        run: |
+          ditto -c -k --keepParent target/bundle/Requestor.app target/bundle/Requestor-macos.zip
+          tar -czf target/bundle/requestor-cli-macos-universal.tar.gz -C target/bundle requestor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            target/bundle/*.dmg
+            target/bundle/Requestor-macos.zip
+            target/bundle/requestor-cli-macos-universal.tar.gz
+      - name: Publish to release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
+          gh release upload "$RELEASE_TAG" target/bundle/*.dmg target/bundle/Requestor-macos.zip target/bundle/requestor-cli-macos-universal.tar.gz --clobber
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release --locked -p requestor-app -p requestor-cli
+      - name: Package
+        run: tar -czf requestor-linux-x86_64.tar.gz -C target/release requestor requestor-app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: requestor-linux-x86_64.tar.gz
+      - name: Publish to release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
+          gh release upload "$RELEASE_TAG" requestor-linux-x86_64.tar.gz --clobber
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release --locked -p requestor-app -p requestor-cli
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path target/release/requestor.exe, target/release/requestor-app.exe -DestinationPath requestor-windows-x86_64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: requestor-windows-x86_64.zip
+      - name: Publish to release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
+          gh release upload "$RELEASE_TAG" requestor-windows-x86_64.zip --clobber

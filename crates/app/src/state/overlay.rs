@@ -1,10 +1,11 @@
+use std::path::PathBuf;
+
 use super::action::Action;
 use super::tab::TabId;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ImportForm {
     pub text: String,
-    pub file_path: String,
     pub error: Option<String>,
 }
 
@@ -97,6 +98,23 @@ impl ExportForm {
             target,
             file_path,
             error: None,
+        }
+    }
+}
+
+impl ExportForm {
+    pub fn submission(&self) -> Option<Action> {
+        let file_path = self.file_path.trim();
+        (!file_path.is_empty()).then(|| Action::Export {
+            target: self.target.clone(),
+            file_path: PathBuf::from(file_path),
+        })
+    }
+
+    pub fn location_choice(&self) -> Action {
+        Action::ChooseExportLocation {
+            target: self.target.clone(),
+            suggested: PathBuf::from(self.file_path.trim()),
         }
     }
 }

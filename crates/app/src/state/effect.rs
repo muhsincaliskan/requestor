@@ -4,6 +4,7 @@ use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
 use requestor_core::workspace::{PendingDelete, PendingWrite};
 
+use super::overlay::LibraryTarget;
 use super::tab::TabId;
 
 #[derive(Debug)]
@@ -22,6 +23,11 @@ pub enum Effect {
     },
     CopyText(String),
     AbortSend(u64),
+    PickImportFile,
+    PickExportLocation {
+        target: LibraryTarget,
+        suggested: PathBuf,
+    },
 }
 
 impl Effect {
@@ -34,7 +40,11 @@ impl Effect {
             Effect::WriteFile { path, contents } => PendingWrite::new(path, contents)
                 .commit()
                 .map_err(|error| error.to_string()),
-            Effect::Send { .. } | Effect::CopyText(_) | Effect::AbortSend(_) => Ok(()),
+            Effect::Send { .. }
+            | Effect::CopyText(_)
+            | Effect::AbortSend(_)
+            | Effect::PickImportFile
+            | Effect::PickExportLocation { .. } => Ok(()),
         }
     }
 }
