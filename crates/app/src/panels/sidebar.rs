@@ -3,20 +3,28 @@ mod environments;
 mod menus;
 mod tree;
 
-use eframe::egui::{Id, ScrollArea, TextEdit, Ui};
+use eframe::egui::{
+    vec2, Align, Align2, Atom, AtomExt, Button, Id, IntoAtoms, Layout, RichText, ScrollArea,
+    TextEdit, Ui,
+};
 
 use crate::state::{Action, AppState, Overlay};
+use crate::widgets::variable_text_edit::FIELD_MARGIN;
 
 const TITLE: &str = "Collections";
 const NEW_LABEL: &str = "+";
 const IMPORT_LABEL: &str = "Import";
 const NEW_COLLECTION_LABEL: &str = "New collection";
+const CLEAR_LABEL: &str = "×";
 const FILTER_HINT: &str = "Filter requests";
 const FILTER_ID: &str = "sidebar-filter";
 const SCROLL_ID: &str = "sidebar-scroll";
 const EMPTY_TEXT: &str =
     "No collections yet. Create one or import from Postman, OpenAPI, cURL or a raw HTTP request.";
 const SECTION_GAP: f32 = 8.0;
+const ROW_GAP: f32 = 2.0;
+const ROW_HEIGHT: f32 = 24.0;
+const ROW_PADDING: (f32, f32) = (6.0, 3.0);
 
 pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
     header(ui, actions);
@@ -26,6 +34,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
         .id_salt(SCROLL_ID)
         .auto_shrink(false)
         .show(ui, |ui| {
+            compact_rows(ui);
             if state.workspace.collections.is_empty() {
                 empty_state(ui, actions);
             } else {
@@ -39,31 +48,61 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
 fn header(ui: &mut Ui, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         ui.strong(TITLE);
-        ui.with_layout(
-            eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
-            |ui| {
-                if ui
-                    .button(NEW_LABEL)
-                    .on_hover_text(NEW_COLLECTION_LABEL)
-                    .clicked()
-                {
-                    actions.push(Action::NewCollection);
-                }
-            },
-        );
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if add_button(ui, NEW_COLLECTION_LABEL) {
+                actions.push(Action::NewCollection);
+            }
+        });
     });
+}
+
+fn add_button(ui: &mut Ui, hint: &str) -> bool {
+    ui.add(Button::new(NEW_LABEL).frame(false))
+        .on_hover_text(hint)
+        .clicked()
+}
+
+fn compact_rows(ui: &mut Ui) {
+    let spacing = ui.spacing_mut();
+    spacing.item_spacing.y = ROW_GAP;
+    spacing.interact_size.y = ROW_HEIGHT;
+    spacing.button_padding = vec2(ROW_PADDING.0, ROW_PADDING.1);
 }
 
 fn filter_field(ui: &mut Ui) -> String {
     let id = Id::new(FILTER_ID);
     let mut text: String = ui.data(|data| data.get_temp(id)).unwrap_or_default();
-    let edit = TextEdit::singleline(&mut text)
-        .hint_text(FILTER_HINT)
-        .desired_width(f32::INFINITY);
-    if ui.add(edit).changed() {
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if !text.is_empty() && ui.add(Button::new(CLEAR_LABEL).frame(false)).clicked() {
+                text.clear();
+                changed = true;
+            }
+            let edit = TextEdit::singleline(&mut text)
+                .hint_text(FILTER_HINT)
+                .margin(FIELD_MARGIN)
+                .desired_width(f32::INFINITY);
+            changed |= ui.add(edit).changed();
+        });
+    });
+    if changed {
         ui.data_mut(|data| data.insert_temp(id, text.clone()));
     }
     text.trim().to_string()
+}
+
+fn row<'a>(ui: &Ui, selected: bool, atoms: impl IntoAtoms<'a>) -> Button<'a> {
+    Button::selectable(selected, atoms)
+        .truncate()
+        .min_size(vec2(ui.available_width(), 0.0))
+}
+
+fn row_label<'a>(text: &str) -> Atom<'a> {
+    RichText::new(text)
+        .atom_grow(true)
+        .atom_shrink(true)
+        .atom_align(Align2::LEFT_CENTER)
 }
 
 fn empty_state(ui: &mut Ui, actions: &mut Vec<Action>) {
