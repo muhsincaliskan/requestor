@@ -315,7 +315,7 @@ fn deleting_a_collection_removes_its_file_and_never_rewrites_it() {
     );
     assert!(matches!(
         effects.as_slice(),
-        [Effect::DeleteCollectionFile(id)] if *id == collection_id
+        [Effect::DeleteFile(path)] if path.ends_with(format!("{collection_id}.json"))
     ));
     assert_eq!(persisted_count(&state.tick(LATER)), 1);
 }

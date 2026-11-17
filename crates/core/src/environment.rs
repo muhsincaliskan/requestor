@@ -1,7 +1,10 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::error::CoreError;
+use crate::identity::random_uuid;
 use crate::text::scalar_text;
 
 const ENVIRONMENT_SCOPE: &str = "environment";
@@ -88,6 +91,26 @@ impl Environment {
         }
     }
 
+    pub fn ensure_id(&mut self) -> bool {
+        let missing = self.id.is_none();
+        if missing {
+            self.id = Some(random_uuid());
+        }
+        missing
+    }
+
+    pub fn claim_unique_id(&mut self, taken: &mut HashSet<String>) -> bool {
+        let mut changed = self.ensure_id();
+        let id = self.id.clone().unwrap_or_default();
+        if !taken.insert(id) {
+            let fresh = random_uuid();
+            taken.insert(fresh.clone());
+            self.id = Some(fresh);
+            changed = true;
+        }
+        changed
+    }
+
     pub fn from_json(text: &str) -> Result<Self, CoreError> {
         Ok(serde_json::from_str(text)?)
     }
@@ -109,7 +132,30 @@ impl Environment {
 mod tests {
     use serde_json::json;
 
-    use super::EnvironmentValue;
+    use std::collections::HashSet;
+
+    use super::{Environment, EnvironmentValue};
+
+    #[test]
+    fn ensure_id_names_an_environment_once() {
+        let mut environment = Environment::new("Staging");
+        assert!(environment.ensure_id());
+        let id = environment.id.clone();
+        assert!(!environment.ensure_id());
+        assert_eq!(environment.id, id);
+    }
+
+    #[test]
+    fn claiming_a_taken_id_gives_a_fresh_one() {
+        let mut taken = HashSet::new();
+        let mut first = Environment::new("A");
+        assert!(first.claim_unique_id(&mut taken));
+        let mut second = Environment::new("B");
+        second.id.clone_from(&first.id);
+        assert!(second.claim_unique_id(&mut taken));
+        assert_ne!(second.id, first.id);
+        assert!(!first.claim_unique_id(&mut HashSet::new()));
+    }
 
     #[test]
     fn secret_flag_switches_the_kind() {
