@@ -85,12 +85,21 @@ impl AuthDraft {
         match self.kind {
             AuthKind::Inherit => None,
             AuthKind::None => Some(Auth::none()),
-            AuthKind::Bearer => Some(Auth::bearer(self.token.clone())),
-            AuthKind::Basic => Some(Auth::basic(self.username.clone(), self.password.clone())),
-            AuthKind::ApiKey => Some(Auth::api_key(
-                &self.api_key_name,
-                &self.api_key_value,
-                self.api_key_location(),
+            AuthKind::Bearer => Some(self.edited(BEARER_KIND, &[(TOKEN_KEY, &self.token)])),
+            AuthKind::Basic => Some(self.edited(
+                BASIC_KIND,
+                &[
+                    (USERNAME_KEY, &self.username),
+                    (PASSWORD_KEY, &self.password),
+                ],
+            )),
+            AuthKind::ApiKey => Some(self.edited(
+                API_KEY_KIND,
+                &[
+                    (API_KEY_NAME_KEY, &self.api_key_name),
+                    (API_KEY_VALUE_KEY, &self.api_key_value),
+                    (API_KEY_LOCATION_KEY, self.api_key_location()),
+                ],
             )),
             AuthKind::Unsupported => self.source.clone(),
         }
@@ -100,6 +109,20 @@ impl AuthDraft {
         (self.kind == AuthKind::Unsupported)
             .then(|| self.source.as_ref().map(|auth| auth.kind.as_str()))
             .flatten()
+    }
+
+    fn edited(&self, kind: &str, attributes: &[(&str, &str)]) -> Auth {
+        let base = self
+            .source
+            .as_ref()
+            .filter(|auth| auth.kind == kind || auth.has_section(kind))
+            .cloned()
+            .unwrap_or_else(Auth::none);
+        let mut auth = base.with_kind(kind);
+        for (key, value) in attributes {
+            auth.set_attribute(kind, key, value);
+        }
+        auth
     }
 
     fn api_key_location(&self) -> &'static str {
@@ -139,6 +162,36 @@ mod tests {
         assert_eq!(draft.kind, AuthKind::Unsupported);
         assert_eq!(draft.unsupported_kind(), Some("oauth2"));
         assert_eq!(draft.to_auth(), Some(oauth));
+    }
+
+    const MIXED_AUTH: &str = r#"{"type":"bearer","bearer":[{"key":"token","value":"old","type":"string","x-attr":1}],
+        "oauth2":[{"key":"accessToken","value":"t"}]}"#;
+
+    #[test]
+    fn editing_a_token_keeps_other_sections_and_attribute_extras() {
+        let source: Auth = serde_json::from_str(MIXED_AUTH).unwrap();
+        let mut draft = AuthDraft::from_auth(Some(&source));
+        assert_eq!(draft.to_auth(), Some(source));
+        draft.token = "new".to_string();
+        let json = serde_json::to_value(draft.to_auth().unwrap()).unwrap();
+        assert_eq!(json["bearer"][0]["value"], "new");
+        assert_eq!(json["bearer"][0]["x-attr"], 1);
+        assert_eq!(json["oauth2"][0]["key"], "accessToken");
+    }
+
+    #[test]
+    fn switching_to_a_kind_with_an_existing_section_reuses_it() {
+        let source: Auth = serde_json::from_str(
+            r#"{"type":"none","basic":[{"key":"username","value":"u","x-attr":2}]}"#,
+        )
+        .unwrap();
+        let mut draft = AuthDraft::from_auth(Some(&source));
+        draft.kind = AuthKind::Basic;
+        draft.password = "p".to_string();
+        let json = serde_json::to_value(draft.to_auth().unwrap()).unwrap();
+        assert_eq!(json["type"], "basic");
+        assert_eq!(json["basic"][0]["x-attr"], 2);
+        assert_eq!(json["basic"][1]["value"], "p");
     }
 
     #[test]

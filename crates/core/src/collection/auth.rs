@@ -47,6 +47,12 @@ impl AuthAttribute {
             extra: Map::new(),
         }
     }
+
+    fn set_text(&mut self, text: &str) {
+        if self.value.as_ref().and_then(Value::as_str) != Some(text) {
+            self.value = Some(Value::String(text.to_string()));
+        }
+    }
 }
 
 impl Auth {
@@ -110,6 +116,30 @@ impl Auth {
             .filter(|value| !value.is_empty())
     }
 
+    pub fn with_kind(mut self, kind: &str) -> Self {
+        self.kind = kind.to_string();
+        self
+    }
+
+    pub fn has_section(&self, section: &str) -> bool {
+        self.parameters.contains_key(section)
+    }
+
+    pub fn set_attribute(&mut self, section: &str, key: &str, value: &str) {
+        let attributes = self
+            .parameters
+            .entry(section.to_string())
+            .or_default()
+            .get_or_insert_with(Vec::new);
+        match attributes
+            .iter_mut()
+            .find(|attribute| attribute.key.as_deref() == Some(key))
+        {
+            Some(attribute) => attribute.set_text(value),
+            None => attributes.push(AuthAttribute::string(key, value)),
+        }
+    }
+
     pub fn is_none(&self) -> bool {
         self.kind == NO_AUTH_KIND
     }
@@ -118,6 +148,37 @@ impl Auth {
 #[cfg(test)]
 mod tests {
     use super::Auth;
+
+    const MIXED_AUTH: &str = r#"{"type":"bearer","bearer":[{"key":"token","value":"old","type":"string","x-attr":1}],
+        "oauth2":[{"key":"accessToken","value":"t"}]}"#;
+
+    #[test]
+    fn setting_an_attribute_keeps_other_sections_and_attribute_extras() {
+        let mut auth: Auth = serde_json::from_str(MIXED_AUTH).unwrap();
+        auth.set_attribute("bearer", "token", "new");
+        auth.set_attribute("bearer", "added", "x");
+        let json = serde_json::to_value(&auth).unwrap();
+        assert_eq!(json["bearer"][0]["value"], "new");
+        assert_eq!(json["bearer"][0]["x-attr"], 1);
+        assert_eq!(json["bearer"][1]["key"], "added");
+        assert_eq!(json["oauth2"][0]["key"], "accessToken");
+    }
+
+    #[test]
+    fn setting_an_unchanged_attribute_leaves_the_document_equal() {
+        let original: Auth = serde_json::from_str(MIXED_AUTH).unwrap();
+        let mut auth = original.clone();
+        auth.set_attribute("bearer", "token", "old");
+        assert_eq!(auth, original);
+    }
+
+    #[test]
+    fn switching_kind_only_changes_the_type_and_reports_sections() {
+        let auth: Auth = serde_json::from_str(MIXED_AUTH).unwrap();
+        assert!(auth.has_section("oauth2"));
+        assert!(!auth.has_section("basic"));
+        assert_eq!(auth.with_kind("oauth2").kind, "oauth2");
+    }
 
     #[test]
     fn credentials_split_on_the_first_colon() {
