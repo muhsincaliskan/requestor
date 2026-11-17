@@ -13,6 +13,7 @@ const RAW_SALT: &str = "body-raw";
 const QUERY_SALT: &str = "body-graphql-query";
 const VARIABLES_SALT: &str = "body-graphql-variables";
 const FILE_HINT: &str = "Path of the file to send";
+const BEAUTIFY_LABEL: &str = "Beautify";
 const NONE_TEXT: &str = "This request has no body.";
 const QUERY_TITLE: &str = "Query";
 const VARIABLES_TITLE: &str = "Variables (JSON)";
@@ -56,15 +57,20 @@ fn none_text(ui: &mut Ui) -> bool {
 
 fn raw_editor(ui: &mut Ui, body: &mut BodyDraft, names: &[String]) -> bool {
     let before = body.language;
-    ComboBox::from_id_salt(LANGUAGE_SALT)
-        .selected_text(body.language.label())
-        .show_ui(ui, |ui| {
-            for language in RawLanguage::ALL {
-                ui.selectable_value(&mut body.language, language, language.label());
-            }
-        });
+    let beautified = ui
+        .horizontal(|ui| {
+            ComboBox::from_id_salt(LANGUAGE_SALT)
+                .selected_text(body.language.label())
+                .show_ui(ui, |ui| {
+                    for language in RawLanguage::ALL {
+                        ui.selectable_value(&mut body.language, language, language.label());
+                    }
+                });
+            body.can_beautify() && ui.button(BEAUTIFY_LABEL).clicked() && body.beautify()
+        })
+        .inner;
     let language_changed = body.language != before;
-    language_changed | scrolling_editor(ui, &mut body.raw, names, RAW_SALT, RAW_ROWS)
+    language_changed | beautified | scrolling_editor(ui, &mut body.raw, names, RAW_SALT, RAW_ROWS)
 }
 
 fn file_editor(ui: &mut Ui, body: &mut BodyDraft, names: &[String]) -> bool {

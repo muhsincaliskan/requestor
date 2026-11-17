@@ -7,6 +7,7 @@ use completion::step_selection;
 use popup::{draw_popup, PopupState, Suggestion, POPUP_STATE_SALT};
 
 pub const FIELD_MARGIN: Margin = Margin::symmetric(6, 5);
+const EDITOR_MARGIN: Margin = Margin::same(8);
 
 pub struct VariableTextEdit<'a> {
     text: &'a mut String,
@@ -76,6 +77,7 @@ impl<'a> VariableTextEdit<'a> {
             Some(rows) => TextEdit::multiline(&mut *self.text)
                 .desired_rows(rows)
                 .font(TextStyle::Monospace)
+                .margin(EDITOR_MARGIN)
                 .lock_focus(true),
             None => TextEdit::singleline(&mut *self.text).margin(FIELD_MARGIN),
         };

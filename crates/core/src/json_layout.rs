@@ -1,11 +1,14 @@
 const INDENT: &str = "  ";
 const NEWLINE: char = '\n';
 const MAX_INDENT_LEVELS: usize = 32;
+const PLACEHOLDER_OPEN: &str = "{{";
+const PLACEHOLDER_CLOSE: &str = "}}";
 
 struct Layout {
     output: String,
     depth: usize,
     in_string: bool,
+    in_placeholder: bool,
     escaped: bool,
     pending_open: Option<char>,
 }
@@ -15,6 +18,7 @@ pub fn reindent(text: &str) -> String {
         output: String::with_capacity(text.len() + text.len() / 4),
         depth: 0,
         in_string: false,
+        in_placeholder: false,
         escaped: false,
         pending_open: None,
     };
@@ -29,6 +33,8 @@ impl Layout {
     fn accept(&mut self, character: char) {
         if self.in_string {
             self.accept_in_string(character);
+        } else if self.in_placeholder {
+            self.accept_in_placeholder(character);
         } else if !character.is_whitespace() {
             self.accept_structural(character);
         }
@@ -45,8 +51,16 @@ impl Layout {
         }
     }
 
+    fn accept_in_placeholder(&mut self, character: char) {
+        self.output.push(character);
+        if self.output.ends_with(PLACEHOLDER_CLOSE) {
+            self.in_placeholder = false;
+        }
+    }
+
     fn accept_structural(&mut self, character: char) {
         match character {
+            '{' if self.pending_open == Some('{') => self.open_placeholder(),
             '}' | ']' => self.close(character),
             _ => {
                 self.flush_pending_open();
@@ -69,6 +83,12 @@ impl Layout {
             }
             other => self.output.push(other),
         }
+    }
+
+    fn open_placeholder(&mut self) {
+        self.pending_open = None;
+        self.output.push_str(PLACEHOLDER_OPEN);
+        self.in_placeholder = true;
     }
 
     fn close(&mut self, character: char) {
@@ -138,8 +158,17 @@ mod tests {
     }
 
     #[test]
+    fn variable_placeholders_stay_intact() {
+        assert_eq!(
+            reindent(r#"{"id":{{petId}},"tags":[{{ firstTag }},"b"]}"#),
+            "{\n  \"id\": {{petId}},\n  \"tags\": [\n    {{ firstTag }},\n    \"b\"\n  ]\n}"
+        );
+        assert_eq!(reindent("{{body}}"), "{{body}}");
+    }
+
+    #[test]
     fn damaged_documents_do_not_panic() {
-        for text in ["}}]]", "{\"open", "[1,,", "", "\"\\"] {
+        for text in ["}}]]", "{\"open", "[1,,", "", "\"\\", "{{", "{{x"] {
             let _ = reindent(text);
         }
     }
