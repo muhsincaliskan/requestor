@@ -3,6 +3,7 @@ use std::time::Instant;
 use eframe::egui::{Context, Ui};
 use requestor_core::workspace::WorkspaceStore;
 
+use crate::file_picker;
 use crate::panels;
 use crate::runner::Runner;
 use crate::saver::Saver;
@@ -61,6 +62,15 @@ impl RequestorApp {
                 } => self.runner.send(tab, job, *request, &settings, ctx),
                 Effect::CopyText(text) => ctx.copy_text(text),
                 Effect::AbortSend(job) => self.runner.abort(job),
+                Effect::PickImportFile => {
+                    let chosen = file_picker::import_file().map(Action::ImportFile);
+                    self.apply(chosen.into_iter().collect(), ctx);
+                }
+                Effect::PickExportLocation { target, suggested } => {
+                    let chosen = file_picker::export_location(&suggested)
+                        .map(|file_path| Action::Export { target, file_path });
+                    self.apply(chosen.into_iter().collect(), ctx);
+                }
                 storage => {
                     if let Err(reason) = self.saver.submit(storage) {
                         self.state.report_error(format!("Could not save: {reason}"));

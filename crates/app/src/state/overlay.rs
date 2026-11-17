@@ -4,7 +4,6 @@ use super::tab::TabId;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ImportForm {
     pub text: String,
-    pub file_path: String,
     pub error: Option<String>,
 }
 

@@ -72,6 +72,11 @@ pub enum Action {
     EnvironmentEdited(String),
     ImportText(String),
     ImportFile(PathBuf),
+    ChooseImportFile,
+    ChooseExportLocation {
+        target: LibraryTarget,
+        suggested: PathBuf,
+    },
     Export {
         target: LibraryTarget,
         file_path: PathBuf,

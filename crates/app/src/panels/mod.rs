@@ -47,6 +47,20 @@ pub fn show(ui: &mut Ui, state: &mut AppState, now: f64, actions: &mut Vec<Actio
             }
         });
     overlays::show(ui.ctx(), state, actions);
+    import_dropped_files(ui, actions);
+}
+
+fn import_dropped_files(ui: &Ui, actions: &mut Vec<Action>) {
+    ui.input(|input| {
+        actions.extend(
+            input
+                .raw
+                .dropped_files
+                .iter()
+                .map(|file| file.path().to_path_buf())
+                .map(Action::ImportFile),
+        )
+    });
 }
 
 fn bar_frame(ui: &Ui) -> Frame {

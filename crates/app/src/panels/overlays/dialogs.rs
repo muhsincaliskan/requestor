@@ -8,6 +8,7 @@ use crate::state::{
     Action, AppState, DeleteConfirmation, ExportForm, RenameForm, SaveTabForm, TabId,
 };
 
+const CHOOSE_LOCATION_LABEL: &str = "Choose…";
 const CANCEL_LABEL: &str = "Cancel";
 const SAVE_LABEL: &str = "Save";
 const DISCARD_LABEL: &str = "Discard changes";
@@ -158,11 +159,19 @@ pub fn rename(ctx: &Context, form: &mut RenameForm, actions: &mut Vec<Action>) -
 
 pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -> bool {
     dialog(ctx, "export", "Export", |ui| {
-        ui.add(
-            TextEdit::singleline(&mut form.file_path)
-                .hint_text(EXPORT_PATH_HINT)
-                .desired_width(FIELD_WIDTH),
-        );
+        ui.horizontal(|ui| {
+            ui.add(
+                TextEdit::singleline(&mut form.file_path)
+                    .hint_text(EXPORT_PATH_HINT)
+                    .desired_width(FIELD_WIDTH),
+            );
+            if ui.button(CHOOSE_LOCATION_LABEL).clicked() {
+                actions.push(Action::ChooseExportLocation {
+                    target: form.target.clone(),
+                    suggested: PathBuf::from(form.file_path.trim()),
+                });
+            }
+        });
         if let Some(error) = &form.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }

@@ -450,3 +450,22 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
         "https://example.test/draft"
     );
 }
+
+#[test]
+fn choosing_files_asks_the_shell_for_a_native_picker() {
+    let (mut state, collection_id, _) = state_with_request();
+    let effects = state.apply(Action::ChooseImportFile, 0.0);
+    assert!(matches!(effects.as_slice(), [Effect::PickImportFile]));
+    let target = LibraryTarget::Collection { collection_id };
+    let effects = state.apply(
+        Action::ChooseExportLocation {
+            target: target.clone(),
+            suggested: "Sample.postman_collection.json".into(),
+        },
+        0.0,
+    );
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::PickExportLocation { target: chosen, .. }] if *chosen == target
+    ));
+}
