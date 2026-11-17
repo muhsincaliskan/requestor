@@ -1,11 +1,13 @@
 pub mod collection;
 pub(crate) mod curl_command;
+pub mod draft;
 pub mod encoding;
 pub mod environment;
 pub mod error;
 pub mod header;
 pub mod identity;
 pub mod import;
+pub mod json_layout;
 pub mod media_type;
 pub mod method;
 pub mod prepared;
@@ -15,3 +17,4 @@ pub mod settings;
 pub mod text;
 pub mod transport;
 pub mod variables;
+pub mod workspace;

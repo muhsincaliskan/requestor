@@ -49,7 +49,7 @@ impl PreparedRequest {
         let url = request
             .url
             .as_ref()
-            .map(Url::to_text)
+            .map(Url::to_sendable_text)
             .filter(|text| !text.trim().is_empty())
             .ok_or(CoreError::MissingUrl)?;
         let mut prepared = PreparedRequest {

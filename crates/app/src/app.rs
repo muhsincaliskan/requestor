@@ -1,131 +1,120 @@
-use eframe::egui;
-use egui::{ComboBox, Id, ScrollArea, TextStyle, TextWrapMode, Ui, WidgetText};
-use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
-use requestor_core::method::HttpMethod;
+use std::time::Instant;
 
-use crate::highlight::JsonHighlighter;
-use crate::response_buffer::ResponseBuffer;
+use eframe::egui::{Context, Ui};
+use requestor_core::workspace::WorkspaceStore;
 
-const REQUEST_TAB_TITLE: &str = "Request";
-const RESPONSE_TAB_TITLE: &str = "Response";
-const SPLIT_FRACTION: f32 = 0.45;
-const DEFAULT_URL: &str = "https://api.example.com/users";
-const METHOD_COMBO_ID: &str = "method";
-const SPIKE_STATUS_TEXT: &str = "200 OK";
-const METHODS: [HttpMethod; 5] = [
-    HttpMethod::Get,
-    HttpMethod::Post,
-    HttpMethod::Put,
-    HttpMethod::Patch,
-    HttpMethod::Delete,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tab {
-    Request,
-    Response,
-}
+use crate::panels;
+use crate::runner::Runner;
+use crate::saver::Saver;
+use crate::shortcuts;
+use crate::state::{Action, AppState, Effect};
+use crate::theme::Look;
 
 pub struct RequestorApp {
-    dock: DockState<Tab>,
-    session: Session,
-}
-
-struct Session {
-    method: HttpMethod,
-    url: String,
-    response: ResponseBuffer,
-    highlighter: JsonHighlighter,
+    state: AppState,
+    runner: Runner,
+    saver: Saver,
+    started: Instant,
+    look: Option<Look>,
+    sends_active_tab_on_start: bool,
 }
 
 impl RequestorApp {
-    pub fn new(response: ResponseBuffer) -> Self {
-        let mut dock = DockState::new(vec![Tab::Request]);
-        dock.main_surface_mut()
-            .split_right(NodeIndex::root(), SPLIT_FRACTION, vec![Tab::Response]);
-        let session = Session {
-            method: HttpMethod::Get,
-            url: DEFAULT_URL.to_string(),
-            response,
-            highlighter: JsonHighlighter::new(),
-        };
-        RequestorApp { dock, session }
+    pub fn new(mut store: WorkspaceStore) -> Self {
+        let loaded = store.load();
+        let state = AppState::new(loaded, store);
+        RequestorApp {
+            state,
+            runner: Runner::new(),
+            saver: Saver::start(),
+            started: Instant::now(),
+            look: None,
+            sends_active_tab_on_start: false,
+        }
+    }
+
+    pub fn sending_active_tab_on_start(mut self, enabled: bool) -> Self {
+        self.sends_active_tab_on_start = enabled;
+        self
+    }
+
+    fn now(&self) -> f64 {
+        self.started.elapsed().as_secs_f64()
+    }
+
+    fn apply(&mut self, actions: Vec<Action>, ctx: &Context) {
+        let now = self.now();
+        for action in actions {
+            let effects = self.state.apply(action, now);
+            self.execute(effects, ctx);
+        }
+    }
+
+    fn execute(&mut self, effects: Vec<Effect>, ctx: &Context) {
+        for effect in effects {
+            match effect {
+                Effect::Send {
+                    tab,
+                    job,
+                    request,
+                    settings,
+                } => self.runner.send(tab, job, *request, &settings, ctx),
+                Effect::CopyText(text) => ctx.copy_text(text),
+                Effect::AbortSend(job) => self.runner.abort(job),
+                storage => {
+                    if let Err(reason) = self.saver.submit(storage) {
+                        self.state.report_error(format!("Could not save: {reason}"));
+                    }
+                }
+            }
+        }
+    }
+
+    fn refresh_look(&mut self, ctx: &Context) {
+        let wanted = Look::of(self.state.interface());
+        if self.look != Some(wanted) {
+            wanted.apply(ctx);
+            self.look = Some(wanted);
+        }
     }
 }
 
 impl eframe::App for RequestorApp {
+    fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        let mut pending: Vec<Action> = self.runner.finished().collect();
+        if std::mem::take(&mut self.sends_active_tab_on_start) {
+            pending.extend(self.state.active_tab.map(Action::Send));
+        }
+        self.apply(pending, ctx);
+        let failures: Vec<String> = self.saver.failures().collect();
+        for failure in failures {
+            self.state.report_error(format!("Could not save {failure}"));
+        }
+        let now = self.now();
+        let writes = self.state.tick(now);
+        self.execute(writes, ctx);
+        if let Some(wait) = self.state.seconds_until_next_save(now) {
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait));
+        }
+        self.refresh_look(ctx);
+    }
+
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
-        DockArea::new(&mut self.dock)
-            .style(Style::from_egui(ui.style().as_ref()))
-            .show_inside(ui, &mut self.session);
-    }
-}
-
-impl TabViewer for Session {
-    type Tab = Tab;
-
-    fn id(&mut self, tab: &mut Tab) -> Id {
-        Id::new(match tab {
-            Tab::Request => REQUEST_TAB_TITLE,
-            Tab::Response => RESPONSE_TAB_TITLE,
-        })
+        let ctx = ui.ctx().clone();
+        let mut actions = Vec::new();
+        shortcuts::collect(&ctx, &mut self.state, &mut actions);
+        let now = self.now();
+        panels::show(ui, &mut self.state, now, &mut actions);
+        self.apply(actions, &ctx);
     }
 
-    fn title(&mut self, tab: &mut Tab) -> WidgetText {
-        match tab {
-            Tab::Request => REQUEST_TAB_TITLE.into(),
-            Tab::Response => RESPONSE_TAB_TITLE.into(),
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        let writes = self.state.flush();
+        for write in writes {
+            if let Err(reason) = self.saver.submit(write) {
+                eprintln!("could not save on exit: {reason}");
+            }
         }
-    }
-
-    fn is_closeable(&self, _tab: &Tab) -> bool {
-        false
-    }
-
-    fn ui(&mut self, ui: &mut Ui, tab: &mut Tab) {
-        match tab {
-            Tab::Request => self.request_ui(ui),
-            Tab::Response => self.response_ui(ui),
-        }
-    }
-}
-
-impl Session {
-    fn request_ui(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ComboBox::from_id_salt(METHOD_COMBO_ID)
-                .selected_text(self.method.as_str())
-                .show_ui(ui, |ui| {
-                    for method in METHODS {
-                        let label = method.as_str().to_string();
-                        ui.selectable_value(&mut self.method, method, label);
-                    }
-                });
-            ui.add(egui::TextEdit::singleline(&mut self.url).desired_width(f32::INFINITY));
-        });
-    }
-
-    fn response_ui(&self, ui: &mut Ui) {
-        ui.label(format!(
-            "{SPIKE_STATUS_TEXT}  {:.1} MB  {} lines",
-            self.response.megabytes(),
-            self.response.line_count()
-        ));
-        ui.separator();
-        let font_id = TextStyle::Monospace.resolve(ui.style());
-        let row_height = ui.text_style_height(&TextStyle::Monospace);
-        ScrollArea::both().auto_shrink(false).show_rows(
-            ui,
-            row_height,
-            self.response.line_count(),
-            |ui, rows| {
-                for index in rows {
-                    let job = self
-                        .highlighter
-                        .layout_line(self.response.line(index), &font_id);
-                    ui.add(egui::Label::new(job).wrap_mode(TextWrapMode::Extend));
-                }
-            },
-        );
+        self.saver.finish();
     }
 }

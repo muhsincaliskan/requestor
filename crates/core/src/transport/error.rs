@@ -8,6 +8,7 @@ pub enum TransportError {
     InvalidSettings(String),
     InvalidRequest(String),
     Timeout,
+    Cancelled,
     ConnectionFailed(String),
     Tls(String),
     TooManyRedirects,
@@ -24,6 +25,7 @@ impl fmt::Display for TransportError {
                 write!(formatter, "invalid request: {reason}")
             }
             TransportError::Timeout => write!(formatter, "the request timed out"),
+            TransportError::Cancelled => write!(formatter, "the request was cancelled"),
             TransportError::ConnectionFailed(reason) => {
                 write!(formatter, "connection failed: {reason}")
             }

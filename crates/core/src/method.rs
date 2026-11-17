@@ -14,6 +14,22 @@ pub enum HttpMethod {
 }
 
 impl HttpMethod {
+    pub const COMMON: [HttpMethod; 7] = [
+        HttpMethod::Get,
+        HttpMethod::Post,
+        HttpMethod::Put,
+        HttpMethod::Patch,
+        HttpMethod::Delete,
+        HttpMethod::Head,
+        HttpMethod::Options,
+    ];
+
+    pub fn is_common(name: &str) -> bool {
+        HttpMethod::COMMON
+            .iter()
+            .any(|method| method.as_str() == name)
+    }
+
     pub fn parse(text: &str) -> Self {
         match text.trim().to_ascii_uppercase().as_str() {
             "GET" => HttpMethod::Get,
@@ -48,6 +64,13 @@ impl HttpMethod {
 #[cfg(test)]
 mod tests {
     use super::HttpMethod;
+
+    #[test]
+    fn common_methods_are_recognised_by_exact_name() {
+        assert!(HttpMethod::is_common("PATCH"));
+        assert!(!HttpMethod::is_common("PURGE"));
+        assert!(!HttpMethod::is_common("get"));
+    }
 
     #[test]
     fn parses_known_methods_case_insensitively() {

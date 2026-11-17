@@ -5,7 +5,7 @@ use reqwest::blocking::{Client, ClientBuilder, Response};
 use reqwest::redirect::Policy;
 use reqwest::{Method, NoProxy, Proxy};
 
-use super::{HttpTransport, TransportError};
+use super::{Cancellation, HttpTransport, TransportError};
 use crate::header::Header;
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
@@ -16,6 +16,26 @@ const HOST_LIST_SEPARATOR: &str = ",";
 const SECURE_SCHEME_PREFIX: &str = "https://";
 const READ_CHUNK_BYTES: usize = 16 * 1024;
 const INITIAL_BODY_CAPACITY: usize = 64 * 1024;
+
+struct ReadWatch<'a> {
+    deadline: Option<Instant>,
+    cancellation: &'a Cancellation,
+}
+
+impl ReadWatch<'_> {
+    fn check(&self) -> Result<(), TransportError> {
+        if self.cancellation.is_cancelled() {
+            return Err(TransportError::Cancelled);
+        }
+        if self
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            return Err(TransportError::Timeout);
+        }
+        Ok(())
+    }
+}
 
 pub struct ReqwestTransport {
     client: Client,
@@ -50,6 +70,16 @@ impl ReqwestTransport {
 
 impl HttpTransport for ReqwestTransport {
     fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError> {
+        self.send_cancellable(request, &Cancellation::default())
+    }
+}
+
+impl ReqwestTransport {
+    pub fn send_cancellable(
+        &self,
+        request: PreparedRequest,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
         let method = Method::from_bytes(request.method.as_str().as_bytes())
             .map_err(|error| TransportError::InvalidRequest(error.to_string()))?;
         let mut builder = self.client_for(&request.url).request(method, &request.url);
@@ -61,7 +91,14 @@ impl HttpTransport for ReqwestTransport {
         }
         let started = Instant::now();
         let response = builder.send().map_err(TransportError::from_reqwest)?;
-        read_response(response, &self.settings, started)
+        let watch = ReadWatch {
+            deadline: self
+                .settings
+                .request_timeout()
+                .map(|timeout| started + timeout),
+            cancellation,
+        };
+        read_response(response, &self.settings, started, &watch)
     }
 }
 
@@ -123,6 +160,7 @@ fn read_response(
     response: Response,
     settings: &RequestSettings,
     started: Instant,
+    watch: &ReadWatch<'_>,
 ) -> Result<HttpResponse, TransportError> {
     let status = response.status();
     let version = format!("{:?}", response.version());
@@ -137,8 +175,7 @@ fn read_response(
             usize::try_from(length).unwrap_or(usize::MAX)
         });
     let limit = settings.response_limit();
-    let deadline = settings.request_timeout().map(|timeout| started + timeout);
-    let (body, truncated) = read_capped(response, limit, expected.min(limit), deadline)?;
+    let (body, truncated) = read_capped(response, limit, expected.min(limit), watch)?;
     Ok(HttpResponse {
         status: status.as_u16(),
         reason: status.canonical_reason().unwrap_or_default().to_string(),
@@ -154,14 +191,12 @@ fn read_capped(
     mut reader: impl Read,
     limit: usize,
     capacity: usize,
-    deadline: Option<Instant>,
+    watch: &ReadWatch<'_>,
 ) -> Result<(Vec<u8>, bool), TransportError> {
     let mut body = Vec::with_capacity(capacity.min(limit));
     let mut chunk = vec![0u8; READ_CHUNK_BYTES];
     loop {
-        if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
-            return Err(TransportError::Timeout);
-        }
+        watch.check()?;
         let count = reader
             .read(&mut chunk)
             .map_err(|error| TransportError::from_io(&error))?;
