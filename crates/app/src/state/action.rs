@@ -76,6 +76,5 @@ pub enum Action {
     },
     SettingsEdited,
     Show(Overlay),
-    DismissOverlay,
     DismissNotice,
 }

@@ -34,7 +34,7 @@ pub enum ResponseSection {
 
 pub enum Exchange {
     Idle,
-    Sending { job: u64, started_at: f64 },
+    Sending { job: u64 },
     Completed(Box<ResponseView>),
     Failed(String),
 }

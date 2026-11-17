@@ -25,10 +25,6 @@ impl ResponseBuffer {
         self.row_starts.len()
     }
 
-    pub fn byte_len(&self) -> usize {
-        self.text.len()
-    }
-
     pub fn text(&self) -> &str {
         &self.text
     }

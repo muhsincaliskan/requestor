@@ -40,7 +40,6 @@ impl AppState {
         let Some(prepared) = self.prepare(id) else {
             return;
         };
-        let now = self.now;
         let request = match prepared {
             Ok(request) => request,
             Err(reason) => {
@@ -57,10 +56,7 @@ impl AppState {
         self.next_job += 1;
         let job = self.next_job;
         if let Some(tab) = self.tab_mut(id) {
-            tab.exchange = Exchange::Sending {
-                job,
-                started_at: now,
-            };
+            tab.exchange = Exchange::Sending { job };
         }
         effects.push(Effect::Send {
             tab: id,

@@ -45,12 +45,4 @@ impl Notices {
     pub fn dismiss(&mut self) {
         self.entries.clear();
     }
-
-    #[cfg(test)]
-    pub fn texts(&self) -> Vec<&str> {
-        self.entries
-            .iter()
-            .map(|notice| notice.text.as_str())
-            .collect()
-    }
 }

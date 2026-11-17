@@ -1,6 +1,7 @@
 mod action;
 mod autosave;
 mod effect;
+mod environments;
 mod library;
 mod notice;
 mod overlay;
@@ -8,6 +9,7 @@ mod persistence;
 mod sending;
 mod tab;
 mod tabs;
+mod transfer;
 
 pub use action::Action;
 pub use effect::Effect;
@@ -115,7 +117,6 @@ impl AppState {
     fn dispatch(&mut self, action: Action, effects: &mut Vec<Effect>) {
         match action {
             Action::Show(overlay) => self.overlay = Some(overlay),
-            Action::DismissOverlay => self.overlay = None,
             Action::DismissNotice => self.notices.dismiss(),
             Action::CopyText(text) => effects.push(Effect::CopyText(text)),
             Action::SettingsEdited => self.unsaved.touch_settings(self.now),

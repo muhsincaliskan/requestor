@@ -19,7 +19,6 @@ pub struct ResponseView {
     pub headers: Vec<Header>,
     pub format: ResponseFormat,
     pub truncated: bool,
-    pub is_error: bool,
     pretty: bool,
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
@@ -34,7 +33,6 @@ impl ResponseView {
         };
         ResponseView {
             status: response.status,
-            is_error: response.is_client_or_server_error(),
             reason: response.reason,
             version: response.version,
             elapsed: response.elapsed,
@@ -51,6 +49,7 @@ impl ResponseView {
         StatusClass::of(self.status)
     }
 
+    #[cfg(test)]
     pub fn body_bytes(&self) -> &[u8] {
         &self.body
     }
@@ -82,6 +81,7 @@ impl ResponseView {
         self.display = None;
     }
 
+    #[cfg(test)]
     pub fn holds_display(&self) -> bool {
         self.display.is_some()
     }
