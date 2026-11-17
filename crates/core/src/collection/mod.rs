@@ -1,5 +1,6 @@
 pub mod auth;
 mod body;
+mod browse;
 mod event;
 mod info;
 mod item;

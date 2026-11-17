@@ -1,0 +1,160 @@
+use eframe::egui::collapsing_header::CollapsingState;
+use eframe::egui::{Button, Id, Label, Response, RichText, Sense, Ui, WidgetText};
+use requestor_core::collection::{Collection, Item};
+
+use super::drag::{self, DropSlot};
+use super::menus;
+use crate::state::{Action, AppState, ItemBinding};
+use crate::widgets::request_title;
+
+const COLLECTION_NODE_ID: &str = "sidebar-collection";
+const FOLDER_NODE_ID: &str = "sidebar-folder";
+
+struct TreeView<'a> {
+    collection: &'a Collection,
+    active: Option<&'a ItemBinding>,
+    filter: &'a str,
+    actions: &'a mut Vec<Action>,
+}
+
+pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Vec<Action>) {
+    let active = state.active().and_then(|tab| tab.binding.as_ref());
+    for collection in &state.workspace.collections {
+        if collection.matches_filter(filter) {
+            let mut view = TreeView {
+                collection,
+                active,
+                filter,
+                actions: &mut *actions,
+            };
+            collection_node(ui, &mut view);
+        }
+    }
+}
+
+pub(super) fn branch(
+    ui: &mut Ui,
+    id: Id,
+    force_open: bool,
+    header: impl FnOnce(&mut Ui) -> Response,
+    body: impl FnOnce(&mut Ui),
+) -> Response {
+    let mut state = CollapsingState::load_with_default_open(ui.ctx(), id, false);
+    if force_open {
+        state.set_open(true);
+    }
+    let mut header_clicked = false;
+    let mut shown = state.show_header(ui, |ui| {
+        let response = header(ui);
+        header_clicked = response.clicked();
+        response
+    });
+    if header_clicked {
+        shown.toggle();
+    }
+    let (_, header, _) = shown.body(body);
+    header.inner
+}
+
+fn collection_node(ui: &mut Ui, view: &mut TreeView) {
+    let collection = view.collection;
+    let id = Id::new((COLLECTION_NODE_ID, collection.id()));
+    let response = branch(
+        ui,
+        id,
+        !view.filter.is_empty(),
+        |ui| {
+            let name = RichText::new(&collection.info.name).strong();
+            ui.add(Label::new(name).sense(Sense::click()))
+        },
+        |ui| items(ui, view, &collection.item),
+    );
+    menus::collection(&response, collection, view.actions);
+    drag::accept(
+        ui,
+        &response,
+        collection,
+        DropSlot::CollectionRoot,
+        view.actions,
+    );
+}
+
+fn items(ui: &mut Ui, view: &mut TreeView, items: &[Item]) {
+    for item in items {
+        if view.filter.is_empty() || item.matches_filter(view.filter) {
+            item_node(ui, view, item);
+        }
+    }
+}
+
+fn item_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
+    if item.id.is_none() {
+        return;
+    }
+    if item.is_folder() {
+        folder_node(ui, view, item);
+    } else {
+        request_node(ui, view, item);
+    }
+}
+
+fn folder_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
+    let Some(item_id) = item.id.as_deref() else {
+        return;
+    };
+    let collection = view.collection;
+    let id = Id::new((FOLDER_NODE_ID, collection.id(), item_id));
+    let response = branch(
+        ui,
+        id,
+        !view.filter.is_empty(),
+        |ui| {
+            let name = WidgetText::from(item.display_name());
+            ui.add(
+                Button::new(name)
+                    .frame(false)
+                    .sense(Sense::click_and_drag()),
+            )
+        },
+        |ui| items(ui, view, item.children()),
+    );
+    drag::begin(&response, collection.id(), item_id);
+    drag::accept(
+        ui,
+        &response,
+        collection,
+        DropSlot::IntoFolder(item_id),
+        view.actions,
+    );
+    menus::item(&response, collection.id(), item, view.actions);
+}
+
+fn request_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
+    let Some(item_id) = item.id.as_deref() else {
+        return;
+    };
+    let collection = view.collection;
+    let selected = view
+        .active
+        .is_some_and(|binding| binding.points_at(collection.id(), item_id));
+    let title = request_title(ui, item.method_name(), item.display_name());
+    let button = Button::selectable(selected, title)
+        .sense(Sense::click_and_drag())
+        .min_size(eframe::egui::vec2(ui.available_width(), 0.0));
+    let response = ui.add(button);
+    if response.clicked() {
+        view.actions.push(Action::OpenItem {
+            collection_id: collection.id().to_string(),
+            item_id: item_id.to_string(),
+        });
+    }
+    drag::begin(&response, collection.id(), item_id);
+    drag::accept(
+        ui,
+        &response,
+        collection,
+        DropSlot::Beside(item_id),
+        view.actions,
+    );
+    menus::item(&response, collection.id(), item, view.actions);
+}
