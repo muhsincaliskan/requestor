@@ -2,12 +2,14 @@ mod auth;
 mod body;
 mod paste;
 mod row;
+mod rules;
 mod soap_action;
 mod url_sync;
 
 pub use auth::{AuthDraft, AuthKind};
 pub use body::{BodyDraft, BodyKind, RawLanguage};
 pub use row::KeyValueRow;
+pub use rules::{CheckKind, CheckRow, ExtractKind, ExtractRow, RulesDraft};
 
 use crate::collection::{Request, Url, UrlParts};
 use crate::method::HttpMethod;
@@ -23,6 +25,8 @@ pub struct RequestDraft {
     pub headers: Vec<KeyValueRow>,
     pub body: BodyDraft,
     pub auth: AuthDraft,
+    pub rules: RulesDraft,
+    saved_rules: RulesDraft,
     source: Request,
 }
 
@@ -43,10 +47,18 @@ impl RequestDraft {
             headers: rows_from_params(request.header.as_ref()),
             body: BodyDraft::from_body(request.body.as_ref()),
             auth: AuthDraft::from_auth(request.auth.as_ref()),
+            rules: RulesDraft::default(),
+            saved_rules: RulesDraft::default(),
             source: request.clone(),
         };
         draft.load_url_tables(request.url.as_ref());
         draft
+    }
+
+    pub fn with_saved_rules(mut self, rules: RulesDraft) -> Self {
+        self.rules = rules.clone();
+        self.saved_rules = rules;
+        self
     }
 
     pub fn active_param_count(&self) -> usize {
@@ -74,11 +86,14 @@ impl RequestDraft {
     pub fn commit(&mut self) -> Request {
         let request = self.to_request();
         self.source = request.clone();
+        self.saved_rules = self.rules.clone();
         request
     }
 
     pub fn is_unchanged(&self) -> bool {
-        RequestDraft::from_request(self.name.clone(), &self.source) == *self
+        RequestDraft::from_request(self.name.clone(), &self.source)
+            .with_saved_rules(self.saved_rules.clone())
+            == *self
     }
 
     fn url_model(&self) -> Option<Url> {

@@ -35,6 +35,10 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - The SOAP body type starts from a 1.1 or 1.2 envelope and has a SOAPAction field.
   - It sends the matching Content-Type.
   - It is stored as raw XML, so Postman opens it unchanged.
+- Tests on each request:
+  - Checks for status, response time, body text, a header or a JSON value.
+  - Save a JSON value or a header into an environment or collection variable for the next requests.
+  - Stored as Postman test scripts, so the same collection runs in Postman. Custom scripts are kept as they are.
 - Secret values are masked in the UI and never logged.
 - Large responses scroll smoothly:
   - The body view is virtualized and syntax highlighted.
@@ -69,6 +73,8 @@ requestor run collection.json --env dev.json --folder Pets
 requestor send "curl -X POST https://example.test/pets -d '{\"name\":\"Rex\"}'"
 requestor import openapi.json --to postman
 ```
+
+`run` evaluates the checks saved with each request and passes values extracted from a response to the requests after it. A failed check fails the request.
 
 Run `requestor --help` for every option. The exit code is 0 when every request succeeded, 1 when one failed and 2 for usage or input errors.
 

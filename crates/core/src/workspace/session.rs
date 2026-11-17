@@ -12,6 +12,8 @@ pub struct SessionTab {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unsaved_request: Option<Request>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unsaved_tests: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

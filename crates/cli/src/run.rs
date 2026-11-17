@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use requestor_core::collection::{Collection, RunnableRequest};
+use requestor_core::collection::{Collection, RunnableRequest, Variable};
 use requestor_core::environment::Environment;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::secret::Redactor;
@@ -14,7 +14,7 @@ use crate::input::read_text;
 use crate::report::{RequestLine, RequestReport};
 
 struct Session<'a> {
-    collection: &'a Collection,
+    collection_variables: Option<Vec<Variable>>,
     environment: Option<Environment>,
     options: &'a RunOptions,
     settings: RequestSettings,
@@ -24,10 +24,10 @@ pub fn execute(options: &RunOptions, out: &mut impl Write) -> Result<bool, CliEr
     let collection = Collection::from_json(&read_text(&options.collection)?)
         .map_err(|error| CliError::input(format!("{}: {error}", options.collection.display())))?;
     let planned = options.selection.pick(&collection)?;
-    let session = Session {
+    let mut session = Session {
         environment: load_environment(options)?,
         settings: options.network.to_settings(),
-        collection: &collection,
+        collection_variables: collection.variable.clone(),
         options,
     };
     let transport = ReqwestTransport::new(&session.settings)
@@ -58,14 +58,18 @@ fn load_environment(options: &RunOptions) -> Result<Option<Environment>, CliErro
 impl Session<'_> {
     fn scope_for(&self, runnable: &RunnableRequest) -> VariableScope {
         VariableScope::layered(
-            self.collection.variable.as_deref().unwrap_or_default(),
+            self.collection_variables.as_deref().unwrap_or_default(),
             &runnable.variables,
             self.environment.as_ref(),
             &self.options.variables,
         )
     }
 
-    fn run_one(&self, runnable: &RunnableRequest, transport: &dyn HttpTransport) -> RequestReport {
+    fn run_one(
+        &mut self,
+        runnable: &RunnableRequest,
+        transport: &dyn HttpTransport,
+    ) -> RequestReport {
         let name = runnable.qualified_name();
         let scope = self.scope_for(runnable);
         let redactor = Redactor::for_request(&scope, runnable.request.auth.as_ref());
@@ -83,7 +87,16 @@ impl Session<'_> {
         warn_unresolved(&name, &prepared);
         let line = RequestLine::from(&prepared, &redactor);
         match transport.send(prepared) {
-            Ok(response) => RequestReport::from_response(&name, &line, &response),
+            Ok(response) => {
+                let report = runnable.rules.evaluate(&response);
+                report.apply(self.environment.as_mut(), &mut self.collection_variables);
+                let checks = report
+                    .checks
+                    .into_iter()
+                    .map(|outcome| outcome.redacted(&redactor))
+                    .collect();
+                RequestReport::from_response(&name, &line, &response).with_checks(checks)
+            }
             Err(error) => {
                 RequestReport::failed(&name, Some(&line), redactor.redact_text(&error.to_string()))
             }

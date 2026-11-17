@@ -1,8 +1,10 @@
+mod extracted;
 mod pending_write;
 mod session;
 mod settings;
 mod store;
 
+pub use extracted::ChangedStores;
 pub use pending_write::{PendingDelete, PendingWrite, StoreError};
 pub use session::{Session, SessionTab};
 pub use settings::{AppSettings, InterfaceSettings, ThemeName};

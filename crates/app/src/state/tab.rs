@@ -1,5 +1,5 @@
 use requestor_core::collection::{Item, Request};
-use requestor_core::draft::RequestDraft;
+use requestor_core::draft::{RequestDraft, RulesDraft};
 use requestor_core::workspace::{SessionTab, Workspace};
 
 use crate::response::ResponseView;
@@ -23,6 +23,7 @@ pub enum EditorSection {
     Headers,
     Body,
     Auth,
+    Tests,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -31,6 +32,7 @@ pub enum ResponseSection {
     Body,
     Headers,
     Cookies,
+    Tests,
 }
 
 pub enum Exchange {
@@ -52,11 +54,12 @@ pub struct RequestTab {
 }
 
 impl EditorSection {
-    pub const ALL: [EditorSection; 4] = [
+    pub const ALL: [EditorSection; 5] = [
         EditorSection::Params,
         EditorSection::Headers,
         EditorSection::Body,
         EditorSection::Auth,
+        EditorSection::Tests,
     ];
 
     pub fn label(self) -> &'static str {
@@ -65,15 +68,17 @@ impl EditorSection {
             EditorSection::Headers => "Headers",
             EditorSection::Body => "Body",
             EditorSection::Auth => "Auth",
+            EditorSection::Tests => "Tests",
         }
     }
 }
 
 impl ResponseSection {
-    pub const ALL: [ResponseSection; 3] = [
+    pub const ALL: [ResponseSection; 4] = [
         ResponseSection::Body,
         ResponseSection::Headers,
         ResponseSection::Cookies,
+        ResponseSection::Tests,
     ];
 
     pub fn label(self) -> &'static str {
@@ -81,6 +86,7 @@ impl ResponseSection {
             ResponseSection::Body => "Body",
             ResponseSection::Headers => "Headers",
             ResponseSection::Cookies => "Cookies",
+            ResponseSection::Tests => "Tests",
         }
     }
 }
@@ -109,7 +115,8 @@ impl RequestTab {
 
     pub fn for_item(id: TabId, binding: ItemBinding, item: &Item) -> Option<Self> {
         let request = item.full_request()?;
-        let draft = RequestDraft::from_request(item.display_name(), &request);
+        let draft = RequestDraft::from_request(item.display_name(), &request)
+            .with_saved_rules(RulesDraft::from_events(item.event.as_ref()));
         Some(RequestTab::with_draft(id, Some(binding), draft, false))
     }
 
@@ -124,17 +131,22 @@ impl RequestTab {
                     .is_some_and(|found| found.find_item(item).is_some())
             })
             .map(|(collection, item)| ItemBinding::new(collection, item));
-        let stored = binding.as_ref().and_then(|binding| {
+        let stored_item = binding.as_ref().and_then(|binding| {
             workspace
                 .collection(&binding.collection_id)?
-                .find_item(&binding.item_id)?
-                .full_request()
+                .find_item(&binding.item_id)
         });
+        let stored = stored_item.and_then(Item::full_request);
+        let saved_rules = RulesDraft::from_events(stored_item.and_then(|item| item.event.as_ref()));
         let unsaved = saved.unsaved_request.is_some() || stored.is_none();
-        let draft = match saved.unsaved_request.as_ref().or(stored.as_ref()) {
+        let mut draft = match saved.unsaved_request.as_ref().or(stored.as_ref()) {
             Some(request) => RequestDraft::from_request(saved.name.as_str(), request),
             None => RequestDraft::blank(saved.name.as_str()),
-        };
+        }
+        .with_saved_rules(saved_rules);
+        if let Some(lines) = &saved.unsaved_tests {
+            draft.rules = RulesDraft::from_script(lines);
+        }
         let mut tab = RequestTab::with_draft(id, binding, draft, unsaved);
         tab.edited_at = unsaved.then_some(RESTORED_AT);
         tab
@@ -149,6 +161,10 @@ impl RequestTab {
             item_id: self.binding.as_ref().map(|bound| bound.item_id.clone()),
             name: self.draft.name.clone(),
             unsaved_request: self.unsaved.then(|| self.draft.to_request()),
+            unsaved_tests: self
+                .unsaved
+                .then(|| self.draft.rules.script_lines())
+                .flatten(),
         }
     }
 

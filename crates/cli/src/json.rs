@@ -16,6 +16,13 @@ impl JsonLine {
         self
     }
 
+    pub fn texts(mut self, key: &str, values: &[String]) -> Self {
+        let items: Vec<String> = values.iter().map(|value| quoted(value)).collect();
+        self.fields
+            .push(format!("{}:[{}]", quoted(key), items.join(",")));
+        self
+    }
+
     pub fn raw(mut self, key: &str, value: impl Display) -> Self {
         self.fields.push(format!("{}:{value}", quoted(key)));
         self

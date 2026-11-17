@@ -1,3 +1,4 @@
+use requestor_core::checks::CheckOutcome;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
 use requestor_core::secret::Redactor;
@@ -5,6 +6,8 @@ use requestor_core::secret::Redactor;
 use crate::json::JsonLine;
 
 const UNKNOWN: &str = "-";
+const PASSED_MARK: &str = "  ✓ ";
+const FAILED_MARK: &str = "  ✗ ";
 
 #[derive(Debug, PartialEq, Eq)]
 enum Outcome {
@@ -44,6 +47,7 @@ pub struct RequestReport {
     name: String,
     line: RequestLine,
     outcome: Outcome,
+    checks: Vec<CheckOutcome>,
 }
 
 impl RequestReport {
@@ -57,7 +61,13 @@ impl RequestReport {
                 elapsed_ms: response.elapsed.as_millis(),
                 bytes: response.body.len(),
             },
+            checks: Vec::new(),
         }
+    }
+
+    pub fn with_checks(mut self, checks: Vec<CheckOutcome>) -> Self {
+        self.checks = checks;
+        self
     }
 
     pub fn failed(name: &str, line: Option<&RequestLine>, reason: impl ToString) -> Self {
@@ -65,17 +75,39 @@ impl RequestReport {
             name: name.to_string(),
             line: line.cloned().unwrap_or_else(RequestLine::unknown),
             outcome: Outcome::Failed(reason.to_string()),
+            checks: Vec::new(),
         }
     }
 
     pub fn is_success(&self) -> bool {
-        matches!(
+        let responded = matches!(
             self.outcome,
             Outcome::Responded {
                 is_error: false,
                 ..
             }
-        )
+        );
+        responded && self.checks.iter().all(CheckOutcome::passed)
+    }
+
+    fn check_lines(&self) -> String {
+        self.checks
+            .iter()
+            .map(|check| match &check.failure {
+                None => format!("\n{PASSED_MARK}{}", check.title),
+                Some(failure) => format!("\n{FAILED_MARK}{}: {failure}", check.title),
+            })
+            .collect()
+    }
+
+    fn failed_checks(&self) -> Vec<String> {
+        self.checks
+            .iter()
+            .filter_map(|check| {
+                let failure = check.failure.as_ref()?;
+                Some(format!("{}: {failure}", check.title))
+            })
+            .collect()
     }
 
     pub fn to_text(&self) -> String {
@@ -86,7 +118,10 @@ impl RequestReport {
                 elapsed_ms,
                 bytes,
                 ..
-            } => format!("{head} -> {status} {elapsed_ms} ms {bytes} B"),
+            } => format!(
+                "{head} -> {status} {elapsed_ms} ms {bytes} B{}",
+                self.check_lines()
+            ),
             Outcome::Failed(reason) => format!("{head} -> FAILED {reason}"),
         }
     }
@@ -97,7 +132,7 @@ impl RequestReport {
             .text("method", &self.line.method)
             .text("url", &self.line.url)
             .raw("ok", self.is_success());
-        match &self.outcome {
+        let line = match &self.outcome {
             Outcome::Responded {
                 status,
                 elapsed_ms,
@@ -108,8 +143,14 @@ impl RequestReport {
                 .raw("elapsed_ms", elapsed_ms)
                 .raw("bytes", bytes),
             Outcome::Failed(reason) => line.text("error", reason),
+        };
+        if self.checks.is_empty() {
+            return line.render();
         }
-        .render()
+        let failed = self.failed_checks();
+        line.raw("checks_passed", self.checks.len() - failed.len())
+            .texts("checks_failed", &failed)
+            .render()
     }
 }
 

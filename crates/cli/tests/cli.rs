@@ -358,3 +358,71 @@ fn import_converts_openapi_documents_and_forwards_warnings() {
     assert!(text.contains("collection/v2.1.0"));
     assert!(text.contains("pets"));
 }
+
+fn auth_router() -> TestServer {
+    TestServer::spawn(|request| match request_path(request) {
+        Some("/login") => http_response(
+            "200 OK",
+            &["Content-Type: application/json"],
+            br#"{"auth":{"token":"t-9"}}"#,
+        ),
+        Some("/me") if request.contains("Bearer t-9") => http_response(
+            "200 OK",
+            &["Content-Type: application/json"],
+            br#"{"name":"ada"}"#,
+        ),
+        _ => http_response("401 Unauthorized", &[], b""),
+    })
+}
+
+fn checked_collection(server: &TestServer, expected_name: &str) -> PathBuf {
+    let login_checks = [
+        r#"pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"#,
+        r#"pm.collectionVariables.set(\"token\", pm.response.json().auth.token);"#,
+    ];
+    let me_check = format!(
+        r#"pm.test(\"JSON name equals \\\"{expected_name}\\\"\", () => pm.expect(pm.response.json().name).to.eql(\"{expected_name}\"));"#
+    );
+    let document = format!(
+        r#"{{"info": {{"name": "checked"}}, "item": [
+            {{"name": "Login", "request": "{login}",
+              "event": [{{"listen": "test", "script": {{"exec": ["{first}", "{second}"]}}}}]}},
+            {{"name": "Me", "request": {{"method": "GET", "url": "{me}",
+              "header": [{{"key": "Authorization", "value": "Bearer {{{{token}}}}"}}]}},
+              "event": [{{"listen": "test", "script": {{"exec": ["{me_check}"]}}}}]}}
+        ]}}"#,
+        login = server.url("/login"),
+        me = server.url("/me"),
+        first = login_checks[0],
+        second = login_checks[1],
+    );
+    scratch("checked.json", &document)
+}
+
+#[test]
+fn run_checks_responses_and_passes_extracted_values_to_later_requests() {
+    let server = auth_router();
+    let path = checked_collection(&server, "ada");
+    let output = requestor(&["run", path.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(text.contains("  ✓ Status is 200"), "{text}");
+    assert!(text.contains("  ✓ JSON name equals \"ada\""), "{text}");
+    assert!(!text.contains("t-9"), "{text}");
+}
+
+#[test]
+fn run_fails_when_a_check_fails_and_reports_it_in_json() {
+    let server = auth_router();
+    let path = checked_collection(&server, "bob");
+    let output = requestor(&["run", path.to_str().unwrap(), "--json"]);
+    assert_eq!(output.status.code(), Some(1));
+    let last = stdout(&output).lines().last().unwrap().to_string();
+    assert!(last.contains(r#""ok":false,"status":200"#), "{last}");
+    assert!(
+        last.contains(
+            r#""checks_passed":0,"checks_failed":["JSON name equals \"bob\": got \"ada\""]"#
+        ),
+        "{last}"
+    );
+}

@@ -1,4 +1,5 @@
 mod body;
+mod checks;
 mod cookie;
 mod lists;
 mod readout;
@@ -73,10 +74,14 @@ fn completed(
     actions: &mut Vec<Action>,
 ) {
     status::show(ui, view);
+    if view.report.is_none() && *section == ResponseSection::Tests {
+        *section = ResponseSection::Body;
+    }
     ui.horizontal(|ui| {
         for candidate in ResponseSection::ALL {
-            let label = section_label(candidate, view);
-            ui.selectable_value(section, candidate, label);
+            if let Some(label) = section_text(ui, candidate, view) {
+                ui.selectable_value(section, candidate, label);
+            }
         }
     });
     ui.separator();
@@ -84,13 +89,32 @@ fn completed(
         ResponseSection::Body => body::show(ui, view, actions),
         ResponseSection::Headers => lists::headers(ui, view, actions),
         ResponseSection::Cookies => lists::cookies(ui, view, actions),
+        ResponseSection::Tests => checks::show(ui, view),
     }
 }
 
-fn section_label(section: ResponseSection, view: &ResponseView) -> String {
+fn section_text(ui: &Ui, section: ResponseSection, view: &ResponseView) -> Option<RichText> {
+    let text = RichText::new(section_label(section, view)?);
+    let failed = section == ResponseSection::Tests && view.has_failed_checks();
+    Some(if failed {
+        text.color(ui.visuals().error_fg_color)
+    } else {
+        text
+    })
+}
+
+fn section_label(section: ResponseSection, view: &ResponseView) -> Option<String> {
+    let label = section.label();
     match section {
-        ResponseSection::Body => section.label().to_string(),
-        ResponseSection::Headers => format!("{} ({})", section.label(), view.headers.len()),
-        ResponseSection::Cookies => format!("{} ({})", section.label(), view.cookies().count()),
+        ResponseSection::Body => Some(label.to_string()),
+        ResponseSection::Headers => Some(format!("{label} ({})", view.headers.len())),
+        ResponseSection::Cookies => Some(format!("{label} ({})", view.cookies().count())),
+        ResponseSection::Tests => view.report.as_ref().map(|report| {
+            format!(
+                "{label} ({}/{})",
+                report.passed_count(),
+                report.checks.len()
+            )
+        }),
     }
 }

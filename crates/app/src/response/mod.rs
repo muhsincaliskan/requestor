@@ -6,6 +6,7 @@ pub use search::BodySearch;
 
 use std::time::Duration;
 
+use requestor_core::checks::RulesReport;
 use requestor_core::header::Header;
 use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
 
@@ -20,6 +21,7 @@ pub struct ResponseView {
     pub headers: Vec<Header>,
     pub format: ResponseFormat,
     pub truncated: bool,
+    pub report: Option<RulesReport>,
     pretty: bool,
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
@@ -41,11 +43,23 @@ impl ResponseView {
             headers: response.headers,
             format,
             truncated: response.truncated,
+            report: None,
             pretty: true,
             body: response.body,
             display: None,
             search: BodySearch::default(),
         }
+    }
+
+    pub fn with_report(mut self, report: Option<RulesReport>) -> Self {
+        self.report = report;
+        self
+    }
+
+    pub fn has_failed_checks(&self) -> bool {
+        self.report
+            .as_ref()
+            .is_some_and(|report| !report.all_passed())
     }
 
     pub fn status_class(&self) -> StatusClass {
