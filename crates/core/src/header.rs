@@ -1,4 +1,5 @@
 use crate::collection::Param;
+use crate::secret::is_secret_name;
 use crate::variables::VariableScope;
 
 pub const CONTENT_TYPE: &str = "Content-Type";
@@ -19,6 +20,10 @@ impl Header {
 
     pub fn is_named(&self, name: &str) -> bool {
         self.name.eq_ignore_ascii_case(name)
+    }
+
+    pub fn is_sensitive(&self) -> bool {
+        is_secret_name(&self.name)
     }
 }
 

@@ -34,6 +34,47 @@ pub enum RequestSpec {
 }
 
 impl Request {
+    pub fn new(method: &str, url: Url) -> Self {
+        Request {
+            method: Some(method.to_string()),
+            header: None,
+            body: None,
+            url: Some(url),
+            auth: None,
+            description: None,
+            extra: Map::new(),
+        }
+    }
+
+    pub fn push_header(&mut self, name: impl Into<String>, value: impl Into<String>) {
+        self.header
+            .get_or_insert_with(Vec::new)
+            .push(Param::text(name, value));
+    }
+
+    pub fn has_header(&self, name: &str) -> bool {
+        self.header.iter().flatten().any(|header| {
+            header
+                .key
+                .as_deref()
+                .is_some_and(|key| key.eq_ignore_ascii_case(name))
+        })
+    }
+
+    pub fn header_value(&self, name: &str) -> Option<&str> {
+        self.header
+            .iter()
+            .flatten()
+            .find(|header| {
+                header
+                    .key
+                    .as_deref()
+                    .is_some_and(|key| key.eq_ignore_ascii_case(name))
+            })?
+            .value
+            .as_deref()
+    }
+
     pub fn http_method(&self) -> HttpMethod {
         self.method
             .as_deref()

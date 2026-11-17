@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use super::body::EncodedBody;
+use super::body_source::{BodySource, FormField};
 use crate::collection::Param;
 use crate::error::CoreError;
 use crate::identity::random_u64;
@@ -12,97 +13,108 @@ const LINE_BREAK: &str = "\r\n";
 const BOUNDARY_PREFIX: &str = "----requestor";
 const ESCAPED_REPLACEMENTS: [(char, &str); 3] = [('"', "%22"), ('\r', "%0D"), ('\n', "%0A")];
 
+struct Writer<'a> {
+    boundary: String,
+    data: Vec<u8>,
+    fields: Vec<FormField>,
+    scope: &'a VariableScope,
+}
+
 pub(super) fn encode(params: &[&Param], scope: &VariableScope) -> Result<EncodedBody, CoreError> {
-    let boundary = format!(
-        "{BOUNDARY_PREFIX}{:016x}{:016x}",
-        random_u64(),
-        random_u64()
-    );
-    let mut data = Vec::new();
+    let mut writer = Writer {
+        boundary: format!(
+            "{BOUNDARY_PREFIX}{:016x}{:016x}",
+            random_u64(),
+            random_u64()
+        ),
+        data: Vec::new(),
+        fields: Vec::new(),
+        scope,
+    };
     for param in params {
-        write_param(&mut data, &boundary, param, scope)?;
+        writer.write_param(param)?;
     }
-    data.extend_from_slice(format!("--{boundary}--{LINE_BREAK}").as_bytes());
-    Ok(EncodedBody {
-        content_type: Some(format!(
-            "{}; boundary={boundary}",
-            media_type::MULTIPART_FORM_DATA
-        )),
-        data,
-    })
+    Ok(writer.finish())
 }
 
-fn write_param(
-    data: &mut Vec<u8>,
-    boundary: &str,
-    param: &Param,
-    scope: &VariableScope,
-) -> Result<(), CoreError> {
-    let name = escape(&scope.resolve(param.key.as_deref().unwrap_or_default()).text);
-    let content_type = checked_content_type(param)?;
-    if param.kind.as_deref() == Some(FILE_KIND) {
-        return write_files(data, boundary, param, &name, content_type);
+impl Writer<'_> {
+    fn finish(mut self) -> EncodedBody {
+        let closing = format!("--{}--{LINE_BREAK}", self.boundary);
+        self.data.extend_from_slice(closing.as_bytes());
+        EncodedBody {
+            content_type: Some(format!(
+                "{}; boundary={}",
+                media_type::MULTIPART_FORM_DATA,
+                self.boundary
+            )),
+            data: self.data,
+            source: BodySource::Form(self.fields),
+        }
     }
-    let value = scope
-        .resolve(param.value.as_deref().unwrap_or_default())
-        .text;
-    write_part(
-        data,
-        boundary,
-        &format!("name=\"{name}\""),
-        content_type,
-        value.as_bytes(),
-    );
-    Ok(())
-}
 
-fn write_files(
-    data: &mut Vec<u8>,
-    boundary: &str,
-    param: &Param,
-    name: &str,
-    content_type: Option<&str>,
-) -> Result<(), CoreError> {
-    let paths = param
-        .src
-        .as_ref()
-        .map(|source| source.items())
-        .unwrap_or_default();
-    for path in paths.into_iter().filter(|path| !path.is_empty()) {
-        let contents = std::fs::read(path).map_err(|error| CoreError::UnreadableFile {
-            path: path.to_string(),
-            reason: error.to_string(),
-        })?;
-        let file_name = Path::new(path)
-            .file_name()
-            .map(|file_name| escape(&file_name.to_string_lossy()))
+    fn write_param(&mut self, param: &Param) -> Result<(), CoreError> {
+        let raw_name = self
+            .scope
+            .resolve(param.key.as_deref().unwrap_or_default())
+            .text;
+        let content_type = checked_content_type(param)?;
+        if param.kind.as_deref() == Some(FILE_KIND) {
+            return self.write_files(param, &raw_name, content_type);
+        }
+        let value = self
+            .scope
+            .resolve(param.value.as_deref().unwrap_or_default())
+            .text;
+        let disposition = format!("name=\"{}\"", escape(&raw_name));
+        self.write_part(&disposition, content_type, value.as_bytes());
+        self.fields.push(FormField::text(raw_name, value));
+        Ok(())
+    }
+
+    fn write_files(
+        &mut self,
+        param: &Param,
+        raw_name: &str,
+        content_type: Option<&str>,
+    ) -> Result<(), CoreError> {
+        let name = escape(raw_name);
+        let paths = param
+            .src
+            .as_ref()
+            .map(|source| source.items())
             .unwrap_or_default();
-        let disposition = format!("name=\"{name}\"; filename=\"{file_name}\"");
-        let content_type = content_type.unwrap_or(media_type::OCTET_STREAM);
-        write_part(data, boundary, &disposition, Some(content_type), &contents);
+        for path in paths.into_iter().filter(|path| !path.is_empty()) {
+            let contents = std::fs::read(path).map_err(|error| CoreError::UnreadableFile {
+                path: path.to_string(),
+                reason: error.to_string(),
+            })?;
+            let file_name = Path::new(path)
+                .file_name()
+                .map(|file_name| escape(&file_name.to_string_lossy()))
+                .unwrap_or_default();
+            let disposition = format!("name=\"{name}\"; filename=\"{file_name}\"");
+            let part_type = content_type.unwrap_or(media_type::OCTET_STREAM);
+            self.write_part(&disposition, Some(part_type), &contents);
+            self.fields
+                .push(FormField::file(raw_name, path, content_type));
+        }
+        Ok(())
     }
-    Ok(())
-}
 
-fn write_part(
-    data: &mut Vec<u8>,
-    boundary: &str,
-    disposition: &str,
-    content_type: Option<&str>,
-    contents: &[u8],
-) {
-    data.extend_from_slice(
-        format!(
-            "--{boundary}{LINE_BREAK}Content-Disposition: form-data; {disposition}{LINE_BREAK}"
-        )
-        .as_bytes(),
-    );
-    if let Some(content_type) = content_type {
-        data.extend_from_slice(format!("Content-Type: {content_type}{LINE_BREAK}").as_bytes());
+    fn write_part(&mut self, disposition: &str, content_type: Option<&str>, contents: &[u8]) {
+        let head = format!(
+            "--{}{LINE_BREAK}Content-Disposition: form-data; {disposition}{LINE_BREAK}",
+            self.boundary
+        );
+        self.data.extend_from_slice(head.as_bytes());
+        if let Some(content_type) = content_type {
+            let line = format!("Content-Type: {content_type}{LINE_BREAK}");
+            self.data.extend_from_slice(line.as_bytes());
+        }
+        self.data.extend_from_slice(LINE_BREAK.as_bytes());
+        self.data.extend_from_slice(contents);
+        self.data.extend_from_slice(LINE_BREAK.as_bytes());
     }
-    data.extend_from_slice(LINE_BREAK.as_bytes());
-    data.extend_from_slice(contents);
-    data.extend_from_slice(LINE_BREAK.as_bytes());
 }
 
 fn checked_content_type(param: &Param) -> Result<Option<&str>, CoreError> {

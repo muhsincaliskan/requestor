@@ -1,0 +1,146 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Petstore",
+    "description": "A sample pet store",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://{env}.petstore.test/v1/",
+      "variables": { "env": { "default": "api" } }
+    }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/pets": {
+      "parameters": [
+        { "name": "X-Request-Id", "in": "header", "schema": { "type": "string" }, "example": "req-1" },
+        { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+      ],
+      "get": {
+        "tags": ["pets"],
+        "summary": "List pets",
+        "parameters": [
+          { "name": "limit", "in": "query", "required": true, "schema": { "type": "integer" }, "example": 25 },
+          { "name": "session", "in": "cookie", "schema": { "type": "string" } }
+        ],
+        "security": []
+      },
+      "post": {
+        "tags": ["pets"],
+        "operationId": "addPet",
+        "requestBody": {
+          "content": {
+            "application/xml": { "example": "<pet/>" },
+            "application/json": { "schema": { "$ref": "#/components/schemas/NewPet" } }
+          }
+        },
+        "security": [{ "apiKeyAuth": [] }]
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "tags": ["pets"],
+        "summary": "Get a pet",
+        "parameters": [
+          { "$ref": "#/components/parameters/PetId" }
+        ]
+      },
+      "put": {
+        "tags": ["pets"],
+        "summary": "Replace a pet",
+        "parameters": [{ "$ref": "#/components/parameters/PetId" }],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PetBody"
+        },
+        "security": [{ "oauth": ["write:pets"] }]
+      }
+    },
+    "/stores": {
+      "post": {
+        "tags": ["stores"],
+        "summary": "Create a store",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Store" }
+            }
+          }
+        },
+        "security": [{ "basicAuth": [] }]
+      }
+    },
+    "/health": {
+      "get": {
+        "responses": { "200": { "description": "ok" } },
+        "externalDocs": { "url": "https://example.test" },
+        "parameters": [{ "$ref": "https://example.test/params.json#/Shared" }]
+      }
+    },
+    "/upload": {
+      "post": {
+        "summary": "Upload a photo",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": { "type": "string", "format": "binary" },
+                  "caption": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" },
+      "basicAuth": { "type": "http", "scheme": "basic" },
+      "apiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-Api-Key" },
+      "oauth": { "type": "oauth2", "flows": {} }
+    },
+    "parameters": {
+      "PetId": { "name": "petId", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 42 }
+    },
+    "requestBodies": {
+      "PetBody": {
+        "content": {
+          "application/json": {
+            "example": { "name": "Rex", "tag": "dog" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "NewPet": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["available", "sold"] },
+          "birthday": { "type": "string", "format": "date" },
+          "toys": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "Store": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "owner": { "$ref": "#/components/schemas/Person" }
+        }
+      },
+      "Person": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "employer": { "$ref": "#/components/schemas/Store" }
+        }
+      }
+    }
+  }
+}

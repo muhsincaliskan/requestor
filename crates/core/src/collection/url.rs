@@ -5,7 +5,8 @@ use super::param::Param;
 use super::variable::Variable;
 use crate::text::StringOrList;
 
-const SCHEME_SEPARATOR: &str = "://";
+const SCHEME_EXTRA: &str = "+-.";
+pub const SCHEME_SEPARATOR: &str = "://";
 const HOST_SEPARATOR: &str = ".";
 const PORT_SEPARATOR: &str = ":";
 const PATH_SEPARATOR: &str = "/";
@@ -43,6 +44,15 @@ pub enum Url {
 }
 
 impl Url {
+    pub fn split_scheme(text: &str) -> Option<(&str, &str)> {
+        let (scheme, rest) = text.split_once(SCHEME_SEPARATOR)?;
+        let valid = !scheme.is_empty()
+            && scheme.chars().all(|character| {
+                character.is_ascii_alphanumeric() || SCHEME_EXTRA.contains(character)
+            });
+        valid.then_some((scheme, rest))
+    }
+
     pub fn to_text(&self) -> String {
         match self {
             Url::Raw(text) => text.clone(),
@@ -52,6 +62,40 @@ impl Url {
 }
 
 impl UrlParts {
+    pub fn parse(raw: &str) -> Self {
+        let (without_hash, hash) = split_once_optional(raw, HASH_MARK);
+        let (without_query, query) = split_once_optional(without_hash, QUERY_MARK);
+        let (protocol, remainder) = match without_query.split_once(SCHEME_SEPARATOR) {
+            Some((protocol, remainder)) => (Some(protocol), remainder),
+            None => (None, without_query),
+        };
+        let (authority, path) = match remainder.split_once(PATH_SEPARATOR) {
+            Some((authority, path)) => (authority, Some(path)),
+            None => (remainder, None),
+        };
+        let (host, port) = split_port(authority);
+        UrlParts {
+            raw: Some(raw.to_string()),
+            protocol: protocol.map(str::to_string),
+            host: Some(StringOrList::List(
+                host.split(HOST_SEPARATOR).map(str::to_string).collect(),
+            )),
+            path: path.map(|path| {
+                StringOrList::List(path.split(PATH_SEPARATOR).map(str::to_string).collect())
+            }),
+            port: port.map(str::to_string),
+            query: query.map(|query| {
+                query
+                    .split(QUERY_SEPARATOR)
+                    .map(Param::from_query_pair)
+                    .collect()
+            }),
+            variable: None,
+            hash: hash.map(str::to_string),
+            extra: Map::new(),
+        }
+    }
+
     pub fn to_text(&self) -> String {
         if let Some(raw) = &self.raw {
             return raw.clone();
@@ -116,6 +160,24 @@ impl UrlParts {
             .as_ref()
             .map(|hash| format!("{HASH_MARK}{hash}"))
             .unwrap_or_default()
+    }
+}
+
+fn split_once_optional<'a>(text: &'a str, separator: &str) -> (&'a str, Option<&'a str>) {
+    match text.split_once(separator) {
+        Some((before, after)) => (before, Some(after)),
+        None => (text, None),
+    }
+}
+
+fn split_port(authority: &str) -> (&str, Option<&str>) {
+    match authority.rsplit_once(PORT_SEPARATOR) {
+        Some((host, port))
+            if !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            (host, Some(port))
+        }
+        _ => (authority, None),
     }
 }
 

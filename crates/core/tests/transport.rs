@@ -17,6 +17,7 @@ fn request(method: HttpMethod, url: String) -> PreparedRequest {
         url,
         headers: Vec::new(),
         body: None,
+        body_source: Default::default(),
     }
 }
 

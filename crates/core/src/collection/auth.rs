@@ -27,7 +27,62 @@ pub struct Auth {
     pub parameters: BTreeMap<String, Option<Vec<AuthAttribute>>>,
 }
 
+impl AuthAttribute {
+    pub fn string(key: &str, value: impl Into<String>) -> Self {
+        AuthAttribute {
+            key: Some(key.to_string()),
+            value: Some(Value::String(value.into())),
+            kind: Some("string".to_string()),
+            extra: Map::new(),
+        }
+    }
+}
+
 impl Auth {
+    pub fn basic(username: impl Into<String>, password: impl Into<String>) -> Self {
+        Auth::with_attributes(
+            "basic",
+            vec![
+                AuthAttribute::string("username", username),
+                AuthAttribute::string("password", password),
+            ],
+        )
+    }
+
+    pub fn none() -> Self {
+        Auth {
+            kind: NO_AUTH_KIND.to_string(),
+            parameters: BTreeMap::new(),
+        }
+    }
+
+    pub fn api_key(name: &str, value: &str, location: &str) -> Self {
+        Auth::with_attributes(
+            "apikey",
+            vec![
+                AuthAttribute::string("key", name),
+                AuthAttribute::string("value", value),
+                AuthAttribute::string("in", location),
+            ],
+        )
+    }
+
+    pub fn from_credentials(credentials: &str) -> Self {
+        let (username, password) = credentials.split_once(':').unwrap_or((credentials, ""));
+        Auth::basic(username, password)
+    }
+
+    pub fn bearer(token: impl Into<String>) -> Self {
+        Auth::with_attributes("bearer", vec![AuthAttribute::string("token", token)])
+    }
+
+    fn with_attributes(kind: &str, attributes: Vec<AuthAttribute>) -> Self {
+        Auth {
+            kind: kind.to_string(),
+            parameters: BTreeMap::from([(kind.to_string(), Some(attributes))]),
+        }
+    }
+
     pub fn value_of(&self, key: &str) -> Option<&str> {
         self.parameters
             .get(&self.kind)?
@@ -46,5 +101,18 @@ impl Auth {
 
     pub fn is_none(&self) -> bool {
         self.kind == NO_AUTH_KIND
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Auth;
+
+    #[test]
+    fn credentials_split_on_the_first_colon() {
+        let auth = Auth::from_credentials("ada:p:w");
+        assert_eq!(auth.value_of("username"), Some("ada"));
+        assert_eq!(auth.value_of("password"), Some("p:w"));
+        assert_eq!(Auth::from_credentials("ada").value_of("password"), Some(""));
     }
 }
