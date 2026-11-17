@@ -1,5 +1,5 @@
 use eframe::egui::text::LayoutJob;
-use eframe::egui::{vec2, Align2, Atom, AtomExt, Color32, RichText, TextFormat, TextStyle, Ui};
+use eframe::egui::{Align, Color32, TextFormat, TextStyle, Ui};
 
 const METHOD_GAP: &str = " ";
 const METHOD_COLUMN_WIDTH: f32 = 42.0;
@@ -69,30 +69,48 @@ pub fn method_color(ui: &Ui, method: &str) -> Color32 {
 pub fn request_title(ui: &Ui, method: Option<&str>, name: &str) -> LayoutJob {
     let mut job = LayoutJob::default();
     if let Some(method) = method {
-        let badge = TextFormat {
-            font_id: TextStyle::Small.resolve(ui.style()),
-            color: method_color(ui, method),
-            ..TextFormat::default()
-        };
-        job.append(method, 0.0, badge);
+        job.append(method, 0.0, badge_format(ui, method));
         job.append(METHOD_GAP, 0.0, TextFormat::default());
     }
-    let title = TextFormat {
-        font_id: TextStyle::Body.resolve(ui.style()),
-        color: ui.visuals().text_color(),
-        ..TextFormat::default()
-    };
-    job.append(name, 0.0, title);
+    job.append(name, 0.0, title_format(ui));
     job
 }
 
-pub fn method_column<'a>(ui: &Ui, method: Option<&str>) -> Atom<'a> {
+pub fn aligned_request_title(ui: &Ui, method: Option<&str>, name: &str) -> LayoutJob {
     let method = method.unwrap_or_default();
-    RichText::new(abbreviated(method))
-        .small()
-        .color(method_color(ui, method))
-        .atom_size(vec2(METHOD_COLUMN_WIDTH, 0.0))
-        .atom_align(Align2::LEFT_CENTER)
+    let label = abbreviated(method);
+    let badge = badge_format(ui, method);
+    let label_width = ui.fonts_mut(|fonts| {
+        fonts
+            .layout_no_wrap(label.to_string(), badge.font_id.clone(), badge.color)
+            .size()
+            .x
+    });
+    let mut job = LayoutJob::default();
+    job.append(label, 0.0, badge);
+    job.append(
+        name,
+        (METHOD_COLUMN_WIDTH - label_width).max(0.0),
+        title_format(ui),
+    );
+    job
+}
+
+fn badge_format(ui: &Ui, method: &str) -> TextFormat {
+    TextFormat {
+        font_id: TextStyle::Small.resolve(ui.style()),
+        color: method_color(ui, method),
+        valign: Align::Center,
+        ..TextFormat::default()
+    }
+}
+
+fn title_format(ui: &Ui) -> TextFormat {
+    TextFormat {
+        font_id: TextStyle::Body.resolve(ui.style()),
+        color: ui.visuals().text_color(),
+        ..TextFormat::default()
+    }
 }
 
 fn abbreviated(method: &str) -> &str {

@@ -1,11 +1,12 @@
 mod drag;
 mod environments;
 mod menus;
+mod reveal;
 mod tree;
 
 use eframe::egui::{
-    vec2, Align, Align2, Atom, AtomExt, Button, Id, IntoAtoms, Layout, RichText, ScrollArea,
-    TextEdit, Ui,
+    vec2, Align, Align2, Atom, AtomExt, Button, Id, IntoAtoms, Layout, ScrollArea, TextEdit, Ui,
+    WidgetText,
 };
 
 use crate::state::{Action, AppState, Overlay};
@@ -98,8 +99,8 @@ fn row<'a>(ui: &Ui, selected: bool, atoms: impl IntoAtoms<'a>) -> Button<'a> {
         .min_size(vec2(ui.available_width(), 0.0))
 }
 
-fn row_label<'a>(text: &str) -> Atom<'a> {
-    RichText::new(text)
+fn row_label<'a>(text: impl Into<WidgetText>) -> Atom<'a> {
+    text.into()
         .atom_grow(true)
         .atom_shrink(true)
         .atom_align(Align2::LEFT_CENTER)
