@@ -43,7 +43,7 @@ pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
 
 fn toolbar(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
-        if view.format == ResponseFormat::Json {
+        if view.format.has_layout() {
             let mut pretty = view.is_pretty();
             ui.selectable_value(&mut pretty, true, PRETTY_LABEL);
             ui.selectable_value(&mut pretty, false, RAW_LABEL);

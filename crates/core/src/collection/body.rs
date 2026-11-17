@@ -3,6 +3,7 @@ use serde_json::{Map, Value};
 
 use super::param::Param;
 use crate::media_type;
+use crate::soap::SoapVersion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -126,6 +127,9 @@ impl Body {
     }
 
     pub fn raw_content_type(&self) -> &'static str {
+        if let Some(version) = self.raw.as_deref().and_then(SoapVersion::of_envelope) {
+            return version.content_type();
+        }
         let language = self
             .options
             .as_ref()
@@ -166,6 +170,7 @@ impl Body {
 mod tests {
     use super::Body;
     use crate::media_type;
+    use crate::soap::SoapVersion;
 
     #[test]
     fn raw_language_follows_the_content_type() {
@@ -178,6 +183,14 @@ mod tests {
         ] {
             let body = Body::raw_for_content_type("x", Some(content_type));
             assert_eq!(body.raw_content_type(), expected, "{content_type}");
+        }
+    }
+
+    #[test]
+    fn soap_envelopes_are_sent_with_their_version_content_type() {
+        for version in SoapVersion::ALL {
+            let body = Body::raw(version.envelope(""), Some("xml"));
+            assert_eq!(body.raw_content_type(), version.content_type());
         }
     }
 

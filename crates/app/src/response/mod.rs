@@ -7,7 +7,6 @@ pub use search::BodySearch;
 use std::time::Duration;
 
 use requestor_core::header::Header;
-use requestor_core::json_layout;
 use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
 
 const BINARY_NOTICE: &str = "Binary response body";
@@ -109,8 +108,8 @@ impl ResponseView {
     fn display_text(&self) -> String {
         match self.format {
             ResponseFormat::Binary => BINARY_NOTICE.to_string(),
-            ResponseFormat::Json if self.pretty => {
-                json_layout::reindent(&String::from_utf8_lossy(&self.body))
+            format if self.pretty && format.has_layout() => {
+                format.laid_out(&String::from_utf8_lossy(&self.body))
             }
             _ => String::from_utf8_lossy(&self.body).into_owned(),
         }

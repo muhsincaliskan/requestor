@@ -31,10 +31,14 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 - Variables:
   - `{{variables}}` resolve from the collection and the active environment.
   - Fields suggest names as you type and color each placeholder: defined in blue, undefined in red.
+- SOAP requests:
+  - The SOAP body type starts from a 1.1 or 1.2 envelope and has a SOAPAction field.
+  - It sends the matching Content-Type.
+  - It is stored as raw XML, so Postman opens it unchanged.
 - Secret values are masked in the UI and never logged.
 - Large responses scroll smoothly:
   - The body view is virtualized and syntax highlighted.
-  - It has Pretty and Raw modes and a find box.
+  - It has Pretty and Raw modes for JSON and XML, and a find box.
 - Headers and cookies have one-click copy.
 - A standalone `requestor` command-line binary runs collections, sends single cURL or raw HTTP requests, and converts imports to Postman format.
 

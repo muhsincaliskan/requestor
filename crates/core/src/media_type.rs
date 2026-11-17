@@ -1,5 +1,7 @@
 pub const JSON: &str = "application/json";
 pub const XML: &str = "application/xml";
+pub const SOAP_1_1: &str = "text/xml; charset=utf-8";
+pub const SOAP_1_2: &str = "application/soap+xml; charset=utf-8";
 pub const HTML: &str = "text/html";
 pub const JAVASCRIPT: &str = "application/javascript";
 pub const PLAIN_TEXT: &str = "text/plain";

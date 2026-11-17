@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::header::{find_header, Header, CONTENT_TYPE};
-use crate::media_type;
+use crate::{json_layout, media_type, xml_layout};
 
 const ERROR_STATUS_FLOOR: u16 = 400;
 
@@ -19,6 +19,18 @@ impl ResponseFormat {
         match content_type.map(str::to_ascii_lowercase) {
             Some(declared) => Self::from_declared(&declared).unwrap_or_else(|| Self::sniff(body)),
             None => Self::sniff(body),
+        }
+    }
+
+    pub fn has_layout(self) -> bool {
+        matches!(self, Self::Json | Self::Xml)
+    }
+
+    pub fn laid_out(self, text: &str) -> String {
+        match self {
+            Self::Json => json_layout::reindent(text),
+            Self::Xml => xml_layout::reindent(text),
+            _ => text.to_string(),
         }
     }
 
@@ -195,6 +207,17 @@ mod tests {
             ResponseFormat::detect(Some("image/png"), b"abc"),
             ResponseFormat::Binary
         );
+    }
+
+    #[test]
+    fn json_and_xml_have_a_pretty_layout() {
+        assert!(ResponseFormat::Xml.has_layout());
+        assert_eq!(
+            ResponseFormat::Xml.laid_out("<a><b/></a>"),
+            "<a>\n  <b/>\n</a>"
+        );
+        assert!(!ResponseFormat::Html.has_layout());
+        assert_eq!(ResponseFormat::Text.laid_out("<a><b/></a>"), "<a><b/></a>");
     }
 
     #[test]
