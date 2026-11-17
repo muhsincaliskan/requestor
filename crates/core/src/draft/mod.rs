@@ -2,6 +2,7 @@ mod auth;
 mod body;
 mod paste;
 mod row;
+mod soap_action;
 mod url_sync;
 
 pub use auth::{AuthDraft, AuthKind};

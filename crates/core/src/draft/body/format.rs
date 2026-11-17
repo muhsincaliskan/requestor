@@ -1,16 +1,20 @@
 use super::{BodyDraft, BodyKind, RawLanguage};
-use crate::json_layout;
+use crate::{json_layout, xml_layout};
 
 impl BodyDraft {
     pub fn can_beautify(&self) -> bool {
-        self.kind == BodyKind::Raw && self.language == RawLanguage::Json
+        matches!(self.kind, BodyKind::Raw | BodyKind::Soap)
+            && matches!(self.raw_language(), RawLanguage::Json | RawLanguage::Xml)
     }
 
     pub fn beautify(&mut self) -> bool {
         if !self.can_beautify() {
             return false;
         }
-        let laid_out = json_layout::reindent(&self.raw);
+        let laid_out = match self.raw_language() {
+            RawLanguage::Json => json_layout::reindent(&self.raw),
+            _ => xml_layout::reindent(&self.raw),
+        };
         if laid_out == self.raw {
             return false;
         }
@@ -34,6 +38,13 @@ mod tests {
         assert!(draft.beautify());
         assert_eq!(draft.raw, "{\n  \"z\": 1,\n  \"a\": {{id}}\n}");
         assert!(!draft.beautify());
+    }
+
+    #[test]
+    fn xml_bodies_are_laid_out() {
+        let mut draft = BodyDraft::from_body(Some(&Body::raw("<a><b>{{id}}</b></a>", Some("xml"))));
+        assert!(draft.beautify());
+        assert_eq!(draft.raw, "<a>\n  <b>{{id}}</b>\n</a>");
     }
 
     #[test]

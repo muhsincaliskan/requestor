@@ -72,7 +72,7 @@ fn show_section(ui: &mut Ui, open: &mut RequestTab, hints: &VariableHints) -> bo
     match open.editor_section {
         EditorSection::Params => tables::params(ui, &mut open.draft, hints),
         EditorSection::Headers => tables::headers(ui, &mut open.draft, hints),
-        EditorSection::Body => body::show(ui, &mut open.draft.body, hints),
+        EditorSection::Body => body::show(ui, &mut open.draft, hints),
         EditorSection::Auth => auth_editor::show(ui, &mut open.draft.auth, hints, AUTH_SALT),
     }
 }
