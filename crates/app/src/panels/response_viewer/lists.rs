@@ -1,4 +1,4 @@
-use eframe::egui::{Grid, Label, RichText, ScrollArea, Ui};
+use eframe::egui::{Button, Grid, Label, RichText, ScrollArea, Ui};
 
 use super::cookie::CookieEntry;
 use crate::response::ResponseView;
@@ -16,7 +16,8 @@ fn selectable_mono(ui: &mut Ui, text: &str) {
 }
 
 fn copy_button(ui: &mut Ui, text: &str, actions: &mut Vec<Action>) {
-    if ui.small_button(COPY_LABEL).clicked() {
+    let label = RichText::new(COPY_LABEL).small().weak();
+    if ui.add(Button::new(label).frame(false)).clicked() {
         actions.push(Action::CopyText(text.to_string()));
     }
 }

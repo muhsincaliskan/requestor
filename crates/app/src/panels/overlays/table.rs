@@ -1,13 +1,19 @@
-use eframe::egui::{Grid, ScrollArea, TextEdit, Ui};
+use eframe::egui::{vec2, Align, Button, Grid, Layout, ScrollArea, TextEdit, Ui};
 
-pub(super) const ADD_VARIABLE_LABEL: &str = "Add variable";
+use crate::widgets::action_button;
+use crate::widgets::variable_text_edit::FIELD_MARGIN;
+
+const ADD_VARIABLE_LABEL: &str = "+ Add variable";
 pub(super) const KEY_HINT: &str = "Variable";
 pub(super) const VALUE_HINT: &str = "Value";
-pub(super) const DONE_LABEL: &str = "Done";
-pub(super) const NAME_LABEL: &str = "Name";
-const DELETE_LABEL: &str = "Delete";
+const DONE_LABEL: &str = "Done";
+const NAME_LABEL: &str = "Name";
+const DELETE_LABEL: &str = "×";
+const DELETE_HINT: &str = "Delete variable";
 const TABLE_HEIGHT: f32 = 320.0;
-const CELL_WIDTH: f32 = 200.0;
+const CELL_WIDTH: f32 = 220.0;
+const NAME_WIDTH: f32 = 320.0;
+const FOOTER_GAP: f32 = 8.0;
 
 pub(super) enum RowEdit {
     Keep,
@@ -61,13 +67,25 @@ pub(super) fn edit_rows<T>(
     changed
 }
 
+pub(super) fn name_field(ui: &mut Ui, name: &mut String) -> bool {
+    ui.horizontal(|ui| {
+        ui.label(NAME_LABEL);
+        let edit = TextEdit::singleline(name)
+            .margin(FIELD_MARGIN)
+            .desired_width(NAME_WIDTH);
+        ui.add(edit).changed()
+    })
+    .inner
+}
+
 pub(super) fn text_cell(ui: &mut Ui, text: &mut String, hint: &str, masked: bool) -> bool {
     let edit = TextEdit::singleline(text)
         .hint_text(hint)
         .password(masked)
-        .desired_width(CELL_WIDTH);
-    let size = [CELL_WIDTH, ui.spacing().interact_size.y];
-    ui.add_sized(size, edit).changed()
+        .margin(FIELD_MARGIN)
+        .desired_width(CELL_WIDTH)
+        .min_size(vec2(CELL_WIDTH, 0.0));
+    ui.add(edit).changed()
 }
 
 pub(super) fn enabled_cell(ui: &mut Ui, enabled: bool) -> Option<bool> {
@@ -76,5 +94,25 @@ pub(super) fn enabled_cell(ui: &mut Ui, enabled: bool) -> Option<bool> {
 }
 
 pub(super) fn delete_cell(ui: &mut Ui) -> bool {
-    ui.button(DELETE_LABEL).clicked()
+    ui.add(Button::new(DELETE_LABEL).frame(false))
+        .on_hover_text(DELETE_HINT)
+        .clicked()
+}
+
+pub(super) fn footer(ui: &mut Ui) -> (bool, bool) {
+    let width = ui.min_rect().width();
+    ui.add_space(FOOTER_GAP);
+    let size = vec2(width, ui.spacing().interact_size.y);
+    ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Center), |ui| {
+        let add = ui
+            .add(Button::new(ADD_VARIABLE_LABEL).frame(false))
+            .clicked();
+        let done = ui
+            .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                action_button::primary(ui, DONE_LABEL).clicked()
+            })
+            .inner;
+        (add, done)
+    })
+    .inner
 }
