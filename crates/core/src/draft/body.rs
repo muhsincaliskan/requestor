@@ -257,5 +257,6 @@ fn object_or_empty(value: Option<Value>) -> Map<String, Value> {
     }
 }
 
+mod format;
 #[cfg(test)]
 mod tests;

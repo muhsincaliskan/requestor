@@ -1,6 +1,6 @@
 use eframe::egui::{ComboBox, DragValue, Ui};
 use requestor_core::settings::{HttpVersion, RequestSettings};
-use requestor_core::workspace::{AppSettings, InterfaceSettings};
+use requestor_core::workspace::AppSettings;
 
 use super::row::{row, toggles, Toggle};
 
@@ -27,12 +27,6 @@ const REQUEST_TOGGLES: [Toggle<RequestSettings>; 3] = [
         field: |settings| &mut settings.send_postman_token_header,
     },
 ];
-
-const LINK_TOGGLES: [Toggle<InterfaceSettings>; 1] = [Toggle {
-    label: "Retain headers when clicking on links",
-    description: "Keep the current request headers when following a link.",
-    field: |settings| &mut settings.retain_headers_on_links,
-}];
 
 const REDIRECT_TOGGLES: [Toggle<RequestSettings>; 1] = [Toggle {
     label: "Automatically follow redirects",
@@ -65,7 +59,6 @@ pub fn show(ui: &mut Ui, settings: &mut AppSettings) -> bool {
     );
     changed |= max_response_size(ui, request);
     changed |= toggles(ui, &REQUEST_TOGGLES, request);
-    changed |= toggles(ui, &LINK_TOGGLES, &mut settings.interface);
     changed |= toggles(ui, &REDIRECT_TOGGLES, &mut settings.request);
     changed |= max_redirects(ui, &mut settings.request);
     changed | toggles(ui, &COOKIE_TOGGLES, &mut settings.request)
