@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io;
 use std::path::Path;
 
 use super::body::EncodedBody;
@@ -8,7 +10,6 @@ use crate::identity::random_u64;
 use crate::media_type;
 use crate::variables::VariableScope;
 
-const FILE_KIND: &str = "file";
 const LINE_BREAK: &str = "\r\n";
 const BOUNDARY_PREFIX: &str = "----requestor";
 const ESCAPED_REPLACEMENTS: [(char, &str); 3] = [('"', "%22"), ('\r', "%0D"), ('\n', "%0A")];
@@ -58,7 +59,7 @@ impl Writer<'_> {
             .resolve(param.key.as_deref().unwrap_or_default())
             .text;
         let content_type = checked_content_type(param)?;
-        if param.kind.as_deref() == Some(FILE_KIND) {
+        if param.is_file() {
             return self.write_files(param, &raw_name, content_type);
         }
         let value = self
@@ -66,7 +67,9 @@ impl Writer<'_> {
             .resolve(param.value.as_deref().unwrap_or_default())
             .text;
         let disposition = format!("name=\"{}\"", escape(&raw_name));
-        self.write_part(&disposition, content_type, value.as_bytes());
+        self.start_part(&disposition, content_type);
+        self.data.extend_from_slice(value.as_bytes());
+        self.end_part();
         self.fields.push(FormField::text(raw_name, value));
         Ok(())
     }
@@ -84,24 +87,27 @@ impl Writer<'_> {
             .map(|source| source.items())
             .unwrap_or_default();
         for path in paths.into_iter().filter(|path| !path.is_empty()) {
-            let contents = std::fs::read(path).map_err(|error| CoreError::UnreadableFile {
+            let unreadable = |error: io::Error| CoreError::UnreadableFile {
                 path: path.to_string(),
                 reason: error.to_string(),
-            })?;
+            };
+            let mut file = File::open(path).map_err(unreadable)?;
             let file_name = Path::new(path)
                 .file_name()
                 .map(|file_name| escape(&file_name.to_string_lossy()))
                 .unwrap_or_default();
             let disposition = format!("name=\"{name}\"; filename=\"{file_name}\"");
             let part_type = content_type.unwrap_or(media_type::OCTET_STREAM);
-            self.write_part(&disposition, Some(part_type), &contents);
+            self.start_part(&disposition, Some(part_type));
+            io::copy(&mut file, &mut self.data).map_err(unreadable)?;
+            self.end_part();
             self.fields
                 .push(FormField::file(raw_name, path, content_type));
         }
         Ok(())
     }
 
-    fn write_part(&mut self, disposition: &str, content_type: Option<&str>, contents: &[u8]) {
+    fn start_part(&mut self, disposition: &str, content_type: Option<&str>) {
         let head = format!(
             "--{}{LINE_BREAK}Content-Disposition: form-data; {disposition}{LINE_BREAK}",
             self.boundary
@@ -112,7 +118,9 @@ impl Writer<'_> {
             self.data.extend_from_slice(line.as_bytes());
         }
         self.data.extend_from_slice(LINE_BREAK.as_bytes());
-        self.data.extend_from_slice(contents);
+    }
+
+    fn end_part(&mut self) {
         self.data.extend_from_slice(LINE_BREAK.as_bytes());
     }
 }

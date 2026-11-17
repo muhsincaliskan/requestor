@@ -3,14 +3,13 @@ mod mask;
 mod tests;
 
 use super::{BodySource, PreparedRequest};
-use crate::curl_command::COMMAND_NAME;
+use crate::curl_command::{shell_quote, COMMAND_NAME};
 use crate::header::CONTENT_TYPE;
 use crate::method::HttpMethod;
 use crate::secret::Redactor;
 use mask::SecretExposure;
 
 const CONTINUATION: &str = " \\\n  ";
-const SINGLE_QUOTE_ESCAPE: &str = "'\\''";
 const HEAD_FLAG: &str = "-I";
 const FILE_MARK: char = '@';
 
@@ -82,8 +81,4 @@ impl PreparedRequest {
                 .collect(),
         }
     }
-}
-
-fn shell_quote(text: &str) -> String {
-    format!("'{}'", text.replace('\'', SINGLE_QUOTE_ESCAPE))
 }

@@ -8,7 +8,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 50 * 1024 * 1024;
 const DEFAULT_MAX_REDIRECTS: usize = 10;
-const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
+pub const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
 const BYPASS_HOST_SEPARATOR: char = ',';
 const BYPASS_HOST_JOINER: &str = ", ";
 
@@ -67,10 +67,6 @@ impl ProxySettings {
             }
         }
         self.bypass_hosts = hosts;
-    }
-
-    pub fn has_credentials(&self) -> bool {
-        self.username.is_some()
     }
 }
 

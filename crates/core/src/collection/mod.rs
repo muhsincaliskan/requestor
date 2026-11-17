@@ -14,12 +14,14 @@ mod url;
 mod variable;
 
 pub use auth::{Auth, AuthAttribute};
+pub(crate) use body::JSON_OPENERS;
 pub use body::{Body, BodyMode};
 pub use browse::RequestLocation;
 pub use event::{Event, Script};
 pub use info::{Info, POSTMAN_COLLECTION_SCHEMA_V21};
 pub use item::Item;
 pub use param::Param;
+pub(crate) use param::{FILE_KIND, STRING_KIND, TEXT_KIND};
 pub use path_variables::path_variable_names;
 pub use request::{Request, RequestSpec};
 pub use run::RunnableRequest;

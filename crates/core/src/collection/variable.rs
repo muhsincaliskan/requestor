@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use super::param::STRING_KIND;
 use crate::environment::SECRET_KIND;
 use crate::text::{scalar_text, Description};
 
@@ -33,7 +34,7 @@ impl Variable {
             id: None,
             key: Some(key.to_string()),
             value: Some(Value::String(value.to_string())),
-            kind: Some("string".to_string()),
+            kind: Some(STRING_KIND.to_string()),
             name: None,
             description: None,
             system: None,

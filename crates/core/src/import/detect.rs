@@ -2,11 +2,11 @@ use serde_json::Value;
 
 use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
 use crate::collection::Info;
+use crate::settings::BYTES_PER_MEGABYTE;
 
 const COLLECTION_SCHEMA_POINTER: &str = "/info/schema";
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
 const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
-const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
 const OPENAPI_KEY_MARKERS: [&str; 2] = ["\"openapi\"", "\"swagger\""];
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];
 

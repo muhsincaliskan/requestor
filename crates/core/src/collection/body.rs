@@ -37,7 +37,7 @@ pub struct Body {
     pub extra: Map<String, Value>,
 }
 
-const JSON_OPENERS: [char; 2] = ['{', '['];
+pub(crate) const JSON_OPENERS: [char; 2] = ['{', '['];
 const RAW_LANGUAGE_CONTENT_TYPES: [(&str, &str); 5] = [
     ("json", media_type::JSON),
     ("xml", media_type::XML),

@@ -4,6 +4,10 @@ use serde_json::{Map, Value};
 use crate::encoding::{percent_decode, percent_encode, FORM_PAIR_SEPARATOR};
 use crate::text::{Description, StringOrList};
 
+pub(crate) const FILE_KIND: &str = "file";
+pub(crate) const TEXT_KIND: &str = "text";
+pub(crate) const STRING_KIND: &str = "string";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Param {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,6 +33,10 @@ pub struct Param {
 impl Param {
     pub fn is_enabled(&self) -> bool {
         !self.disabled.unwrap_or(false)
+    }
+
+    pub fn is_file(&self) -> bool {
+        self.kind.as_deref() == Some(FILE_KIND)
     }
 }
 
@@ -105,7 +113,7 @@ impl Param {
         Param {
             value: None,
             src: Some(StringOrList::Single(path.into())),
-            kind: Some("file".to_string()),
+            kind: Some(FILE_KIND.to_string()),
             ..Param::text(key, "")
         }
     }

@@ -1,5 +1,5 @@
 use crate::collection::Param;
-use crate::secret::is_secret_name;
+use crate::secret::{is_secret_name, REDACTED};
 use crate::variables::VariableScope;
 
 pub const CONTENT_TYPE: &str = "Content-Type";
@@ -24,6 +24,14 @@ impl Header {
 
     pub fn is_sensitive(&self) -> bool {
         is_secret_name(&self.name)
+    }
+
+    pub fn shown_value(&self) -> &str {
+        if self.is_sensitive() {
+            REDACTED
+        } else {
+            &self.value
+        }
     }
 }
 

@@ -1,10 +1,9 @@
-use crate::collection::Body;
+use crate::collection::{Body, JSON_OPENERS};
 use crate::header::Header;
 use crate::secret::{is_secret_name, mask_pairs, Redactor, REDACTED};
 use serde_json::Value;
 
 const JSON_MARK: &str = "json";
-const JSON_OPENERS: [char; 2] = ['{', '['];
 
 #[derive(Debug, Clone, Copy)]
 pub(super) enum SecretExposure<'a> {
@@ -25,10 +24,9 @@ impl SecretExposure<'_> {
     }
 
     pub(super) fn header_value(self, header: &Header) -> String {
-        if self.masks() && header.is_sensitive() {
-            REDACTED.to_string()
-        } else {
-            self.text(&header.value)
+        match self {
+            SecretExposure::Masked(redactor) => redactor.redact_text(header.shown_value()),
+            SecretExposure::Included => header.value.clone(),
         }
     }
 

@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use super::STRING_KIND;
 use crate::variables::VariableScope;
 
 pub const NO_AUTH_KIND: &str = "noauth";
@@ -43,7 +44,7 @@ impl AuthAttribute {
         AuthAttribute {
             key: Some(key.to_string()),
             value: Some(Value::String(value.into())),
-            kind: Some("string".to_string()),
+            kind: Some(STRING_KIND.to_string()),
             extra: Map::new(),
         }
     }

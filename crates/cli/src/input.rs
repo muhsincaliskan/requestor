@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use requestor_core::curl_command::shell_quote;
+
 use crate::error::CliError;
 
 const PLAIN_CHARACTERS: &str = "-_./:=@%+,";
@@ -18,7 +20,7 @@ impl CommandLine {
             [single] => CommandLine(single.clone()),
             many => CommandLine(
                 many.iter()
-                    .map(|part| shell_quote(part))
+                    .map(|part| quoted_word(part))
                     .collect::<Vec<_>>()
                     .join(" "),
             ),
@@ -30,7 +32,7 @@ impl CommandLine {
     }
 }
 
-fn shell_quote(word: &str) -> String {
+fn quoted_word(word: &str) -> String {
     let plain = !word.is_empty()
         && word.chars().all(|character| {
             character.is_ascii_alphanumeric() || PLAIN_CHARACTERS.contains(character)
@@ -38,7 +40,7 @@ fn shell_quote(word: &str) -> String {
     if plain {
         return word.to_string();
     }
-    format!("'{}'", word.replace('\'', "'\\''"))
+    shell_quote(word)
 }
 
 pub fn load_send_target(parts: &[String]) -> Result<String, CliError> {

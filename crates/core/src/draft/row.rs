@@ -1,8 +1,6 @@
-use crate::collection::{Param, Variable};
+use crate::collection::{Param, Variable, FILE_KIND, TEXT_KIND};
 use crate::text::{Description, StringOrList};
 
-const FILE_KIND: &str = "file";
-const TEXT_KIND: &str = "text";
 const FILE_SEPARATOR: &str = ",";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -40,7 +38,7 @@ impl KeyValueRow {
     }
 
     pub fn from_param(param: &Param) -> Self {
-        let is_file = param.kind.as_deref() == Some(FILE_KIND);
+        let is_file = param.is_file();
         let value = match (&param.src, is_file) {
             (Some(source), true) => source.joined(FILE_SEPARATOR),
             _ => param.value.clone().unwrap_or_default(),
@@ -85,7 +83,7 @@ impl KeyValueRow {
             }
             param.value = None;
         } else {
-            if param.kind.as_deref() == Some(FILE_KIND) {
+            if param.is_file() {
                 param.kind = Some(TEXT_KIND.to_string());
             }
             param.src = None;
