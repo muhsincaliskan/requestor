@@ -164,3 +164,61 @@ fn section_counts_include_only_enabled_non_blank_rows() {
     assert_eq!(draft.active_param_count(), 2);
     assert_eq!(draft.active_header_count(), 1);
 }
+
+const EXTRA_FIELDS_REQUEST: &str = r#"{"method":"GET","url":{"raw":"https://x.test/u/:id?a=1",
+    "host":["x","test"],"path":["u",":id"],
+    "query":[{"key":"a","value":"1","x-q":true,"description":"keep"}],
+    "variable":[{"id":"v1","key":"id","value":8080,"type":"any","name":"n","system":true,"x-v":1}]}}"#;
+
+fn serialized(draft: &RequestDraft) -> serde_json::Value {
+    serde_json::to_value(draft.to_request()).unwrap()
+}
+
+#[test]
+fn an_unedited_draft_with_extra_fields_round_trips_exactly() {
+    let (request, draft) = draft_of(EXTRA_FIELDS_REQUEST);
+    assert_eq!(draft.to_request(), request);
+}
+
+#[test]
+fn editing_a_path_variable_keeps_its_extra_fields_and_non_string_value() {
+    let (_, mut draft) = draft_of(EXTRA_FIELDS_REQUEST);
+    draft.method = "POST".to_string();
+    let json = serialized(&draft);
+    let variable = &json["url"]["variable"][0];
+    assert_eq!(variable["id"], "v1");
+    assert_eq!(variable["type"], "any");
+    assert_eq!(variable["name"], "n");
+    assert_eq!(variable["system"], true);
+    assert_eq!(variable["x-v"], 1);
+    assert_eq!(variable["value"], 8080);
+    draft.path_variables[0].value = "9".to_string();
+    let json = serialized(&draft);
+    assert_eq!(json["url"]["variable"][0]["value"], "9");
+    assert_eq!(json["url"]["variable"][0]["x-v"], 1);
+}
+
+#[test]
+fn typing_in_the_url_keeps_query_row_extra_fields() {
+    let (_, mut draft) = draft_of(EXTRA_FIELDS_REQUEST);
+    draft.url = "https://x.test/u/:id?a=2".to_string();
+    draft.url_edited();
+    let json = serialized(&draft);
+    let query = &json["url"]["query"][0];
+    assert_eq!(query["value"], "2");
+    assert_eq!(query["x-q"], true);
+    assert_eq!(query["description"], "keep");
+}
+
+#[test]
+fn editing_auth_through_the_draft_keeps_other_auth_sections() {
+    let (_, mut draft) = draft_of(
+        r#"{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"a","x-attr":1}],
+            "oauth2":[{"key":"accessToken","value":"t"}]}}"#,
+    );
+    draft.auth.token = "b".to_string();
+    let json = serialized(&draft);
+    assert_eq!(json["auth"]["bearer"][0]["value"], "b");
+    assert_eq!(json["auth"]["bearer"][0]["x-attr"], 1);
+    assert_eq!(json["auth"]["oauth2"][0]["key"], "accessToken");
+}

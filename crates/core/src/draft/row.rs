@@ -12,6 +12,7 @@ pub struct KeyValueRow {
     pub description: String,
     pub is_file: bool,
     source: Option<Param>,
+    variable_source: Option<Variable>,
 }
 
 impl Default for KeyValueRow {
@@ -23,6 +24,7 @@ impl Default for KeyValueRow {
             description: String::new(),
             is_file: false,
             source: None,
+            variable_source: None,
         }
     }
 }
@@ -49,6 +51,7 @@ impl KeyValueRow {
             description: description_text(param.description.as_ref()),
             is_file,
             source: Some(param.clone()),
+            variable_source: None,
         }
     }
 
@@ -58,6 +61,7 @@ impl KeyValueRow {
             key: variable.key.clone().unwrap_or_default(),
             value: variable.text_value().unwrap_or_default(),
             description: description_text(variable.description.as_ref()),
+            variable_source: Some(variable.clone()),
             ..KeyValueRow::default()
         }
     }
@@ -86,10 +90,23 @@ impl KeyValueRow {
     }
 
     pub fn to_variable(&self) -> Variable {
-        Variable {
-            disabled: (!self.enabled).then_some(true),
-            description: self.merged_description(None),
-            ..Variable::text(&self.key, &self.value)
+        let mut variable = self
+            .variable_source
+            .clone()
+            .unwrap_or_else(|| Variable::text("", ""));
+        variable.set_key_text(&self.key);
+        variable.set_value_text(&self.value);
+        if variable.is_enabled() != self.enabled {
+            variable.set_enabled(self.enabled);
+        }
+        variable.description = self.merged_description(variable.description.take());
+        variable
+    }
+
+    pub fn with_value(&self, value: String) -> Self {
+        KeyValueRow {
+            value,
+            ..self.clone()
         }
     }
 

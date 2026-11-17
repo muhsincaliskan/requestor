@@ -81,11 +81,11 @@ impl RequestDraft {
             .flat_map(|query| query.split(QUERY_SEPARATOR))
             .filter(|pair| !pair.is_empty())
             .map(|pair| {
-                let mut row = KeyValueRow::from_query_pair(pair);
-                if let Some(old) = previous.next().filter(|old| old.key == row.key) {
-                    row.description = old.description.clone();
+                let parsed = KeyValueRow::from_query_pair(pair);
+                match previous.next().filter(|old| old.key == parsed.key) {
+                    Some(old) => old.with_value(parsed.value),
+                    None => parsed,
                 }
-                row
             })
             .collect()
     }
