@@ -1,4 +1,4 @@
-use eframe::egui::{Checkbox, Grid, Id, RichText, Ui};
+use eframe::egui::{Checkbox, Id, Label, RichText, Ui};
 use requestor_core::draft::KeyValueRow;
 
 use super::variable_text_edit::VariableTextEdit;
@@ -7,7 +7,7 @@ const KEY_HINT: &str = "Key";
 const VALUE_HINT: &str = "Value";
 const FILE_HINT: &str = "File path";
 const DESCRIPTION_HINT: &str = "Description";
-const DELETE_LABEL: &str = "✕";
+const DELETE_LABEL: &str = "×";
 const TEXT_KIND_LABEL: &str = "Text";
 const FILE_KIND_LABEL: &str = "File";
 const GRID_SALT: &str = "grid";
@@ -84,13 +84,11 @@ impl<'a> KeyValueTable<'a> {
         let widths = ColumnWidths::fit(ui.available_width());
         let mut changed = false;
         let mut removed = None;
-        Grid::new(self.id.with(GRID_SALT))
-            .num_columns(COLUMN_COUNT)
-            .spacing([COLUMN_SPACING, COLUMN_SPACING])
-            .show(ui, |ui| {
-                changed |= self.show_rows(ui, &widths, &mut removed);
-                changed |= self.show_pending(ui, &widths);
-            });
+        ui.push_id(self.id.with(GRID_SALT), |ui| {
+            ui.spacing_mut().item_spacing.x = COLUMN_SPACING;
+            changed |= self.show_rows(ui, &widths, &mut removed);
+            changed |= self.show_pending(ui, &widths);
+        });
         if let Some(index) = removed {
             self.rows.remove(index);
             changed = true;
@@ -149,14 +147,16 @@ impl<'a> KeyValueTable<'a> {
             Some(row) => row,
             None => &mut self.rows[index],
         };
+        let deletable = self.rows_addable && !is_pending;
         let mut outcome = RowOutcome::default();
-        outcome.changed |= ui.add(Checkbox::without_text(&mut row.enabled)).changed();
-        outcome.changed |= key_cell(ui, row, widths.key, keys_editable, names, id.with(index));
-        outcome.changed |= value_cell(ui, row, widths.value, files_allowed, names, id.with(index));
-        outcome.changed |= description_cell(ui, row, widths.description, id.with(index));
-        outcome.delete =
-            self.rows_addable && !is_pending && ui.small_button(DELETE_LABEL).clicked();
-        ui.end_row();
+        ui.horizontal(|ui| {
+            outcome.changed |= ui.add(Checkbox::without_text(&mut row.enabled)).changed();
+            outcome.changed |= key_cell(ui, row, widths.key, keys_editable, names, id.with(index));
+            outcome.changed |=
+                value_cell(ui, row, widths.value, files_allowed, names, id.with(index));
+            outcome.changed |= description_cell(ui, row, widths.description, id.with(index));
+            outcome.delete = deletable && ui.small_button(DELETE_LABEL).clicked();
+        });
         outcome
     }
 }
@@ -170,7 +170,11 @@ fn key_cell(
     id: Id,
 ) -> bool {
     if !editable {
-        ui.label(RichText::new(&row.key).monospace());
+        let size = [width, ui.spacing().interact_size.y];
+        ui.add_sized(
+            size,
+            Label::new(RichText::new(&row.key).monospace()).truncate(),
+        );
         return false;
     }
     VariableTextEdit::new(&mut row.key, names)

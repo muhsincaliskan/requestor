@@ -66,7 +66,8 @@ pub(super) fn text_cell(ui: &mut Ui, text: &mut String, hint: &str, masked: bool
         .hint_text(hint)
         .password(masked)
         .desired_width(CELL_WIDTH);
-    ui.add(edit).changed()
+    let size = [CELL_WIDTH, ui.spacing().interact_size.y];
+    ui.add_sized(size, edit).changed()
 }
 
 pub(super) fn enabled_cell(ui: &mut Ui, enabled: bool) -> Option<bool> {
