@@ -184,6 +184,17 @@ impl BodyDraft {
         Some(body)
     }
 
+    pub fn active_count(&self) -> usize {
+        match self.kind {
+            BodyKind::None => 0,
+            BodyKind::Raw => usize::from(!self.raw.is_empty()),
+            BodyKind::Urlencoded => KeyValueRow::active_count(&self.urlencoded),
+            BodyKind::FormData => KeyValueRow::active_count(&self.formdata),
+            BodyKind::File => usize::from(!self.file_path.is_empty()),
+            BodyKind::GraphQl => usize::from(!self.graphql_query.is_empty()),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.raw.is_empty()
             && self.urlencoded.iter().all(KeyValueRow::is_blank)
@@ -294,5 +305,19 @@ mod tests {
         let body = draft.to_body().unwrap();
         assert_eq!(body.file_source(), Some("/tmp/a.bin"));
         assert_eq!(body.graphql.unwrap()["query"], "{ me }");
+    }
+
+    #[test]
+    fn active_count_follows_the_selected_kind() {
+        let mut draft = BodyDraft {
+            raw: "x".to_string(),
+            urlencoded: vec![KeyValueRow::new("a", "1"), KeyValueRow::default()],
+            ..BodyDraft::default()
+        };
+        assert_eq!(draft.active_count(), 0);
+        draft.kind = BodyKind::Raw;
+        assert_eq!(draft.active_count(), 1);
+        draft.kind = BodyKind::Urlencoded;
+        assert_eq!(draft.active_count(), 1);
     }
 }

@@ -153,3 +153,14 @@ fn an_empty_url_is_stored_as_no_url() {
     draft.headers.push(KeyValueRow::new("A", "1"));
     assert!(draft.to_request().url.is_none());
 }
+
+#[test]
+fn section_counts_include_only_enabled_non_blank_rows() {
+    let mut draft = RequestDraft::blank("r");
+    draft.url = "https://x.test/:id?a=1".to_string();
+    draft.url_edited();
+    draft.headers.push(KeyValueRow::new("A", "1"));
+    draft.headers.push(KeyValueRow::default());
+    assert_eq!(draft.active_param_count(), 2);
+    assert_eq!(draft.active_header_count(), 1);
+}
