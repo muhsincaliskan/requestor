@@ -45,13 +45,15 @@ impl RequestorApp {
 
     fn apply(&mut self, actions: Vec<Action>, ctx: &Context) {
         let now = self.now();
-        for action in actions {
+        let mut queue = std::collections::VecDeque::from(actions);
+        while let Some(action) = queue.pop_front() {
             let effects = self.state.apply(action, now);
-            self.execute(effects, ctx);
+            queue.extend(self.execute(effects, ctx));
         }
     }
 
-    fn execute(&mut self, effects: Vec<Effect>, ctx: &Context) {
+    fn execute(&mut self, effects: Vec<Effect>, ctx: &Context) -> Vec<Action> {
+        let mut follow_ups = Vec::new();
         for effect in effects {
             match effect {
                 Effect::Send {
@@ -63,14 +65,12 @@ impl RequestorApp {
                 Effect::CopyText(text) => ctx.copy_text(text),
                 Effect::AbortSend(job) => self.runner.abort(job),
                 Effect::PickImportFile => {
-                    let chosen = file_picker::import_file().map(Action::ImportFile);
-                    self.apply(chosen.into_iter().collect(), ctx);
+                    follow_ups.extend(file_picker::import_file().map(Action::ImportFile));
                 }
-                Effect::PickExportLocation { target, suggested } => {
-                    let chosen = file_picker::export_location(&suggested)
-                        .map(|file_path| Action::Export { target, file_path });
-                    self.apply(chosen.into_iter().collect(), ctx);
-                }
+                Effect::PickExportLocation { target, suggested } => follow_ups.extend(
+                    file_picker::export_location(&suggested)
+                        .map(|file_path| Action::Export { target, file_path }),
+                ),
                 storage => {
                     if let Err(reason) = self.saver.submit(storage) {
                         self.state.report_error(format!("Could not save: {reason}"));
@@ -78,6 +78,7 @@ impl RequestorApp {
                 }
             }
         }
+        follow_ups
     }
 
     fn refresh_look(&mut self, ctx: &Context) {
@@ -102,7 +103,8 @@ impl eframe::App for RequestorApp {
         }
         let now = self.now();
         let writes = self.state.tick(now);
-        self.execute(writes, ctx);
+        let follow_ups = self.execute(writes, ctx);
+        self.apply(follow_ups, ctx);
         if let Some(wait) = self.state.seconds_until_next_save(now) {
             ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait));
         }

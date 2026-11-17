@@ -70,7 +70,9 @@ impl AppState {
                 ));
             }
         }
-        self.overlay = None;
+        if matches!(self.overlay, Some(Overlay::Import(_))) {
+            self.overlay = None;
+        }
     }
 
     fn import_failed(&mut self, reason: String) {

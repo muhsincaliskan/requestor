@@ -7,7 +7,9 @@ mod tab_strip;
 mod toolbar;
 mod welcome;
 
-use eframe::egui::{CentralPanel, Frame, Margin, Panel, Ui};
+use eframe::egui::{
+    Align2, CentralPanel, Color32, FontId, Frame, Id, LayerId, Margin, Order, Panel, TextStyle, Ui,
+};
 use requestor_core::workspace::InterfaceSettings;
 
 use crate::state::{Action, AppState};
@@ -22,6 +24,9 @@ const SIDEBAR_WIDTH: f32 = 260.0;
 const SIDEBAR_MIN_WIDTH: f32 = 180.0;
 const REQUEST_SHARE: f32 = 0.5;
 const CONTENT_MARGIN: i8 = 14;
+const DROP_HINT: &str = "Drop to import";
+const DROP_LAYER_ID: &str = "drop-hint";
+const DROP_SHADE: Color32 = Color32::from_black_alpha(140);
 const BAR_MARGIN_X: i8 = 12;
 const BAR_MARGIN_Y: i8 = 6;
 
@@ -47,6 +52,26 @@ pub fn show(ui: &mut Ui, state: &mut AppState, now: f64, actions: &mut Vec<Actio
         });
     overlays::show(ui.ctx(), state, actions);
     import_dropped_files(ui, actions);
+    show_drop_hint(ui);
+}
+
+fn show_drop_hint(ui: &Ui) {
+    if ui.input(|input| input.raw.hovered_files.is_empty()) {
+        return;
+    }
+    let painter = ui
+        .ctx()
+        .layer_painter(LayerId::new(Order::Foreground, Id::new(DROP_LAYER_ID)));
+    let screen = ui.ctx().content_rect();
+    painter.rect_filled(screen, 0.0, DROP_SHADE);
+    let font: FontId = TextStyle::Heading.resolve(ui.style());
+    painter.text(
+        screen.center(),
+        Align2::CENTER_CENTER,
+        DROP_HINT,
+        font,
+        Color32::WHITE,
+    );
 }
 
 fn import_dropped_files(ui: &Ui, actions: &mut Vec<Action>) {

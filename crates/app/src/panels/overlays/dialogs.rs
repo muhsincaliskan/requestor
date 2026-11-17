@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use eframe::egui::{ComboBox, Context, Key, TextEdit, Ui};
 use requestor_core::collection::Collection;
 
@@ -8,7 +6,7 @@ use crate::state::{
     Action, AppState, DeleteConfirmation, ExportForm, RenameForm, SaveTabForm, TabId,
 };
 
-const CHOOSE_LOCATION_LABEL: &str = "Choose…";
+const CHOOSE_LOCATION_LABEL: &str = "Export to…";
 const CANCEL_LABEL: &str = "Cancel";
 const SAVE_LABEL: &str = "Save";
 const DISCARD_LABEL: &str = "Discard changes";
@@ -166,10 +164,7 @@ pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -
                     .desired_width(FIELD_WIDTH),
             );
             if ui.button(CHOOSE_LOCATION_LABEL).clicked() {
-                actions.push(Action::ChooseExportLocation {
-                    target: form.target.clone(),
-                    suggested: PathBuf::from(form.file_path.trim()),
-                });
+                actions.push(form.location_choice());
             }
         });
         if let Some(error) = &form.error {
@@ -177,14 +172,10 @@ pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -
         }
         buttons(ui, |ui| {
             if ui.button(EXPORT_LABEL).clicked() {
-                if form.file_path.trim().is_empty() {
-                    form.error = Some(EXPORT_PATH_MISSING.to_string());
-                    return true;
+                match form.submission() {
+                    Some(action) => actions.push(action),
+                    None => form.error = Some(EXPORT_PATH_MISSING.to_string()),
                 }
-                actions.push(Action::Export {
-                    target: form.target.clone(),
-                    file_path: PathBuf::from(form.file_path.trim()),
-                });
             }
             !ui.button(CANCEL_LABEL).clicked()
         })
