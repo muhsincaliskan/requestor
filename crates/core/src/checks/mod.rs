@@ -7,6 +7,7 @@ mod script;
 
 use serde_json::Value;
 
+pub use apply::Applied;
 pub use evaluate::{CheckOutcome, Extracted, RulesReport};
 pub use path::JsonPath;
 
@@ -43,6 +44,17 @@ pub struct Extraction {
 pub struct ResponseRules {
     pub checks: Vec<Check>,
     pub extractions: Vec<Extraction>,
+}
+
+impl VariableTarget {
+    pub const ALL: [VariableTarget; 2] = [VariableTarget::Environment, VariableTarget::Collection];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            VariableTarget::Environment => "Environment",
+            VariableTarget::Collection => "Collection",
+        }
+    }
 }
 
 impl ResponseRules {

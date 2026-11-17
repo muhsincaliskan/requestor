@@ -105,6 +105,7 @@ impl AppState {
             return false;
         };
         item.name = Some(tab.draft.name.clone());
+        tab.draft.rules.write_into(&mut item.event);
         item.replace_request(tab.draft.commit());
         tab.mark_saved();
         self.unsaved
@@ -135,9 +136,12 @@ impl AppState {
     fn duplicate_tab(&mut self, id: TabId) {
         let Some(original) = self.tab(id) else { return };
         let request = original.draft.to_request();
+        let rules = original.draft.rules.clone();
         let name = format!("{}{COPY_SUFFIX}", original.draft.name);
         let copy_id = self.allocate_tab_id();
-        self.open_tab(RequestTab::for_request(copy_id, &name, &request));
+        let mut copy = RequestTab::for_request(copy_id, &name, &request);
+        copy.draft.rules = rules;
+        self.open_tab(copy);
     }
 
     fn tab_edited(&mut self, id: TabId) {

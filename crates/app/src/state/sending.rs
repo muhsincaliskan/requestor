@@ -1,3 +1,4 @@
+use requestor_core::checks::RulesReport;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
 
@@ -76,16 +77,39 @@ impl AppState {
 
     fn send_finished(&mut self, id: TabId, job: u64, result: Result<HttpResponse, String>) {
         let detect_format = self.interface().response_format_detection;
-        let Some(tab) = self.tab_mut(id).filter(|tab| tab.is_waiting_for(job)) else {
+        let Some(tab) = self.tab(id).filter(|tab| tab.is_waiting_for(job)) else {
             return;
         };
-        tab.exchange = match result {
-            Ok(response) => Exchange::Completed(Box::new(ResponseView::from_response(
-                response,
-                detect_format,
-            ))),
+        let rules = tab.draft.rules.to_rules();
+        let collection_id = tab
+            .binding
+            .as_ref()
+            .map(|bound| bound.collection_id.clone());
+        let exchange = match result {
+            Ok(response) => {
+                let report = (!rules.is_empty()).then(|| rules.evaluate(&response));
+                if let Some(report) = &report {
+                    self.store_extracted(report, collection_id.as_deref());
+                }
+                let view = ResponseView::from_response(response, detect_format).with_report(report);
+                Exchange::Completed(Box::new(view))
+            }
             Err(reason) => Exchange::Failed(reason),
         };
+        if let Some(tab) = self.tab_mut(id) {
+            tab.exchange = exchange;
+        }
+    }
+
+    fn store_extracted(&mut self, report: &RulesReport, collection_id: Option<&str>) {
+        let changed = self.workspace.store_extracted(report, collection_id);
+        let now = self.now;
+        if let Some(environment_id) = changed.environment_id {
+            self.unsaved.touch_environment(&environment_id, now);
+        }
+        if let Some(collection_id) = changed.collection_id {
+            self.unsaved.touch_collection(&collection_id, now);
+        }
     }
 
     fn copy_as_curl(&mut self, id: TabId, include_secrets: bool, effects: &mut Vec<Effect>) {

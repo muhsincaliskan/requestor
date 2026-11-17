@@ -138,7 +138,7 @@ impl Extraction {
     }
 
     fn from_script_line(line: &str) -> Option<Extraction> {
-        let target = [VariableTarget::Environment, VariableTarget::Collection]
+        let target = VariableTarget::ALL
             .into_iter()
             .find(|target| line.starts_with(target.setter()))?;
         let (variable, rest) = split_quoted(&line[target.setter().len()..])?;

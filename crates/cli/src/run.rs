@@ -14,7 +14,7 @@ use crate::input::read_text;
 use crate::report::{RequestLine, RequestReport};
 
 struct Session<'a> {
-    collection_variables: Vec<Variable>,
+    collection_variables: Option<Vec<Variable>>,
     environment: Option<Environment>,
     options: &'a RunOptions,
     settings: RequestSettings,
@@ -27,7 +27,7 @@ pub fn execute(options: &RunOptions, out: &mut impl Write) -> Result<bool, CliEr
     let mut session = Session {
         environment: load_environment(options)?,
         settings: options.network.to_settings(),
-        collection_variables: collection.variable.clone().unwrap_or_default(),
+        collection_variables: collection.variable.clone(),
         options,
     };
     let transport = ReqwestTransport::new(&session.settings)
@@ -58,7 +58,7 @@ fn load_environment(options: &RunOptions) -> Result<Option<Environment>, CliErro
 impl Session<'_> {
     fn scope_for(&self, runnable: &RunnableRequest) -> VariableScope {
         VariableScope::layered(
-            &self.collection_variables,
+            self.collection_variables.as_deref().unwrap_or_default(),
             &runnable.variables,
             self.environment.as_ref(),
             &self.options.variables,

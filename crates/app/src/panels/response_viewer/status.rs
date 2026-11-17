@@ -13,10 +13,17 @@ const BADGE_TINT: f32 = 0.16;
 const BADGE_RADIUS: u8 = 10;
 const BADGE_MARGIN: Margin = Margin::symmetric(8, 2);
 
+pub(super) fn success_color(ui: &Ui) -> Color32 {
+    if ui.visuals().dark_mode {
+        SUCCESS_ON_DARK
+    } else {
+        SUCCESS_ON_LIGHT
+    }
+}
+
 fn class_color(ui: &Ui, class: StatusClass) -> Color32 {
     match class {
-        StatusClass::Success if ui.visuals().dark_mode => SUCCESS_ON_DARK,
-        StatusClass::Success => SUCCESS_ON_LIGHT,
+        StatusClass::Success => success_color(ui),
         StatusClass::ClientError | StatusClass::ServerError => ui.visuals().error_fg_color,
         StatusClass::Redirect => ui.visuals().hyperlink_color,
         StatusClass::Informational | StatusClass::Unknown => ui.visuals().text_color(),

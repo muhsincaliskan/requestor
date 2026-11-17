@@ -1,4 +1,5 @@
 mod body;
+mod checks;
 mod tables;
 mod url_bar;
 
@@ -61,6 +62,7 @@ fn section_label(open: &RequestTab, section: EditorSection) -> String {
         EditorSection::Headers => open.draft.active_header_count(),
         EditorSection::Body => open.draft.body.active_count(),
         EditorSection::Auth => 0,
+        EditorSection::Tests => open.draft.rules.active_count(),
     };
     match count {
         0 => section.label().to_string(),
@@ -74,5 +76,6 @@ fn show_section(ui: &mut Ui, open: &mut RequestTab, hints: &VariableHints) -> bo
         EditorSection::Headers => tables::headers(ui, &mut open.draft, hints),
         EditorSection::Body => body::show(ui, &mut open.draft, hints),
         EditorSection::Auth => auth_editor::show(ui, &mut open.draft.auth, hints, AUTH_SALT),
+        EditorSection::Tests => checks::show(ui, &mut open.draft.rules),
     }
 }
