@@ -8,7 +8,7 @@ use crate::identity::random_uuid;
 use crate::text::scalar_text;
 
 const ENVIRONMENT_SCOPE: &str = "environment";
-const SECRET_KIND: &str = "secret";
+pub(crate) const SECRET_KIND: &str = "secret";
 const DEFAULT_KIND: &str = "default";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

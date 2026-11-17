@@ -1,6 +1,7 @@
 use std::fmt;
 
 use crate::secret::{is_secret_name, REDACTED};
+use crate::variables::placeholder_names;
 
 const FORM_FLAG: &str = "-F";
 const FORM_STRING_FLAG: &str = "--form-string";
@@ -76,6 +77,15 @@ impl FormField {
                 content_type: content_type.map(str::to_string),
             },
         }
+    }
+
+    pub fn placeholder_names(&self) -> Vec<String> {
+        let mut names = placeholder_names(&self.name);
+        match &self.value {
+            FormValue::Text(text) => names.extend(placeholder_names(text)),
+            FormValue::File { path, .. } => names.extend(placeholder_names(path)),
+        }
+        names
     }
 
     pub fn curl_argument(&self, mask_secrets: bool) -> (&'static str, String) {

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::time::Duration;
 
 use crate::header::{find_header, Header, CONTENT_TYPE};
@@ -135,8 +136,8 @@ impl HttpResponse {
         self.status >= ERROR_STATUS_FLOOR
     }
 
-    pub fn body_text(&self) -> String {
-        String::from_utf8_lossy(&self.body).into_owned()
+    pub fn body_text(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.body)
     }
 }
 

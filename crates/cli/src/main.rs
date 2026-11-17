@@ -19,7 +19,10 @@ use args::Command;
 use error::{CliError, EXIT_REQUEST_FAILED, EXIT_SUCCESS};
 
 fn main() -> ExitCode {
-    let arguments = std::env::args().skip(1).collect();
+    let arguments = std::env::args_os()
+        .skip(1)
+        .map(|argument| argument.to_string_lossy().into_owned())
+        .collect();
     match dispatch(arguments, &mut io::stdout().lock()) {
         Ok(true) => ExitCode::from(EXIT_SUCCESS),
         Ok(false) => ExitCode::from(EXIT_REQUEST_FAILED),

@@ -3,13 +3,14 @@ use requestor_core::collection::{Collection, Variable};
 
 use super::dialog;
 use super::table::{
-    delete_cell, edit_rows, enabled_cell, footer, name_field, text_cell, RowEdit, KEY_HINT,
-    VALUE_HINT,
+    delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, reveal_toggle,
+    text_cell, RowEdit, KEY_HINT, VALUE_HINT,
 };
 use crate::state::{Action, AppState};
 
 const DIALOG_ID: &str = "collection-editor";
 const TABLE_ID: &str = "collection-variables";
+const REVEAL_ID: &str = "collection-reveal-secrets";
 const TITLE: &str = "Edit collection";
 const VARIABLES_LABEL: &str = "Variables";
 const AUTH_LABEL: &str = "Authorization";
@@ -25,7 +26,7 @@ pub fn show(
     let Some(collection) = state.workspace.collection_mut(collection_id) else {
         return false;
     };
-    dialog(ctx, DIALOG_ID, TITLE, |ui| {
+    let stays_open = dialog(ctx, DIALOG_ID, TITLE, |ui| {
         let mut changed = name_field(ui, &mut collection.info.name);
         auth_line(ui, collection);
         ui.strong(VARIABLES_LABEL);
@@ -42,7 +43,11 @@ pub fn show(
             actions.push(Action::CollectionEdited(collection_id.to_string()));
         }
         !done
-    })
+    });
+    if !stays_open {
+        forget_reveal(ctx, REVEAL_ID);
+    }
+    stays_open
 }
 
 fn auth_line(ui: &mut Ui, collection: &Collection) {
@@ -57,10 +62,13 @@ fn variables_table(ui: &mut Ui, collection: &mut Collection) -> bool {
     let Some(variables) = collection.variable.as_mut() else {
         return false;
     };
-    edit_rows(ui, TABLE_ID, COLUMNS, variables, row)
+    let reveal = variables.iter().any(Variable::is_secret) && reveal_toggle(ui, REVEAL_ID);
+    edit_rows(ui, TABLE_ID, COLUMNS, variables, |ui, variable| {
+        row(ui, variable, reveal)
+    })
 }
 
-fn row(ui: &mut Ui, variable: &mut Variable) -> RowEdit {
+fn row(ui: &mut Ui, variable: &mut Variable, reveal: bool) -> RowEdit {
     let mut changed = false;
     if let Some(enabled) = enabled_cell(ui, variable.is_enabled()) {
         variable.set_enabled(enabled);
@@ -72,7 +80,8 @@ fn row(ui: &mut Ui, variable: &mut Variable) -> RowEdit {
         changed = true;
     }
     let mut value = variable.value_text();
-    if text_cell(ui, &mut value, VALUE_HINT, false) {
+    let masked = variable.is_secret() && !reveal;
+    if text_cell(ui, &mut value, VALUE_HINT, masked) {
         variable.set_value_text(&value);
         changed = true;
     }

@@ -35,7 +35,10 @@ impl ResponseRules {
     pub fn evaluate(&self, response: &HttpResponse) -> RulesReport {
         let observed = Observed {
             response,
-            json: serde_json::from_slice(&response.body).ok(),
+            json: self
+                .reads_json()
+                .then(|| serde_json::from_slice(&response.body).ok())
+                .flatten(),
         };
         RulesReport {
             checks: self
@@ -52,6 +55,16 @@ impl ResponseRules {
                 })
                 .collect(),
         }
+    }
+
+    fn reads_json(&self) -> bool {
+        self.checks
+            .iter()
+            .any(|check| matches!(check, Check::JsonEquals { .. }))
+            || self
+                .extractions
+                .iter()
+                .any(|extraction| matches!(extraction.source, ExtractSource::Json(_)))
     }
 }
 

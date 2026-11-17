@@ -33,7 +33,8 @@ pub fn execute(options: &SendOptions, out: &mut impl Write) -> Result<bool, CliE
     match transport.send(prepared) {
         Ok(response) => {
             let view = ResponseView::from(&response);
-            write!(out, "{}", view.to_text()).map_err(|error| CliError::from_write(&error))?;
+            view.write_to(out)
+                .map_err(|error| CliError::from_write(&error))?;
             eprintln!("\n{}", view.summary);
             if view.truncated {
                 eprintln!("{TRUNCATION_NOTICE}");

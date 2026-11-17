@@ -1,4 +1,4 @@
-pub const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
+pub use requestor_core::settings::BYTES_PER_MEGABYTE;
 const MAX_ROW_BYTES: usize = 2_000;
 const LINE_BREAK: u8 = b'\n';
 

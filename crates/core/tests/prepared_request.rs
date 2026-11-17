@@ -290,6 +290,25 @@ fn unresolved_variables_are_reported_for_url_headers_and_body() {
 }
 
 #[test]
+fn file_contents_are_not_scanned_for_variables_but_form_text_is() {
+    let path = temp_file("requestor-braces.bin", "{{inside_file}}");
+    let path = path.to_str().unwrap();
+    let file_body = prepare(json!({
+        "method": "POST", "url": "http://x/",
+        "body": {"mode": "file", "file": {"src": path}}
+    }));
+    assert!(file_body.unresolved_variables().is_empty());
+    let form_body = prepare(json!({
+        "method": "POST", "url": "http://x/",
+        "body": {"mode": "formdata", "formdata": [
+            {"key": "note", "value": "{{missing}}", "type": "text"},
+            {"key": "upload", "src": path, "type": "file"}
+        ]}
+    }));
+    assert_eq!(form_body.unresolved_variables(), ["missing"]);
+}
+
+#[test]
 fn debug_output_does_not_print_credentials_or_body() {
     let prepared = prepare(json!({
         "method": "POST", "url": "http://x/",

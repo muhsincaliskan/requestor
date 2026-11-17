@@ -83,8 +83,14 @@ impl PreparedRequest {
             names.extend(placeholder_names(&header.name));
             names.extend(placeholder_names(&header.value));
         }
-        if let Some(body) = &self.body {
-            names.extend(placeholder_names(&String::from_utf8_lossy(body)));
+        match (&self.body_source, &self.body) {
+            (BodySource::Inline, Some(body)) => {
+                names.extend(placeholder_names(&String::from_utf8_lossy(body)));
+            }
+            (BodySource::Form(fields), _) => {
+                names.extend(fields.iter().flat_map(FormField::placeholder_names));
+            }
+            _ => {}
         }
         names.sort();
         names.dedup();

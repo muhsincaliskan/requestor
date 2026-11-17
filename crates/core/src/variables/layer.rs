@@ -5,8 +5,6 @@ use crate::collection::Variable;
 use crate::environment::Environment;
 use crate::text::scalar_text;
 
-const SECRET_KIND: &str = "secret";
-
 #[derive(Clone, Default, PartialEq)]
 pub struct VariableLayer {
     pub(super) values: BTreeMap<String, String>,
@@ -30,7 +28,7 @@ impl VariableLayer {
             .filter(|entry| entry.is_enabled())
             .filter_map(|entry| {
                 let value = scalar_text(entry.value.as_ref()?)?;
-                let secret = entry.kind.as_deref() == Some(SECRET_KIND);
+                let secret = entry.is_secret();
                 Some((entry.key.clone(), value, secret))
             })
             .collect()
@@ -41,7 +39,7 @@ impl VariableLayer {
             .iter()
             .filter(|variable| variable.is_enabled())
             .filter_map(|variable| {
-                let secret = variable.kind.as_deref() == Some(SECRET_KIND);
+                let secret = variable.is_secret();
                 Some((variable.key.clone()?, variable.text_value()?, secret))
             })
             .collect()

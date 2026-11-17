@@ -16,6 +16,7 @@ const HOST_LIST_SEPARATOR: &str = ",";
 const SECURE_SCHEME_PREFIX: &str = "https://";
 const READ_CHUNK_BYTES: usize = 16 * 1024;
 const INITIAL_BODY_CAPACITY: usize = 64 * 1024;
+const MAX_PREALLOCATED_BODY_BYTES: usize = 16 * 1024 * 1024;
 
 struct ReadWatch<'a> {
     deadline: Option<Instant>,
@@ -175,7 +176,8 @@ fn read_response(
             usize::try_from(length).unwrap_or(usize::MAX)
         });
     let limit = settings.response_limit();
-    let (body, truncated) = read_capped(response, limit, expected.min(limit), watch)?;
+    let capacity = expected.min(limit).min(MAX_PREALLOCATED_BODY_BYTES);
+    let (body, truncated) = read_capped(response, limit, capacity, watch)?;
     Ok(HttpResponse {
         status: status.as_u16(),
         reason: status.canonical_reason().unwrap_or_default().to_string(),
@@ -193,7 +195,7 @@ fn read_capped(
     capacity: usize,
     watch: &ReadWatch<'_>,
 ) -> Result<(Vec<u8>, bool), TransportError> {
-    let mut body = Vec::with_capacity(capacity.min(limit));
+    let mut body = Vec::with_capacity(capacity);
     let mut chunk = vec![0u8; READ_CHUNK_BYTES];
     loop {
         watch.check()?;

@@ -1,4 +1,4 @@
-use eframe::egui::{vec2, Align, Button, Grid, Layout, ScrollArea, TextEdit, Ui};
+use eframe::egui::{vec2, Align, Button, Context, Grid, Id, Layout, ScrollArea, TextEdit, Ui};
 
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
 use crate::widgets::{action_button, icon_button};
@@ -7,6 +7,7 @@ const ADD_VARIABLE_LABEL: &str = "+ Add variable";
 pub(super) const KEY_HINT: &str = "Variable";
 pub(super) const VALUE_HINT: &str = "Value";
 const DONE_LABEL: &str = "Done";
+const REVEAL_LABEL: &str = "Show secret values";
 const NAME_LABEL: &str = "Name";
 const DELETE_LABEL: &str = "×";
 const DELETE_HINT: &str = "Delete variable";
@@ -113,4 +114,17 @@ pub(super) fn footer(ui: &mut Ui) -> (bool, bool) {
         (add, done)
     })
     .inner
+}
+
+pub(super) fn reveal_toggle(ui: &mut Ui, id: &str) -> bool {
+    let id = Id::new(id);
+    let mut reveal = ui.data(|data| data.get_temp::<bool>(id)).unwrap_or(false);
+    if ui.checkbox(&mut reveal, REVEAL_LABEL).changed() {
+        ui.data_mut(|data| data.insert_temp(id, reveal));
+    }
+    reveal
+}
+
+pub(super) fn forget_reveal(ctx: &Context, id: &str) {
+    ctx.data_mut(|data| data.remove_temp::<bool>(Id::new(id)));
 }

@@ -1,35 +1,39 @@
-use crate::collection::Body;
+use crate::collection::{Body, JSON_OPENERS};
 use crate::header::Header;
 use crate::secret::{is_secret_name, mask_pairs, Redactor, REDACTED};
 use serde_json::Value;
 
 const JSON_MARK: &str = "json";
-const JSON_OPENERS: [char; 2] = ['{', '['];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum SecretExposure {
-    Masked,
+#[derive(Debug, Clone, Copy)]
+pub(super) enum SecretExposure<'a> {
+    Masked(&'a Redactor),
     Included,
 }
 
-impl SecretExposure {
+impl SecretExposure<'_> {
     pub(super) fn masks(self) -> bool {
-        self == SecretExposure::Masked
+        matches!(self, SecretExposure::Masked(_))
+    }
+
+    pub(super) fn text(self, text: &str) -> String {
+        match self {
+            SecretExposure::Masked(redactor) => redactor.redact_text(text),
+            SecretExposure::Included => text.to_string(),
+        }
     }
 
     pub(super) fn header_value(self, header: &Header) -> String {
-        if self.masks() && header.is_sensitive() {
-            REDACTED.to_string()
-        } else {
-            header.value.clone()
+        match self {
+            SecretExposure::Masked(redactor) => redactor.redact_text(header.shown_value()),
+            SecretExposure::Included => header.value.clone(),
         }
     }
 
     pub(super) fn url(self, url: &str) -> String {
-        if self.masks() {
-            Redactor::default().redact_url(url)
-        } else {
-            url.to_string()
+        match self {
+            SecretExposure::Masked(redactor) => redactor.redact_url(url),
+            SecretExposure::Included => url.to_string(),
         }
     }
 
@@ -37,10 +41,12 @@ impl SecretExposure {
         if !self.masks() {
             return body.to_string();
         }
-        if content_type.is_some_and(Body::is_form_content_type) {
-            return mask_pairs(body);
-        }
-        mask_json_text(body, content_type)
+        let masked = if content_type.is_some_and(Body::is_form_content_type) {
+            mask_pairs(body)
+        } else {
+            mask_json_text(body, content_type)
+        };
+        self.text(&masked)
     }
 }
 
