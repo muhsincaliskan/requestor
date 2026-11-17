@@ -1,4 +1,4 @@
-use eframe::egui::{ScrollArea, Ui};
+use eframe::egui::{Button, ScrollArea, Ui};
 
 use crate::state::{Action, AppState, RequestTab};
 use crate::widgets::request_title;
@@ -50,7 +50,7 @@ fn tab_button(
     if button.clicked() {
         actions.push(Action::ActivateTab(tab.id));
     }
-    if button.middle_clicked() || ui.small_button(CLOSE_LABEL).clicked() {
+    if button.middle_clicked() || ui.add(Button::new(CLOSE_LABEL).frame(false)).clicked() {
         actions.push(Action::CloseTab(tab.id));
     }
     button.context_menu(|ui| {

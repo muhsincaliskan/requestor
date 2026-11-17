@@ -42,11 +42,12 @@ fn header(ui: &mut Ui, actions: &mut Vec<Action>) {
         ui.with_layout(
             eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
             |ui| {
-                if ui.button(NEW_LABEL).clicked() {
+                if ui
+                    .button(NEW_LABEL)
+                    .on_hover_text(NEW_COLLECTION_LABEL)
+                    .clicked()
+                {
                     actions.push(Action::NewCollection);
-                }
-                if ui.button(IMPORT_LABEL).clicked() {
-                    actions.push(Action::Show(Overlay::Import(Default::default())));
                 }
             },
         );

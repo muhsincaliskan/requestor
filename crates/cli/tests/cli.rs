@@ -3,14 +3,19 @@ mod support;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use support::{http_response, TestServer};
 
 const REDACTED: &str = "<redacted>";
 const SECRET_TOKEN: &str = "s3cr3t-value";
 
+static SCRATCH_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 fn scratch(name: &str, content: &str) -> PathBuf {
-    let directory = std::env::temp_dir().join(format!("requestor-cli-{}", std::process::id()));
+    let sequence = SCRATCH_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let directory =
+        std::env::temp_dir().join(format!("requestor-cli-{}-{sequence}", std::process::id()));
     fs::create_dir_all(&directory).unwrap();
     let path = directory.join(name);
     fs::write(&path, content).unwrap();

@@ -1,11 +1,12 @@
-use eframe::egui::{Align, ComboBox, Key, Layout, TextEdit, Ui};
+use eframe::egui::{Align, ComboBox, Event, Frame, Key, Layout, TextEdit, TextStyle, Ui};
 use requestor_core::method::HttpMethod;
 
 use crate::state::{Action, RequestTab};
+use crate::widgets::action_button;
 use crate::widgets::variable_text_edit::VariableTextEdit;
 
 const NAME_HINT: &str = "Request name";
-const URL_HINT: &str = "Enter URL or paste text, e.g. {{baseUrl}}/users";
+const URL_HINT: &str = "Enter a URL or paste a cURL command";
 const SEND_LABEL: &str = "Send";
 const CANCEL_LABEL: &str = "Cancel";
 const SAVE_LABEL: &str = "Save";
@@ -26,6 +27,8 @@ pub fn show(
         .add(
             TextEdit::singleline(&mut open.draft.name)
                 .hint_text(NAME_HINT)
+                .font(TextStyle::Heading)
+                .frame(Frame::new())
                 .desired_width(f32::INFINITY),
         )
         .changed();
@@ -83,10 +86,19 @@ fn url_field(
     if submitted && !open.is_sending() {
         actions.push(Action::Send(open.id));
     }
-    if response.changed() {
+    if response.changed() && !(pasted(ui) && open.draft.adopt_pasted_curl()) {
         open.draft.url_edited();
     }
     response.changed()
+}
+
+fn pasted(ui: &Ui) -> bool {
+    ui.input(|input| {
+        input
+            .events
+            .iter()
+            .any(|event| matches!(event, Event::Paste(_)))
+    })
 }
 
 fn buttons(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
@@ -94,12 +106,17 @@ fn buttons(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
     if ui.button(SAVE_LABEL).clicked() {
         actions.push(Action::SaveTab(open.id));
     }
-    let (label, action) = match open.is_sending() {
-        true => (CANCEL_LABEL, Action::CancelSend(open.id)),
-        false => (SEND_LABEL, Action::Send(open.id)),
+    let clicked = if open.is_sending() {
+        action_button::destructive(ui, CANCEL_LABEL).clicked()
+    } else {
+        action_button::primary(ui, SEND_LABEL).clicked()
     };
-    if ui.button(label).clicked() {
-        actions.push(action);
+    if clicked {
+        actions.push(if open.is_sending() {
+            Action::CancelSend(open.id)
+        } else {
+            Action::Send(open.id)
+        });
     }
 }
 

@@ -1,5 +1,6 @@
 mod auth;
 mod body;
+mod paste;
 mod row;
 mod url_sync;
 

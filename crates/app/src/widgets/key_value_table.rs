@@ -1,4 +1,4 @@
-use eframe::egui::{Checkbox, Id, Label, RichText, Ui};
+use eframe::egui::{Button, Checkbox, Id, Label, RichText, Ui};
 use requestor_core::draft::KeyValueRow;
 
 use super::variable_text_edit::VariableTextEdit;
@@ -155,7 +155,7 @@ impl<'a> KeyValueTable<'a> {
             outcome.changed |=
                 value_cell(ui, row, widths.value, files_allowed, names, id.with(index));
             outcome.changed |= description_cell(ui, row, widths.description, id.with(index));
-            outcome.delete = deletable && ui.small_button(DELETE_LABEL).clicked();
+            outcome.delete = deletable && ui.add(Button::new(DELETE_LABEL).frame(false)).clicked();
         });
         outcome
     }
