@@ -1,4 +1,4 @@
-use eframe::egui::{Align, ComboBox, Key, Layout, TextEdit, Ui};
+use eframe::egui::{Align, ComboBox, Event, Key, Layout, TextEdit, Ui};
 use requestor_core::method::HttpMethod;
 
 use crate::state::{Action, RequestTab};
@@ -6,7 +6,7 @@ use crate::widgets::action_button;
 use crate::widgets::variable_text_edit::VariableTextEdit;
 
 const NAME_HINT: &str = "Request name";
-const URL_HINT: &str = "Enter URL or paste text, e.g. {{baseUrl}}/users";
+const URL_HINT: &str = "Enter a URL or paste a cURL command";
 const SEND_LABEL: &str = "Send";
 const CANCEL_LABEL: &str = "Cancel";
 const SAVE_LABEL: &str = "Save";
@@ -84,10 +84,19 @@ fn url_field(
     if submitted && !open.is_sending() {
         actions.push(Action::Send(open.id));
     }
-    if response.changed() {
+    if response.changed() && !(pasted(ui) && open.draft.adopt_pasted_curl()) {
         open.draft.url_edited();
     }
     response.changed()
+}
+
+fn pasted(ui: &Ui) -> bool {
+    ui.input(|input| {
+        input
+            .events
+            .iter()
+            .any(|event| matches!(event, Event::Paste(_)))
+    })
 }
 
 fn buttons(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {

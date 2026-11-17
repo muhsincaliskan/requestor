@@ -2,7 +2,6 @@ use serde_json::Value;
 
 use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
 use crate::collection::Info;
-use crate::curl_command::COMMAND_NAME;
 
 const COLLECTION_SCHEMA_POINTER: &str = "/info/schema";
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
@@ -25,7 +24,7 @@ pub fn import_text(text: &str) -> Result<Imported, ImportError> {
                 .to_string(),
         ));
     }
-    if is_curl_command(trimmed) {
+    if ImportedRequest::is_curl_command(trimmed) {
         return ImportedRequest::from_curl(trimmed).map(Imported::Request);
     }
     if is_bare_url(trimmed) {
@@ -88,10 +87,6 @@ fn import_collection(document: Value) -> Result<Imported, ImportError> {
             }
             _ => ImportError::InvalidJson(error.to_string()),
         })
-}
-
-fn is_curl_command(text: &str) -> bool {
-    text.split_whitespace().next() == Some(COMMAND_NAME)
 }
 
 fn is_bare_url(text: &str) -> bool {

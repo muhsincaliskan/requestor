@@ -37,6 +37,10 @@ struct CurlArguments {
 }
 
 impl ImportedRequest {
+    pub fn is_curl_command(text: &str) -> bool {
+        text.split_whitespace().next() == Some(COMMAND_NAME)
+    }
+
     pub fn from_curl(command: &str) -> Result<Self, ImportError> {
         let words = shell_words::split(command)?;
         let mut arguments = CurlArguments::default();
