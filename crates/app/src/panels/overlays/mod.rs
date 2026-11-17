@@ -8,7 +8,7 @@ use eframe::egui::{Context, Id, Modal, Ui};
 
 use crate::state::{Action, AppState, Overlay};
 
-const TITLE_GAP: f32 = 8.0;
+pub(super) const TITLE_GAP: f32 = 8.0;
 
 pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
     let Some(mut overlay) = state.overlay.take() else {
