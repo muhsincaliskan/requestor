@@ -61,6 +61,12 @@ impl RequestDraft {
         request
     }
 
+    pub fn commit(&mut self) -> Request {
+        let request = self.to_request();
+        self.source = request.clone();
+        request
+    }
+
     pub fn is_unchanged(&self) -> bool {
         RequestDraft::from_request(self.name.clone(), &self.source) == *self
     }

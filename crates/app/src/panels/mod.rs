@@ -1,0 +1,78 @@
+mod overlays;
+mod request_editor;
+mod response_viewer;
+mod sidebar;
+mod status_bar;
+mod tab_strip;
+mod toolbar;
+
+use eframe::egui::{CentralPanel, Panel, Ui};
+use requestor_core::workspace::InterfaceSettings;
+
+use crate::state::{Action, AppState};
+
+const TOOLBAR_ID: &str = "toolbar";
+const STATUS_BAR_ID: &str = "status-bar";
+const SIDEBAR_ID: &str = "sidebar";
+const TAB_STRIP_ID: &str = "tab-strip";
+const REQUEST_BESIDE_ID: &str = "request-beside-response";
+const REQUEST_ABOVE_ID: &str = "request-above-response";
+const SIDEBAR_WIDTH: f32 = 260.0;
+const REQUEST_SHARE: f32 = 0.5;
+const EMPTY_WORKBENCH_TEXT: &str = "No open request";
+const NEW_REQUEST_LABEL: &str = "New request";
+
+pub fn show(ui: &mut Ui, state: &mut AppState, now: f64, actions: &mut Vec<Action>) {
+    Panel::top(TOOLBAR_ID).show(ui, |ui| toolbar::show(ui, state, actions));
+    Panel::bottom(STATUS_BAR_ID).show(ui, |ui| status_bar::show(ui, state, now, actions));
+    let interface = state.interface().clone();
+    if interface.show_sidebar && interface.show_workbench {
+        sidebar_panel(&interface).show(ui, |ui| sidebar::show(ui, state, actions));
+    }
+    CentralPanel::default().show(ui, |ui| {
+        if interface.show_workbench || !interface.show_sidebar {
+            workbench(ui, state, &interface, actions);
+        } else {
+            sidebar::show(ui, state, actions);
+        }
+    });
+    overlays::show(ui.ctx(), state, actions);
+}
+
+fn sidebar_panel(interface: &InterfaceSettings) -> Panel {
+    let panel = if interface.sidebars_swapped {
+        Panel::right(SIDEBAR_ID)
+    } else {
+        Panel::left(SIDEBAR_ID)
+    };
+    panel.resizable(true).default_size(SIDEBAR_WIDTH)
+}
+
+fn workbench(
+    ui: &mut Ui,
+    state: &mut AppState,
+    interface: &InterfaceSettings,
+    actions: &mut Vec<Action>,
+) {
+    Panel::top(TAB_STRIP_ID).show(ui, |ui| tab_strip::show(ui, state, actions));
+    let Some(tab) = state.active_tab else {
+        ui.centered_and_justified(|ui| {
+            ui.vertical_centered(|ui| {
+                ui.weak(EMPTY_WORKBENCH_TEXT);
+                if ui.button(NEW_REQUEST_LABEL).clicked() {
+                    actions.push(Action::NewTab);
+                }
+            });
+        });
+        return;
+    };
+    let request_panel = if interface.two_pane_view {
+        Panel::left(REQUEST_BESIDE_ID).default_size(ui.available_width() * REQUEST_SHARE)
+    } else {
+        Panel::top(REQUEST_ABOVE_ID).default_size(ui.available_height() * REQUEST_SHARE)
+    };
+    request_panel
+        .resizable(true)
+        .show(ui, |ui| request_editor::show(ui, state, tab, actions));
+    CentralPanel::default().show(ui, |ui| response_viewer::show(ui, state, tab, actions));
+}

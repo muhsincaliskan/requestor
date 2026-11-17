@@ -5,6 +5,13 @@ const UNNAMED_ITEM: &str = "Untitled";
 const COPY_SUFFIX: &str = " Copy";
 
 impl Collection {
+    pub fn containing(item: Item) -> Self {
+        let mut collection = Collection::new(item.display_name());
+        collection.item.push(item);
+        collection.ensure_ids();
+        collection
+    }
+
     pub fn id(&self) -> &str {
         self.info.postman_id.as_deref().unwrap_or_default()
     }
@@ -87,6 +94,12 @@ impl Collection {
                     .flat_map(|folder| folder.variable.iter().flatten()),
             )
             .collect()
+    }
+
+    pub fn folder_paths(&self, separator: &str) -> Vec<(String, String)> {
+        let mut paths = Vec::new();
+        collect_folder_paths(&self.item, "", separator, &mut paths);
+        paths
     }
 
     fn can_move(&self, id: &str, parent: Option<&str>) -> bool {
@@ -199,6 +212,26 @@ fn trail_to<'a>(items: &'a [Item], id: &str, trail: &mut Vec<&'a Item>) -> bool 
         trail.pop();
     }
     false
+}
+
+fn collect_folder_paths(
+    items: &[Item],
+    prefix: &str,
+    separator: &str,
+    paths: &mut Vec<(String, String)>,
+) {
+    for folder in items.iter().filter(|item| item.is_folder()) {
+        let path = format!("{prefix}{}", folder.display_name());
+        if let Some(id) = &folder.id {
+            paths.push((id.clone(), path.clone()));
+        }
+        collect_folder_paths(
+            folder.children(),
+            &format!("{path}{separator}"),
+            separator,
+            paths,
+        );
+    }
 }
 
 #[cfg(test)]
