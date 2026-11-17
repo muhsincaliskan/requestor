@@ -8,6 +8,7 @@ mod overlay;
 mod persistence;
 mod sending;
 mod tab;
+mod tab_closing;
 mod tabs;
 mod transfer;
 
