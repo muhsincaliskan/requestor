@@ -8,8 +8,9 @@ mod themes;
 use eframe::egui::{vec2, Align, Context, Id, Layout, Modal, ScrollArea, Sense, Ui, UiBuilder};
 use requestor_core::workspace::AppSettings;
 
-use super::TITLE_GAP;
+use super::{button_row, TITLE_GAP};
 use crate::state::{Action, AppState};
+use crate::widgets::action_button;
 
 const MODAL_ID: &str = "settings";
 const CATEGORY_KEY: &str = "settings-category";
@@ -86,8 +87,7 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> b
                 edited = content(ui, category, &mut state.workspace.settings);
             });
         });
-        ui.add_space(TITLE_GAP);
-        done = ui.button(DONE_LABEL).clicked();
+        done = button_row(ui, |ui| action_button::primary(ui, DONE_LABEL).clicked());
     });
     ctx.data_mut(|data| data.insert_temp(category_id, category));
     if edited {
