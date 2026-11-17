@@ -74,7 +74,8 @@ impl RequestDraft {
     }
 
     fn query_rows_from_url(&self) -> Vec<KeyValueRow> {
-        let mut previous = self.query.iter().filter(|row| row.enabled);
+        let mut unmatched: Vec<&KeyValueRow> =
+            self.query.iter().filter(|row| row.enabled).collect();
         UrlSections::of(&self.url)
             .query
             .into_iter()
@@ -82,8 +83,8 @@ impl RequestDraft {
             .filter(|pair| !pair.is_empty())
             .map(|pair| {
                 let parsed = KeyValueRow::from_query_pair(pair);
-                match previous.next().filter(|old| old.key == parsed.key) {
-                    Some(old) => old.refreshed_by(parsed),
+                match unmatched.iter().position(|old| old.key == parsed.key) {
+                    Some(index) => unmatched.remove(index).refreshed_by(parsed),
                     None => parsed,
                 }
             })

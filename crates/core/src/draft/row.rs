@@ -3,6 +3,7 @@ use crate::text::{Description, StringOrList};
 
 const FILE_KIND: &str = "file";
 const TEXT_KIND: &str = "text";
+const FILE_SEPARATOR: &str = ",";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyValueRow {
@@ -41,7 +42,7 @@ impl KeyValueRow {
     pub fn from_param(param: &Param) -> Self {
         let is_file = param.kind.as_deref() == Some(FILE_KIND);
         let value = match (&param.src, is_file) {
-            (Some(source), true) => source.joined(","),
+            (Some(source), true) => source.joined(FILE_SEPARATOR),
             _ => param.value.clone().unwrap_or_default(),
         };
         KeyValueRow {
@@ -73,11 +74,15 @@ impl KeyValueRow {
     pub fn to_param(&self) -> Param {
         let mut param = self.source.clone().unwrap_or_else(|| Param::text("", ""));
         param.key = Some(self.key.clone());
-        param.disabled = (!self.enabled).then_some(true);
+        if param.is_enabled() != self.enabled {
+            param.disabled = (!self.enabled).then_some(true);
+        }
         param.description = self.merged_description(param.description.take());
         if self.is_file {
             param.kind = Some(FILE_KIND.to_string());
-            param.src = Some(StringOrList::Single(self.value.clone()));
+            if !self.keeps_files_of(&param) {
+                param.src = Some(StringOrList::Single(self.value.clone()));
+            }
             param.value = None;
         } else {
             if param.kind.as_deref() == Some(FILE_KIND) {
@@ -87,6 +92,13 @@ impl KeyValueRow {
             param.value = self.has_value().then(|| self.value.clone());
         }
         param
+    }
+
+    fn keeps_files_of(&self, param: &Param) -> bool {
+        param
+            .src
+            .as_ref()
+            .is_some_and(|source| source.joined(FILE_SEPARATOR) == self.value)
     }
 
     pub fn to_variable(&self) -> Variable {

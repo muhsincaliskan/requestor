@@ -101,8 +101,12 @@ impl Auth {
     }
 
     pub fn value_of(&self, key: &str) -> Option<&str> {
+        self.section_value(&self.kind, key)
+    }
+
+    pub fn section_value(&self, section: &str, key: &str) -> Option<&str> {
         self.parameters
-            .get(&self.kind)?
+            .get(section)?
             .as_ref()?
             .iter()
             .find(|attribute| attribute.key.as_deref() == Some(key))

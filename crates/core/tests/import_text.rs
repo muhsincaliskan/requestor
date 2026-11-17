@@ -69,7 +69,7 @@ fn curl_import_survives_a_round_trip_through_request_preparation_and_export() {
     let prepared =
         PreparedRequest::from_request(&imported.request, &VariableScope::new(), &quiet_settings())
             .unwrap();
-    let exported = prepared.to_curl();
+    let exported = prepared.to_curl(&requestor_core::secret::Redactor::default());
     assert!(exported.contains("-X PUT"));
     assert!(exported.contains("'https://api.test/v1/items?id=7'"));
     assert!(exported.contains("-H 'X-Note: it'\\''s'"));

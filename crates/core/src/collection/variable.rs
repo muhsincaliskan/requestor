@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::environment::SECRET_KIND;
 use crate::text::{scalar_text, Description};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,6 +53,10 @@ impl Variable {
             }
             None => variables.push(Variable::text(key, text)),
         }
+    }
+
+    pub fn is_secret(&self) -> bool {
+        self.kind.as_deref() == Some(SECRET_KIND)
     }
 
     pub fn is_enabled(&self) -> bool {

@@ -1,10 +1,10 @@
-use eframe::egui::{Context, Id, Ui};
+use eframe::egui::{Context, Ui};
 use requestor_core::environment::EnvironmentValue;
 
 use super::dialog;
 use super::table::{
-    delete_cell, edit_rows, enabled_cell, footer, name_field, text_cell, RowEdit, KEY_HINT,
-    VALUE_HINT,
+    delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, reveal_toggle,
+    text_cell, RowEdit, KEY_HINT, VALUE_HINT,
 };
 use crate::state::{Action, AppState};
 
@@ -13,7 +13,6 @@ const TABLE_ID: &str = "environment-values";
 const REVEAL_ID: &str = "environment-reveal-secrets";
 const TITLE: &str = "Edit environment";
 const SECRET_LABEL: &str = "Secret";
-const REVEAL_LABEL: &str = "Show secret values";
 const COLUMNS: usize = 5;
 
 pub fn show(
@@ -27,7 +26,7 @@ pub fn show(
     };
     let stays_open = dialog(ctx, DIALOG_ID, TITLE, |ui| {
         let mut changed = name_field(ui, &mut environment.name);
-        let reveal = reveal_toggle(ui);
+        let reveal = reveal_toggle(ui, REVEAL_ID);
         changed |= edit_rows(
             ui,
             TABLE_ID,
@@ -46,18 +45,9 @@ pub fn show(
         !done
     });
     if !stays_open {
-        ctx.data_mut(|data| data.remove_temp::<bool>(Id::new(REVEAL_ID)));
+        forget_reveal(ctx, REVEAL_ID);
     }
     stays_open
-}
-
-fn reveal_toggle(ui: &mut Ui) -> bool {
-    let id = Id::new(REVEAL_ID);
-    let mut reveal = ui.data(|data| data.get_temp::<bool>(id)).unwrap_or(false);
-    if ui.checkbox(&mut reveal, REVEAL_LABEL).changed() {
-        ui.data_mut(|data| data.insert_temp(id, reveal));
-    }
-    reveal
 }
 
 fn row(ui: &mut Ui, entry: &mut EnvironmentValue, reveal: bool) -> RowEdit {

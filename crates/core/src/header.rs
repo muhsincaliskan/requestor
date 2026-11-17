@@ -34,9 +34,29 @@ pub fn find_header<'a>(headers: &'a [Header], name: &str) -> Option<&'a Header> 
 impl Header {
     pub fn from_param(param: &Param, scope: &VariableScope) -> Option<Header> {
         let name = scope.resolve(param.key.as_deref()?).text;
+        if name.trim().is_empty() {
+            return None;
+        }
         let value = scope
             .resolve(param.value.as_deref().unwrap_or_default())
             .text;
         Some(Header::new(name, value))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Header;
+    use crate::collection::Param;
+    use crate::variables::VariableScope;
+
+    #[test]
+    fn rows_without_a_name_are_not_sent() {
+        let scope = VariableScope::new();
+        let mut described = Param::text("", "");
+        described.description = Some(serde_json::from_str(r#""only a note""#).unwrap());
+        assert_eq!(Header::from_param(&described, &scope), None);
+        let named = Header::from_param(&Param::text("Accept", "*/*"), &scope);
+        assert_eq!(named, Some(Header::new("Accept", "*/*")));
     }
 }

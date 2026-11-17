@@ -1,6 +1,9 @@
 use requestor_core::checks::RulesReport;
+use requestor_core::collection::Request;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
+use requestor_core::secret::Redactor;
+use requestor_core::variables::VariableScope;
 
 use super::tab::{Exchange, TabId};
 use super::{Action, AppState, Effect};
@@ -20,7 +23,7 @@ impl AppState {
         }
     }
 
-    fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
+    fn sendable(&self, id: TabId) -> Option<(Request, VariableScope)> {
         let tab = self.tab(id)?;
         let collection_id = tab
             .binding
@@ -30,7 +33,11 @@ impl AppState {
         let request =
             self.workspace
                 .sendable_request(collection_id, item_id, tab.draft.to_request());
-        let scope = self.workspace.scope_for(collection_id, item_id);
+        Some((request, self.workspace.scope_for(collection_id, item_id)))
+    }
+
+    fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
+        let (request, scope) = self.sendable(id)?;
         Some(
             PreparedRequest::from_request(&request, &scope, &self.workspace.settings.request)
                 .map_err(|error| error.to_string()),
@@ -113,13 +120,19 @@ impl AppState {
     }
 
     fn copy_as_curl(&mut self, id: TabId, include_secrets: bool, effects: &mut Vec<Effect>) {
-        match self.prepare(id) {
-            Some(Ok(request)) if include_secrets => {
-                effects.push(Effect::CopyText(request.to_curl_with_secrets()));
+        let Some((request, scope)) = self.sendable(id) else {
+            return;
+        };
+        let settings = &self.workspace.settings.request;
+        match PreparedRequest::from_request(&request, &scope, settings) {
+            Ok(prepared) if include_secrets => {
+                effects.push(Effect::CopyText(prepared.to_curl_with_secrets()));
             }
-            Some(Ok(request)) => effects.push(Effect::CopyText(request.to_curl())),
-            Some(Err(reason)) => self.report_error(reason),
-            None => {}
+            Ok(prepared) => {
+                let redactor = Redactor::for_request(&scope, request.auth.as_ref());
+                effects.push(Effect::CopyText(prepared.to_curl(&redactor)));
+            }
+            Err(error) => self.report_error(error.to_string()),
         }
     }
 }

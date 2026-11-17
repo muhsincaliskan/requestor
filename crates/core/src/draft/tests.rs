@@ -242,3 +242,26 @@ fn query_value_presence_follows_the_typed_url_in_both_directions() {
     blank.query_edited();
     assert_eq!(blank.url, "https://x.test/?a");
 }
+
+#[test]
+fn removing_a_query_pair_from_the_url_keeps_the_other_rows_details() {
+    let mut draft = RequestDraft::blank("r");
+    draft.url = "https://x.test/?a=1&b=2&c=3".to_string();
+    draft.url_edited();
+    draft.query[1].description = "second".to_string();
+    draft.query[2].description = "third".to_string();
+    draft.url = "https://x.test/?b=2&c=4".to_string();
+    draft.url_edited();
+    let rows: Vec<_> = draft
+        .query
+        .iter()
+        .map(|row| {
+            (
+                row.key.as_str(),
+                row.value.as_str(),
+                row.description.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(rows, [("b", "2", "second"), ("c", "4", "third")]);
+}

@@ -64,3 +64,21 @@ fn active_count_skips_disabled_and_blank_rows() {
     let rows = vec![KeyValueRow::new("a", "1"), disabled, KeyValueRow::default()];
     assert_eq!(KeyValueRow::active_count(&rows), 1);
 }
+
+#[test]
+fn several_files_survive_an_edit_elsewhere_in_the_row() {
+    let param: Param =
+        serde_json::from_str(r#"{"key":"f","type":"file","src":["a.png","b.png"]}"#).unwrap();
+    let mut row = KeyValueRow::from_param(&param);
+    row.description = "photos".to_string();
+    let json = serde_json::to_value(row.to_param()).unwrap();
+    assert_eq!(json["src"], serde_json::json!(["a.png", "b.png"]));
+}
+
+#[test]
+fn an_explicit_enabled_flag_survives_an_edit() {
+    let param: Param = serde_json::from_str(r#"{"key":"a","value":"1","disabled":false}"#).unwrap();
+    let mut row = KeyValueRow::from_param(&param);
+    row.value = "2".to_string();
+    assert_eq!(row.to_param().disabled, Some(false));
+}

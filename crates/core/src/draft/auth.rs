@@ -66,15 +66,20 @@ impl AuthDraft {
         let Some(auth) = auth else {
             return AuthDraft::default();
         };
-        let text = |key: &str| auth.value_of(key).unwrap_or_default().to_string();
+        let text = |section: &str, key: &str| {
+            auth.section_value(section, key)
+                .unwrap_or_default()
+                .to_string()
+        };
         AuthDraft {
             kind: AuthKind::of(auth),
-            token: text(TOKEN_KEY),
-            username: text(USERNAME_KEY),
-            password: text(PASSWORD_KEY),
-            api_key_name: text(API_KEY_NAME_KEY),
-            api_key_value: text(API_KEY_VALUE_KEY),
-            api_key_in_query: auth.value_of(API_KEY_LOCATION_KEY) == Some(API_KEY_IN_QUERY),
+            token: text(BEARER_KIND, TOKEN_KEY),
+            username: text(BASIC_KIND, USERNAME_KEY),
+            password: text(BASIC_KIND, PASSWORD_KEY),
+            api_key_name: text(API_KEY_KIND, API_KEY_NAME_KEY),
+            api_key_value: text(API_KEY_KIND, API_KEY_VALUE_KEY),
+            api_key_in_query: auth.section_value(API_KEY_KIND, API_KEY_LOCATION_KEY)
+                == Some(API_KEY_IN_QUERY),
             source: Some(auth.clone()),
         }
     }
@@ -193,7 +198,20 @@ mod tests {
         let json = serde_json::to_value(draft.to_auth().unwrap()).unwrap();
         assert_eq!(json["type"], "basic");
         assert_eq!(json["basic"][0]["x-attr"], 2);
+        assert_eq!(json["basic"][0]["value"], "u");
         assert_eq!(json["basic"][1]["value"], "p");
+    }
+
+    #[test]
+    fn inactive_sections_show_their_own_values() {
+        let source: Auth = serde_json::from_str(
+            r#"{"type":"bearer","bearer":[{"key":"token","value":"t"}],"basic":[{"key":"username","value":"ada"},{"key":"password","value":"pw"}]}"#,
+        )
+        .unwrap();
+        let draft = AuthDraft::from_auth(Some(&source));
+        assert_eq!(draft.token, "t");
+        assert_eq!(draft.username, "ada");
+        assert_eq!(draft.password, "pw");
     }
 
     #[test]
