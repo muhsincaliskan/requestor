@@ -1,9 +1,9 @@
 use eframe::egui::{Id, Label, RichText, Sense, Ui};
 
 use super::tree::branch;
-use super::{compact_rows, row, row_label, SECTION_GAP};
+use super::{compact_rows, SECTION_GAP};
 use crate::state::{Action, AppState, RequestTab};
-use crate::widgets::aligned_request_title;
+use crate::widgets::{aligned_request_title, list_row, row_label};
 
 const NODE_ID: &str = "sidebar-unsaved";
 const TITLE: &str = "Unsaved";
@@ -35,7 +35,7 @@ fn group(ui: &mut Ui, state: &AppState, tabs: &[&RequestTab], actions: &mut Vec<
                 let active = state.active_tab == Some(tab.id);
                 let title = aligned_request_title(ui, Some(&tab.draft.method), &tab.draft.name);
                 let response = ui
-                    .add(row(ui, active, row_label(title)))
+                    .add(list_row(ui, active, row_label(title)))
                     .on_hover_text(OPEN_HINT);
                 if response.clicked() {
                     actions.push(Action::ActivateTab(tab.id));

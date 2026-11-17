@@ -1,8 +1,9 @@
 use eframe::egui::{Id, Label, RichText, Sense, Ui};
 
 use super::tree::branch;
-use super::{menus, row, row_label, trailing_add_button};
+use super::{menus, trailing_add_button};
 use crate::state::{Action, AppState};
+use crate::widgets::{list_row, row_label};
 
 const SECTION_ID: &str = "sidebar-environments";
 const TITLE: &str = "Environments";
@@ -30,7 +31,11 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
 fn rows(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
     let active = state.workspace.session.active_environment.as_deref();
     if ui
-        .add(row(ui, active.is_none(), row_label(NO_ENVIRONMENT_LABEL)))
+        .add(list_row(
+            ui,
+            active.is_none(),
+            row_label(NO_ENVIRONMENT_LABEL),
+        ))
         .clicked()
     {
         actions.push(Action::SelectEnvironment(None));
@@ -39,7 +44,11 @@ fn rows(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
         let Some(id) = environment.id.as_deref() else {
             continue;
         };
-        let response = ui.add(row(ui, active == Some(id), row_label(&environment.name)));
+        let response = ui.add(list_row(
+            ui,
+            active == Some(id),
+            row_label(&environment.name),
+        ));
         if response.clicked() {
             actions.push(Action::SelectEnvironment(Some(id.to_string())));
         }

@@ -16,7 +16,8 @@ pub use action::Action;
 pub use effect::Effect;
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
-    DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, RenameForm, SaveTabForm,
+    DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, PaletteForm, RenameForm,
+    SaveTabForm,
 };
 pub use persistence::SaveStatus;
 pub use tab::{EditorSection, Exchange, ItemBinding, RequestTab, ResponseSection, TabId};

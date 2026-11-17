@@ -5,10 +5,7 @@ mod reveal;
 mod tree;
 mod unsaved;
 
-use eframe::egui::{
-    vec2, Align, Align2, Atom, AtomExt, Button, Id, IntoAtoms, Layout, ScrollArea, TextEdit, Ui,
-    WidgetText,
-};
+use eframe::egui::{vec2, Align, Id, Layout, ScrollArea, TextEdit, Ui};
 
 use crate::state::{Action, AppState, Overlay};
 use crate::widgets::icon_button;
@@ -94,19 +91,6 @@ fn filter_field(ui: &mut Ui) -> String {
         ui.data_mut(|data| data.insert_temp(id, text.clone()));
     }
     text.trim().to_string()
-}
-
-fn row<'a>(ui: &Ui, selected: bool, atoms: impl IntoAtoms<'a>) -> Button<'a> {
-    Button::selectable(selected, atoms)
-        .truncate()
-        .min_size(vec2(ui.available_width(), 0.0))
-}
-
-fn row_label<'a>(text: impl Into<WidgetText>) -> Atom<'a> {
-    text.into()
-        .atom_grow(true)
-        .atom_shrink(true)
-        .atom_align(Align2::LEFT_CENTER)
 }
 
 fn empty_state(ui: &mut Ui, actions: &mut Vec<Action>) {

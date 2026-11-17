@@ -3,9 +3,9 @@ use eframe::egui::{Align, Button, Id, Label, Response, RichText, Sense, Ui, Widg
 use requestor_core::collection::{Collection, Item};
 
 use super::drag::{self, DropSlot};
-use super::{menus, reveal, row, row_label};
+use super::{menus, reveal};
 use crate::state::{Action, AppState, ItemBinding};
-use crate::widgets::{aligned_request_title, UNSAVED_MARK};
+use crate::widgets::{aligned_request_title, list_row, row_label, UNSAVED_MARK};
 
 pub(super) const COLLECTION_NODE_ID: &str = "sidebar-collection";
 pub(super) const FOLDER_NODE_ID: &str = "sidebar-folder";
@@ -159,7 +159,7 @@ fn request_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
     let mark = if unsaved { UNSAVED_MARK } else { "" };
     let name = format!("{}{mark}", item.display_name());
     let title = aligned_request_title(ui, item.method_name(), &name);
-    let response = ui.add(row(ui, selected, row_label(title)).sense(Sense::click_and_drag()));
+    let response = ui.add(list_row(ui, selected, row_label(title)).sense(Sense::click_and_drag()));
     if selected && view.revealed {
         response.scroll_to_me(Some(Align::Center));
     }

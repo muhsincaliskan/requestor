@@ -2,6 +2,7 @@ mod collection_editor;
 mod dialogs;
 mod environment_editor;
 mod import;
+mod palette;
 mod settings;
 mod table;
 
@@ -30,6 +31,7 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         Overlay::SaveTab(form) => dialogs::save_tab(ctx, state, form, actions),
         Overlay::Rename(form) => dialogs::rename(ctx, form, actions),
         Overlay::Export(form) => dialogs::export(ctx, form, actions),
+        Overlay::CommandPalette(form) => palette::show(ctx, state, form, actions),
     };
     if stays_open {
         state.overlay = Some(overlay);

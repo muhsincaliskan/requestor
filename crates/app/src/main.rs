@@ -1,5 +1,6 @@
 mod app;
 mod file_picker;
+mod palette;
 mod panels;
 mod response;
 mod runner;
