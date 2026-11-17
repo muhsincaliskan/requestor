@@ -49,18 +49,19 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
 fn header(ui: &mut Ui, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         ui.strong(TITLE);
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if add_button(ui, NEW_COLLECTION_LABEL) {
-                actions.push(Action::NewCollection);
-            }
-        });
+        if trailing_add_button(ui, NEW_COLLECTION_LABEL) {
+            actions.push(Action::NewCollection);
+        }
     });
 }
 
-fn add_button(ui: &mut Ui, hint: &str) -> bool {
-    ui.add(Button::new(NEW_LABEL).frame(false))
-        .on_hover_text(hint)
-        .clicked()
+fn trailing_add_button(ui: &mut Ui, hint: &str) -> bool {
+    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+        ui.add(Button::new(NEW_LABEL).frame(false))
+            .on_hover_text(hint)
+            .clicked()
+    })
+    .inner
 }
 
 fn compact_rows(ui: &mut Ui) {

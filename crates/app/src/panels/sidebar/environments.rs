@@ -1,7 +1,7 @@
 use eframe::egui::{Id, Label, RichText, Sense, Ui};
 
 use super::tree::branch;
-use super::{add_button, menus, row, row_label};
+use super::{menus, row, row_label, trailing_add_button};
 use crate::state::{Action, AppState};
 
 const SECTION_ID: &str = "sidebar-environments";
@@ -17,7 +17,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
         false,
         |ui| {
             let response = ui.add(Label::new(RichText::new(TITLE).strong()).sense(Sense::click()));
-            add_clicked = add_button(ui, NEW_ENVIRONMENT_LABEL);
+            add_clicked = trailing_add_button(ui, NEW_ENVIRONMENT_LABEL);
             response
         },
         |ui| rows(ui, state, actions),
