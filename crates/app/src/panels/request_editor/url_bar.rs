@@ -1,9 +1,9 @@
-use eframe::egui::{Align, ComboBox, Event, Frame, Key, Layout, TextEdit, TextStyle, Ui};
+use eframe::egui::{Align, ComboBox, Event, Frame, Key, Layout, RichText, TextEdit, TextStyle, Ui};
 use requestor_core::method::HttpMethod;
 
 use crate::state::{Action, RequestTab};
-use crate::widgets::action_button;
 use crate::widgets::variable_text_edit::VariableTextEdit;
+use crate::widgets::{action_button, method_color};
 
 const NAME_HINT: &str = "Request name";
 const URL_HINT: &str = "Enter a URL or paste a cURL command";
@@ -58,17 +58,25 @@ fn method_picker(ui: &mut Ui, open: &mut RequestTab) -> bool {
     let before = open.draft.method.clone();
     ComboBox::from_id_salt(METHOD_SALT)
         .width(METHOD_WIDTH)
-        .selected_text(open.draft.method.as_str())
+        .selected_text(colored_method(ui, &open.draft.method))
         .show_ui(ui, |ui| {
             for method in HttpMethod::COMMON.iter().map(HttpMethod::as_str) {
-                ui.selectable_value(&mut open.draft.method, method.to_string(), method);
+                let label = colored_method(ui, method);
+                ui.selectable_value(&mut open.draft.method, method.to_string(), label);
             }
             if !HttpMethod::is_common(&open.draft.method) {
                 let custom = open.draft.method.clone();
-                ui.selectable_value(&mut open.draft.method, custom.clone(), custom);
+                let label = colored_method(ui, &custom);
+                ui.selectable_value(&mut open.draft.method, custom, label);
             }
         });
     open.draft.method != before
+}
+
+fn colored_method(ui: &Ui, method: &str) -> RichText {
+    RichText::new(method)
+        .strong()
+        .color(method_color(ui, method))
 }
 
 fn url_field(

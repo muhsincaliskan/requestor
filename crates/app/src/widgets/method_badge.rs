@@ -11,7 +11,7 @@ struct MethodColor {
     on_light: Color32,
 }
 
-const METHOD_COLORS: [MethodColor; 5] = [
+const METHOD_COLORS: [MethodColor; 7] = [
     MethodColor::new(
         "GET",
         Color32::from_rgb(107, 203, 119),
@@ -36,6 +36,16 @@ const METHOD_COLORS: [MethodColor; 5] = [
         "DELETE",
         Color32::from_rgb(247, 154, 142),
         Color32::from_rgb(180, 35, 24),
+    ),
+    MethodColor::new(
+        "HEAD",
+        Color32::from_rgb(94, 214, 199),
+        Color32::from_rgb(0, 122, 110),
+    ),
+    MethodColor::new(
+        "OPTIONS",
+        Color32::from_rgb(240, 150, 200),
+        Color32::from_rgb(168, 36, 112),
     ),
 ];
 
