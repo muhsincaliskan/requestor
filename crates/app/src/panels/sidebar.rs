@@ -3,6 +3,7 @@ mod environments;
 mod menus;
 mod reveal;
 mod tree;
+mod unsaved;
 
 use eframe::egui::{
     vec2, Align, Align2, Atom, AtomExt, Button, Id, IntoAtoms, Layout, ScrollArea, TextEdit, Ui,
@@ -30,6 +31,7 @@ const ROW_HEIGHT: f32 = 24.0;
 const ROW_PADDING: (f32, f32) = (6.0, 3.0);
 
 pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
+    unsaved::show(ui, state, actions);
     header(ui, actions);
     let filter = filter_field(ui);
     ui.add_space(SECTION_GAP);

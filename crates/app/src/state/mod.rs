@@ -91,6 +91,20 @@ impl AppState {
         self.tab_mut(self.active_tab?)
     }
 
+    pub fn tabs_awaiting_save(&self) -> impl Iterator<Item = &RequestTab> {
+        let autosave = self.interface().autosave;
+        self.tabs
+            .iter()
+            .filter(move |tab| tab.awaits_manual_save(autosave))
+    }
+
+    pub fn unsaved_list(&self) -> Vec<&RequestTab> {
+        if self.interface().autosave {
+            return Vec::new();
+        }
+        self.tabs_awaiting_save().collect()
+    }
+
     pub fn variable_scope(&self, tab: TabId) -> VariableScope {
         let binding = self.tab(tab).and_then(|tab| tab.binding.as_ref());
         self.workspace.scope_for(

@@ -1,14 +1,13 @@
 use eframe::egui::{ScrollArea, Ui};
 
 use crate::state::{Action, AppState, RequestTab};
-use crate::widgets::{icon_button, request_title};
+use crate::widgets::{icon_button, request_title, UNSAVED_MARK};
 
 const STRIP_SCROLL_ID: &str = "tab-strip-scroll";
 const NEW_TAB_LABEL: &str = "+";
 const NEW_TAB_HINT: &str = "New tab";
 const CLOSE_LABEL: &str = "×";
 const CLOSE_HINT: &str = "Close tab";
-const UNSAVED_MARK: &str = " •";
 const SAVE_ITEM: &str = "Save";
 const DUPLICATE_ITEM: &str = "Duplicate";
 const CLOSE_ITEM: &str = "Close";

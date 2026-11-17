@@ -431,3 +431,4 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
 }
 
 mod transfer;
+mod unsaved;
