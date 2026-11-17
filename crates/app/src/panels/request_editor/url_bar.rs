@@ -2,6 +2,7 @@ use eframe::egui::{Align, ComboBox, Key, Layout, TextEdit, Ui};
 use requestor_core::method::HttpMethod;
 
 use crate::state::{Action, RequestTab};
+use crate::widgets::action_button;
 use crate::widgets::variable_text_edit::VariableTextEdit;
 
 const NAME_HINT: &str = "Request name";
@@ -94,12 +95,17 @@ fn buttons(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
     if ui.button(SAVE_LABEL).clicked() {
         actions.push(Action::SaveTab(open.id));
     }
-    let (label, action) = match open.is_sending() {
-        true => (CANCEL_LABEL, Action::CancelSend(open.id)),
-        false => (SEND_LABEL, Action::Send(open.id)),
+    let clicked = if open.is_sending() {
+        action_button::destructive(ui, CANCEL_LABEL).clicked()
+    } else {
+        action_button::primary(ui, SEND_LABEL).clicked()
     };
-    if ui.button(label).clicked() {
-        actions.push(action);
+    if clicked {
+        actions.push(if open.is_sending() {
+            Action::CancelSend(open.id)
+        } else {
+            Action::Send(open.id)
+        });
     }
 }
 
