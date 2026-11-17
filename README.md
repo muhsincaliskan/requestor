@@ -40,7 +40,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 
 ## Keyboard shortcuts
 
-`Cmd` is `Ctrl` on Linux and Windows.
+`Cmd` is `Ctrl` and `Option` is `Alt` on Linux and Windows.
 
 | Action | Keys |
 | --- | --- |
@@ -53,6 +53,8 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 | Settings | Cmd+, |
 | Toggle sidebar | Cmd+B |
 | Toggle two-pane view | Cmd+Shift+L |
+| Show middle workbench | Cmd+Option+M |
+| Swap left and right sidebars | Cmd+Option+S |
 
 ## Command line
 

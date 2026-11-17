@@ -1,5 +1,7 @@
 use eframe::egui::{Context, Key, KeyboardShortcut, Modifiers};
 
+use requestor_core::workspace::InterfaceSettings;
+
 use crate::state::{Action, AppState, Overlay};
 
 #[derive(Clone, Copy)]
@@ -15,6 +17,8 @@ enum Command {
     Settings,
     ToggleSidebar,
     ToggleTwoPaneView,
+    ToggleWorkbench,
+    SwapSidebars,
 }
 
 pub struct Shortcut {
@@ -24,9 +28,10 @@ pub struct Shortcut {
 }
 
 const COMMAND_SHIFT: Modifiers = Modifiers::COMMAND.plus(Modifiers::SHIFT);
+const COMMAND_ALT: Modifiers = Modifiers::COMMAND.plus(Modifiers::ALT);
 const CONTROL_SHIFT: Modifiers = Modifiers::CTRL.plus(Modifiers::SHIFT);
 
-pub const ALL: [Shortcut; 11] = [
+pub const ALL: [Shortcut; 13] = [
     Shortcut::new(
         "Send request",
         Modifiers::COMMAND,
@@ -68,6 +73,18 @@ pub const ALL: [Shortcut; 11] = [
         Key::L,
         Command::ToggleTwoPaneView,
     ),
+    Shortcut::new(
+        "Show middle workbench",
+        COMMAND_ALT,
+        Key::M,
+        Command::ToggleWorkbench,
+    ),
+    Shortcut::new(
+        "Swap left and right sidebars",
+        COMMAND_ALT,
+        Key::S,
+        Command::SwapSidebars,
+    ),
 ];
 
 impl Shortcut {
@@ -77,6 +94,10 @@ impl Shortcut {
             keys: KeyboardShortcut::new(modifiers, key),
             command,
         }
+    }
+
+    fn is_chorded(&self) -> bool {
+        self.keys.modifiers.alt || self.keys.modifiers.shift
     }
 
     pub fn keys_text(&self, ctx: &Context) -> String {
@@ -92,16 +113,10 @@ impl Command {
             Command::Settings => actions.push(Action::Show(Overlay::Settings)),
             Command::NextTab => actions.push(Action::ActivateNeighbourTab { forward: true }),
             Command::PreviousTab => actions.push(Action::ActivateNeighbourTab { forward: false }),
-            Command::ToggleSidebar => {
-                let interface = &mut state.workspace.settings.interface;
-                interface.show_sidebar = !interface.show_sidebar;
-                actions.push(Action::SettingsEdited);
-            }
-            Command::ToggleTwoPaneView => {
-                let interface = &mut state.workspace.settings.interface;
-                interface.two_pane_view = !interface.two_pane_view;
-                actions.push(Action::SettingsEdited);
-            }
+            Command::ToggleSidebar => toggle(state, actions, |ui| &mut ui.show_sidebar),
+            Command::ToggleTwoPaneView => toggle(state, actions, |ui| &mut ui.two_pane_view),
+            Command::ToggleWorkbench => toggle(state, actions, |ui| &mut ui.show_workbench),
+            Command::SwapSidebars => toggle(state, actions, |ui| &mut ui.sidebars_swapped),
             tab_command => actions.extend(tab_command.for_active_tab(state)),
         }
     }
@@ -118,13 +133,57 @@ impl Command {
     }
 }
 
+fn toggle(
+    state: &mut AppState,
+    actions: &mut Vec<Action>,
+    flag: fn(&mut InterfaceSettings) -> &mut bool,
+) {
+    let value = flag(&mut state.workspace.settings.interface);
+    *value = !*value;
+    actions.push(Action::SettingsEdited);
+}
+
 pub fn collect(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
     if state.overlay.is_some() {
         return;
     }
-    for shortcut in &ALL {
+    let (chorded, plain): (Vec<_>, Vec<_>) = ALL.iter().partition(|shortcut| shortcut.is_chorded());
+    for shortcut in chorded.into_iter().chain(plain) {
         if ctx.input_mut(|input| input.consume_shortcut(&shortcut.keys)) {
             shortcut.command.run(state, actions);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ALL;
+
+    #[test]
+    fn every_shortcut_has_its_own_keys() {
+        for (index, shortcut) in ALL.iter().enumerate() {
+            let duplicate = ALL[index + 1..]
+                .iter()
+                .any(|other| other.keys == shortcut.keys);
+            assert!(!duplicate, "{} shares its keys", shortcut.label);
+        }
+    }
+
+    #[test]
+    fn chorded_shortcuts_are_the_ones_with_alt_or_shift() {
+        let chorded: Vec<&str> = ALL
+            .iter()
+            .filter(|shortcut| shortcut.is_chorded())
+            .map(|shortcut| shortcut.label)
+            .collect();
+        assert_eq!(
+            chorded,
+            [
+                "Previous tab",
+                "Toggle two-pane view",
+                "Show middle workbench",
+                "Swap left and right sidebars"
+            ]
+        );
     }
 }
