@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
@@ -5,7 +6,7 @@ use std::thread;
 use eframe::egui::Context;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
-use requestor_core::transport::{HttpTransport, ReqwestTransport};
+use requestor_core::transport::{Cancellation, ReqwestTransport};
 
 use crate::state::{Action, TabId};
 
@@ -20,6 +21,7 @@ pub struct Runner {
     finished: Receiver<Action>,
     report: Sender<Action>,
     shared: Option<SharedTransport>,
+    running: HashMap<u64, Cancellation>,
 }
 
 impl Runner {
@@ -29,6 +31,7 @@ impl Runner {
             finished,
             report,
             shared: None,
+            running: HashMap::new(),
         }
     }
 
@@ -46,10 +49,15 @@ impl Runner {
         };
         let report = self.report.clone();
         let wake = wake.clone();
+        let cancellation = Cancellation::default();
+        self.running.retain(|_, running| !running.is_abandoned());
+        self.running.insert(job, cancellation.clone());
         let spawned = thread::Builder::new()
             .name(WORKER_NAME.to_string())
             .spawn(move || {
-                let result = transport.send(request).map_err(|error| error.to_string());
+                let result = transport
+                    .send_cancellable(request, &cancellation)
+                    .map_err(|error| error.to_string());
                 let delivered = report.send(Action::SendFinished { tab, job, result });
                 if delivered.is_ok() {
                     wake.request_repaint();
@@ -57,6 +65,12 @@ impl Runner {
             });
         if let Err(error) = spawned {
             self.report_failure(tab, job, error.to_string());
+        }
+    }
+
+    pub fn abort(&mut self, job: u64) {
+        if let Some(cancellation) = self.running.remove(&job) {
+            cancellation.cancel();
         }
     }
 

@@ -245,7 +245,8 @@ fn a_cancelled_send_ignores_the_late_response() {
     let [Effect::Send { job, .. }] = effects.as_slice() else {
         panic!("expected one send effect");
     };
-    state.apply(Action::CancelSend(tab), 0.5);
+    let cancelled = state.apply(Action::CancelSend(tab), 0.5);
+    assert!(matches!(cancelled.as_slice(), [Effect::AbortSend(aborted)] if aborted == job));
     state.apply(
         Action::SendFinished {
             tab,

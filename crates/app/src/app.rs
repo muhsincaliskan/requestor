@@ -59,6 +59,7 @@ impl RequestorApp {
                     settings,
                 } => self.runner.send(tab, job, *request, &settings, ctx),
                 Effect::CopyText(text) => ctx.copy_text(text),
+                Effect::AbortSend(job) => self.runner.abort(job),
                 storage => {
                     if let Err(reason) = self.saver.submit(storage) {
                         self.state.report_error(format!("Could not save: {reason}"));

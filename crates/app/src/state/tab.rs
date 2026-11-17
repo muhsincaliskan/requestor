@@ -184,6 +184,14 @@ impl RequestTab {
         matches!(self.exchange, Exchange::Sending { job: current, .. } if current == job)
     }
 
+    pub fn abandon_send(&mut self) -> Option<u64> {
+        let Exchange::Sending { job } = self.exchange else {
+            return None;
+        };
+        self.exchange = Exchange::Idle;
+        Some(job)
+    }
+
     pub fn release_display(&mut self) {
         if let Exchange::Completed(view) = &mut self.exchange {
             view.release_display();

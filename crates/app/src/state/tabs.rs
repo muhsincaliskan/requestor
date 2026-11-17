@@ -148,6 +148,7 @@ impl AppState {
     }
 
     fn force_close_tab(&mut self, id: TabId) {
+        self.abandon_send(id);
         let Some(position) = self.position_of(id) else {
             return;
         };

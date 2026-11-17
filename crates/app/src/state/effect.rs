@@ -22,6 +22,7 @@ pub enum Effect {
         contents: String,
     },
     CopyText(String),
+    AbortSend(u64),
 }
 
 impl Effect {
@@ -37,7 +38,7 @@ impl Effect {
             Effect::WriteFile { path, contents } => PendingWrite::to_file(path, contents)
                 .commit()
                 .map_err(|error| error.to_string()),
-            Effect::Send { .. } | Effect::CopyText(_) => Ok(()),
+            Effect::Send { .. } | Effect::CopyText(_) | Effect::AbortSend(_) => Ok(()),
         }
     }
 }

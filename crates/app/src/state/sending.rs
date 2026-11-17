@@ -53,6 +53,7 @@ impl AppState {
         if !unresolved.is_empty() {
             self.warn(format!("Unresolved variables: {}", unresolved.join(", ")));
         }
+        self.abandon_send(id);
         self.next_job += 1;
         let job = self.next_job;
         if let Some(tab) = self.tab_mut(id) {
@@ -67,9 +68,7 @@ impl AppState {
     }
 
     fn cancel_send(&mut self, id: TabId) {
-        if let Some(tab) = self.tab_mut(id).filter(|tab| tab.is_sending()) {
-            tab.exchange = Exchange::Idle;
-        }
+        self.abandon_send(id);
     }
 
     fn send_finished(&mut self, id: TabId, job: u64, result: Result<HttpResponse, String>) {

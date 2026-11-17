@@ -35,6 +35,7 @@ pub struct AppState {
     unsaved: UnsavedChanges,
     next_tab: u64,
     next_job: u64,
+    abandoned_jobs: Vec<u64>,
     now: f64,
 }
 
@@ -50,6 +51,7 @@ impl AppState {
             unsaved: UnsavedChanges::default(),
             next_tab: 0,
             next_job: 0,
+            abandoned_jobs: Vec::new(),
             now: 0.0,
         };
         for warning in &loaded.warnings {
@@ -63,6 +65,7 @@ impl AppState {
         self.now = now;
         let mut effects = Vec::new();
         self.dispatch(action, &mut effects);
+        effects.extend(self.abandoned_jobs.drain(..).map(Effect::AbortSend));
         effects
     }
 
@@ -122,6 +125,11 @@ impl AppState {
             Action::SettingsEdited => self.unsaved.touch_settings(self.now),
             other => self.dispatch_tab_action(other, effects),
         }
+    }
+
+    fn abandon_send(&mut self, id: TabId) {
+        let job = self.tab_mut(id).and_then(RequestTab::abandon_send);
+        self.abandoned_jobs.extend(job);
     }
 
     fn position_of(&self, id: TabId) -> Option<usize> {

@@ -1,6 +1,8 @@
+mod cancellation;
 mod error;
 mod reqwest_transport;
 
+pub use cancellation::Cancellation;
 pub use error::TransportError;
 pub use reqwest_transport::ReqwestTransport;
 
