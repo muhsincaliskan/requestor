@@ -1,8 +1,6 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 
-use requestor_core::workspace::WorkspaceStore;
-
 use crate::state::Effect;
 
 pub struct Saver {
@@ -12,12 +10,12 @@ pub struct Saver {
 }
 
 impl Saver {
-    pub fn start(store: WorkspaceStore) -> Self {
+    pub fn start() -> Self {
         let (jobs, queue) = channel::<Effect>();
         let (report, failures) = channel();
         let worker = thread::spawn(move || {
             for effect in queue {
-                if let Err(reason) = effect.store(&store) {
+                if let Err(reason) = effect.store() {
                     if report.send(reason).is_err() {
                         return;
                     }

@@ -1,4 +1,3 @@
-mod adoption;
 mod pending_write;
 mod session;
 mod settings;
@@ -141,12 +140,6 @@ impl Workspace {
     }
 
     pub(crate) fn normalize(&mut self) {
-        self.collections.iter_mut().for_each(Collection::ensure_ids);
-        for environment in &mut self.environments {
-            if environment.id.is_none() {
-                environment.id = Some(random_uuid());
-            }
-        }
         let tab_count = self.session.tabs.len();
         self.session.active_tab = self.session.active_tab.filter(|index| *index < tab_count);
         let known_environment = self

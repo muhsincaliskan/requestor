@@ -35,11 +35,7 @@ impl StoreError {
 }
 
 impl PendingWrite {
-    pub(super) fn new(path: PathBuf, contents: String) -> Self {
-        PendingWrite { path, contents }
-    }
-
-    pub fn to_file(path: PathBuf, contents: String) -> Self {
+    pub fn new(path: PathBuf, contents: String) -> Self {
         PendingWrite { path, contents }
     }
 

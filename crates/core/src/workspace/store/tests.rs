@@ -1,20 +1,22 @@
 use std::path::PathBuf;
 
 use super::{safe_file_stem, WorkspaceStore};
+
+mod documents;
 use crate::collection::Collection;
 use crate::environment::Environment;
 use crate::identity::random_uuid;
 use crate::workspace::{AppSettings, Session, SessionTab, Workspace};
 
-struct TemporaryRoot(PathBuf);
+pub(super) struct TemporaryRoot(pub PathBuf);
 
 impl TemporaryRoot {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let path = std::env::temp_dir().join(format!("requestor-store-{}", random_uuid()));
         TemporaryRoot(path)
     }
 
-    fn store(&self) -> WorkspaceStore {
+    pub(super) fn store(&self) -> WorkspaceStore {
         WorkspaceStore::new(&self.0)
     }
 }
@@ -37,7 +39,7 @@ fn an_empty_location_loads_an_empty_workspace_with_defaults() {
 #[test]
 fn everything_written_is_read_back() {
     let root = TemporaryRoot::new();
-    let store = root.store();
+    let mut store = root.store();
     let mut workspace = Workspace::default();
     let collection_id = workspace.add_collection(Collection::new("Sample"));
     let environment_id = workspace.add_environment(Environment::new("Staging"));
@@ -64,9 +66,8 @@ fn everything_written_is_read_back() {
     let loaded = store.load();
     assert!(loaded.warnings.is_empty());
     assert_eq!(loaded.workspace, workspace);
-    store.delete_collection(&collection_id).unwrap();
-    store.delete_collection(&collection_id).unwrap();
-    store.delete_environment(&environment_id).unwrap();
+    std::fs::remove_file(store.collection_path(&collection_id)).unwrap();
+    std::fs::remove_file(store.environment_path(&environment_id)).unwrap();
     let emptied = store.load().workspace;
     assert!(emptied.collections.is_empty());
     assert!(emptied.session.active_environment.is_none());
@@ -75,7 +76,7 @@ fn everything_written_is_read_back() {
 #[test]
 fn a_damaged_file_is_reported_and_left_in_place() {
     let root = TemporaryRoot::new();
-    let store = root.store();
+    let mut store = root.store();
     store
         .collection_write(&Collection::new("Good"))
         .unwrap()
@@ -94,7 +95,7 @@ fn a_damaged_file_is_reported_and_left_in_place() {
 #[test]
 fn writes_replace_the_file_and_leave_no_temporary_files() {
     let root = TemporaryRoot::new();
-    let store = root.store();
+    let mut store = root.store();
     let mut collection = Collection::new("First");
     collection.ensure_ids();
     store
@@ -142,52 +143,4 @@ fn identifiers_cannot_escape_the_storage_directory() {
     collection.info.postman_id = Some("../outside".to_string());
     let write = root.store().collection_write(&collection).unwrap();
     assert!(write.path().starts_with(root.0.join("collections")));
-}
-
-#[test]
-fn a_dropped_in_file_is_adopted_once_and_keeps_its_identity() {
-    let scratch = TemporaryRoot::new();
-    let store = scratch.store();
-    let directory = store.root().join("collections");
-    std::fs::create_dir_all(&directory).unwrap();
-    let dropped = directory.join("My API.json");
-    std::fs::write(
-        &dropped,
-        r#"{"info":{"name":"My API","schema":"s"},"item":[]}"#,
-    )
-    .unwrap();
-
-    let first = store.load();
-    assert!(first.warnings.is_empty());
-    assert_eq!(first.workspace.collections.len(), 1);
-    assert!(!dropped.exists());
-
-    let second = store.load();
-    assert_eq!(second.workspace.collections.len(), 1);
-    assert_eq!(
-        second.workspace.collections[0].id(),
-        first.workspace.collections[0].id()
-    );
-}
-
-#[test]
-fn two_files_claiming_one_identity_both_survive_under_their_own() {
-    let scratch = TemporaryRoot::new();
-    let store = scratch.store();
-    let directory = store.root().join("collections");
-    std::fs::create_dir_all(&directory).unwrap();
-    let document = |name: &str| {
-        format!(r#"{{"info":{{"_postman_id":"shared","name":"{name}","schema":"s"}},"item":[]}}"#)
-    };
-    std::fs::write(directory.join("shared.json"), document("original")).unwrap();
-    std::fs::write(directory.join("a copy.json"), document("copy")).unwrap();
-
-    let loaded = store.load().workspace;
-    assert_eq!(loaded.collections.len(), 2);
-    assert_eq!(loaded.collection("shared").unwrap().info.name, "original");
-    assert_ne!(loaded.collections[1].id(), "shared");
-
-    let again = store.load().workspace;
-    assert_eq!(again.collections.len(), 2);
-    assert_eq!(again.collection("shared").unwrap().info.name, "original");
 }

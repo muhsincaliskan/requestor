@@ -20,12 +20,13 @@ pub struct RequestorApp {
 }
 
 impl RequestorApp {
-    pub fn new(store: WorkspaceStore) -> Self {
-        let state = AppState::new(store.load(), store.clone());
+    pub fn new(mut store: WorkspaceStore) -> Self {
+        let loaded = store.load();
+        let state = AppState::new(loaded, store);
         RequestorApp {
             state,
             runner: Runner::new(),
-            saver: Saver::start(store),
+            saver: Saver::start(),
             started: Instant::now(),
             look: None,
             sends_active_tab_on_start: false,

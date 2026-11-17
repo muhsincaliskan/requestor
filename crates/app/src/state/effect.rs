@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
-use requestor_core::workspace::{PendingWrite, WorkspaceStore};
+use requestor_core::workspace::PendingWrite;
 
 use super::tab::TabId;
 
@@ -15,8 +15,7 @@ pub enum Effect {
         settings: Box<RequestSettings>,
     },
     Persist(PendingWrite),
-    DeleteCollectionFile(String),
-    DeleteEnvironmentFile(String),
+    DeleteFile(PathBuf),
     WriteFile {
         path: PathBuf,
         contents: String,
@@ -26,16 +25,16 @@ pub enum Effect {
 }
 
 impl Effect {
-    pub fn store(self, store: &WorkspaceStore) -> Result<(), String> {
+    pub fn store(self) -> Result<(), String> {
         match self {
             Effect::Persist(write) => write.commit().map_err(|error| error.to_string()),
-            Effect::DeleteCollectionFile(id) => store
-                .delete_collection(&id)
-                .map_err(|error| error.to_string()),
-            Effect::DeleteEnvironmentFile(id) => store
-                .delete_environment(&id)
-                .map_err(|error| error.to_string()),
-            Effect::WriteFile { path, contents } => PendingWrite::to_file(path, contents)
+            Effect::DeleteFile(path) => match std::fs::remove_file(&path) {
+                Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                    Err(format!("{}: {error}", path.display()))
+                }
+                _ => Ok(()),
+            },
+            Effect::WriteFile { path, contents } => PendingWrite::new(path, contents)
                 .commit()
                 .map_err(|error| error.to_string()),
             Effect::Send { .. } | Effect::CopyText(_) | Effect::AbortSend(_) => Ok(()),
