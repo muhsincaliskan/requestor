@@ -1,25 +1,27 @@
 use eframe::egui::collapsing_header::CollapsingState;
-use eframe::egui::{Button, Id, Label, Response, RichText, Sense, Ui, WidgetText};
+use eframe::egui::{Align, Button, Id, Label, Response, RichText, Sense, Ui, WidgetText};
 use requestor_core::collection::{Collection, Item};
 
 use super::drag::{self, DropSlot};
-use super::{menus, row, row_label};
+use super::{menus, reveal, row, row_label};
 use crate::state::{Action, AppState, ItemBinding};
-use crate::widgets::method_column;
+use crate::widgets::aligned_request_title;
 
-const COLLECTION_NODE_ID: &str = "sidebar-collection";
-const FOLDER_NODE_ID: &str = "sidebar-folder";
+pub(super) const COLLECTION_NODE_ID: &str = "sidebar-collection";
+pub(super) const FOLDER_NODE_ID: &str = "sidebar-folder";
 const NO_MATCH_TEXT: &str = "No requests match the filter.";
 
 struct TreeView<'a> {
     collection: &'a Collection,
     active: Option<&'a ItemBinding>,
     filter: &'a str,
+    revealed: bool,
     actions: &'a mut Vec<Action>,
 }
 
 pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Vec<Action>) {
     let active = state.active().and_then(|tab| tab.binding.as_ref());
+    let revealed = reveal::active_item(ui, state);
     let mut shown_any = false;
     for collection in &state.workspace.collections {
         if collection.matches_filter(filter) {
@@ -28,6 +30,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
                 collection,
                 active,
                 filter,
+                revealed,
                 actions: &mut *actions,
             };
             collection_node(ui, &mut view);
@@ -143,11 +146,11 @@ fn request_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
     let selected = view
         .active
         .is_some_and(|binding| binding.points_at(collection.id(), item_id));
-    let atoms = (
-        method_column(ui, item.method_name()),
-        row_label(item.display_name()),
-    );
-    let response = ui.add(row(ui, selected, atoms).sense(Sense::click_and_drag()));
+    let title = aligned_request_title(ui, item.method_name(), item.display_name());
+    let response = ui.add(row(ui, selected, row_label(title)).sense(Sense::click_and_drag()));
+    if selected && view.revealed {
+        response.scroll_to_me(Some(Align::Center));
+    }
     if response.clicked() {
         view.actions.push(Action::OpenItem {
             collection_id: collection.id().to_string(),

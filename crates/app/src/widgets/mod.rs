@@ -2,7 +2,7 @@ mod highlight;
 mod method_badge;
 
 pub use highlight::{append_row, layout_row, SyntaxPalette};
-pub use method_badge::{method_column, request_title};
+pub use method_badge::{aligned_request_title, request_title};
 
 pub mod action_button;
 pub mod auth_editor;

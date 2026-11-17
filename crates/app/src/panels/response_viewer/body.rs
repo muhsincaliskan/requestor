@@ -1,13 +1,14 @@
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    vec2, Align, Button, Key, Label, Layout, Rect, ScrollArea, TextEdit, TextFormat, TextStyle,
-    TextWrapMode, Ui,
+    vec2, Align, Button, Key, KeyboardShortcut, Label, Layout, Modifiers, Rect, ScrollArea,
+    TextEdit, TextFormat, TextStyle, TextWrapMode, Ui,
 };
 use requestor_core::response::ResponseFormat;
 
 use super::readout::ByteSize;
 use crate::response::{BodySearch, ResponseBuffer, ResponseView};
 use crate::state::Action;
+use crate::widgets::variable_text_edit::FIELD_MARGIN;
 use crate::widgets::{append_row, layout_row, SyntaxPalette};
 
 const PRETTY_LABEL: &str = "Pretty";
@@ -21,6 +22,7 @@ const PREVIOUS_LABEL: &str = "‹";
 const NEXT_LABEL: &str = "›";
 const NO_MATCHES: &str = "No matches";
 const ROWS_ABOVE_MATCH: f32 = 3.0;
+const FIND_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::F);
 
 pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
     toolbar(ui, view, actions);
@@ -79,8 +81,13 @@ fn find_box(ui: &mut Ui, search: &mut BodySearch) {
     let field = ui.add(
         TextEdit::singleline(&mut search.query)
             .hint_text(FIND_HINT)
+            .margin(FIELD_MARGIN)
             .desired_width(FIND_WIDTH),
     );
+    if ui.input_mut(|input| input.consume_shortcut(&FIND_SHORTCUT)) {
+        field.request_focus();
+    }
+    let field = field.on_hover_text(ui.ctx().format_shortcut(&FIND_SHORTCUT));
     if field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter)) {
         search.step(!ui.input(|input| input.modifiers.shift));
         field.request_focus();
