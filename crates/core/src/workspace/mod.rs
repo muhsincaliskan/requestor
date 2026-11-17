@@ -11,7 +11,7 @@ pub use store::{LoadedWorkspace, WorkspaceStore};
 use crate::collection::{Collection, Request, Variable};
 use crate::environment::Environment;
 use crate::identity::random_uuid;
-use crate::variables::{VariableLayer, VariableScope};
+use crate::variables::VariableScope;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Workspace {
@@ -98,11 +98,7 @@ impl Workspace {
             .into_iter()
             .cloned()
             .collect();
-        let scope = VariableScope::new().with_layer(VariableLayer::from_variables(&inherited));
-        match self.active_environment() {
-            Some(environment) => scope.with_layer(VariableLayer::from_environment(environment)),
-            None => scope,
-        }
+        VariableScope::layered(&inherited, &[], self.active_environment(), &[])
     }
 
     pub fn variable_names(
@@ -110,21 +106,7 @@ impl Workspace {
         collection_id: Option<&str>,
         item_id: Option<&str>,
     ) -> Vec<String> {
-        let inherited = self
-            .inherited_variables(collection_id, item_id)
-            .into_iter()
-            .filter(|variable| variable.is_enabled())
-            .filter_map(|variable| variable.key.clone());
-        let environment = self
-            .active_environment()
-            .into_iter()
-            .flat_map(|environment| environment.values.iter())
-            .filter(|value| value.is_enabled())
-            .map(|value| value.key.clone());
-        let mut names: Vec<String> = inherited.chain(environment).collect();
-        names.sort();
-        names.dedup();
-        names
+        self.scope_for(collection_id, item_id).names()
     }
 
     pub fn sendable_request(
