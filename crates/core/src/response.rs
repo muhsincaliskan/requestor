@@ -3,6 +3,8 @@ use std::time::Duration;
 use crate::header::{find_header, Header, CONTENT_TYPE};
 use crate::media_type;
 
+const ERROR_STATUS_FLOOR: u16 = 400;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResponseFormat {
     Json,
@@ -86,6 +88,10 @@ impl HttpResponse {
         (200..300).contains(&self.status)
     }
 
+    pub fn is_client_or_server_error(&self) -> bool {
+        self.status >= ERROR_STATUS_FLOOR
+    }
+
     pub fn body_text(&self) -> String {
         String::from_utf8_lossy(&self.body).into_owned()
     }
@@ -93,7 +99,38 @@ impl HttpResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::ResponseFormat;
+    use std::time::Duration;
+
+    use super::{HttpResponse, ResponseFormat};
+
+    fn with_status(status: u16) -> HttpResponse {
+        HttpResponse {
+            status,
+            reason: String::new(),
+            version: String::new(),
+            headers: Vec::new(),
+            body: Vec::new(),
+            truncated: false,
+            elapsed: Duration::ZERO,
+        }
+    }
+
+    #[test]
+    fn status_classes_are_distinguished() {
+        let expectations = [
+            (200, true, false),
+            (204, true, false),
+            (302, false, false),
+            (399, false, false),
+            (400, false, true),
+            (503, false, true),
+        ];
+        for (status, success, error) in expectations {
+            let response = with_status(status);
+            assert_eq!(response.is_success(), success, "{status}");
+            assert_eq!(response.is_client_or_server_error(), error, "{status}");
+        }
+    }
 
     #[test]
     fn declared_content_type_wins() {

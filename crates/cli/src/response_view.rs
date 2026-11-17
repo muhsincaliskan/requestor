@@ -1,7 +1,6 @@
+use requestor_core::header::Header;
 use requestor_core::response::{HttpResponse, ResponseFormat};
-
-const MASK: &str = "***";
-const SENSITIVE_HEADERS: [&str; 3] = ["set-cookie", "authorization", "proxy-authorization"];
+use requestor_core::secret::REDACTED;
 
 pub struct ResponseView {
     head: String,
@@ -17,11 +16,7 @@ impl ResponseView {
             response.version, response.status, response.reason
         );
         for header in &response.headers {
-            head.push_str(&format!(
-                "{}: {}\n",
-                header.name,
-                display_value(&header.name, &header.value)
-            ));
+            head.push_str(&format!("{}: {}\n", header.name, display_value(header)));
         }
         ResponseView {
             head,
@@ -40,14 +35,11 @@ impl ResponseView {
     }
 }
 
-fn display_value<'a>(name: &str, value: &'a str) -> &'a str {
-    if SENSITIVE_HEADERS
-        .iter()
-        .any(|sensitive| name.eq_ignore_ascii_case(sensitive))
-    {
-        MASK
+fn display_value(header: &Header) -> &str {
+    if header.is_sensitive() {
+        REDACTED
     } else {
-        value
+        &header.value
     }
 }
 
@@ -61,8 +53,6 @@ fn display_body(response: &HttpResponse) -> String {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-
-    use requestor_core::header::Header;
 
     use super::*;
 
@@ -86,7 +76,7 @@ mod tests {
         let view = ResponseView::from(&response(b"hello", "text/plain"));
         assert_eq!(
             view.to_text(),
-            "HTTP/1.1 200 OK\nContent-Type: text/plain\nSet-Cookie: ***\n\nhello"
+            format!("HTTP/1.1 200 OK\nContent-Type: text/plain\nSet-Cookie: {REDACTED}\n\nhello")
         );
         assert_eq!(view.summary, "7 ms, 5 B");
     }

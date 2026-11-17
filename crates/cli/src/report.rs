@@ -1,16 +1,16 @@
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
+use requestor_core::secret::Redactor;
 
 use crate::json::JsonLine;
-use crate::redacted_url::RedactedUrl;
 
-const SUCCESS_STATUSES: std::ops::Range<u16> = 200..400;
 const UNKNOWN: &str = "-";
 
 #[derive(Debug, PartialEq, Eq)]
 enum Outcome {
     Responded {
         status: u16,
+        is_error: bool,
         elapsed_ms: u128,
         bytes: usize,
     },
@@ -24,10 +24,10 @@ pub struct RequestLine {
 }
 
 impl RequestLine {
-    pub fn from(request: &PreparedRequest) -> Self {
+    pub fn from(request: &PreparedRequest, redactor: &Redactor) -> Self {
         RequestLine {
             method: request.method.as_str().to_string(),
-            url: RedactedUrl::from(&request.url).to_string(),
+            url: redactor.redact_url(&request.url),
         }
     }
 
@@ -53,6 +53,7 @@ impl RequestReport {
             line: line.clone(),
             outcome: Outcome::Responded {
                 status: response.status,
+                is_error: response.is_client_or_server_error(),
                 elapsed_ms: response.elapsed.as_millis(),
                 bytes: response.body.len(),
             },
@@ -67,15 +68,14 @@ impl RequestReport {
         }
     }
 
-    pub fn is_success_status(status: u16) -> bool {
-        SUCCESS_STATUSES.contains(&status)
-    }
-
     pub fn is_success(&self) -> bool {
-        match &self.outcome {
-            Outcome::Responded { status, .. } => Self::is_success_status(*status),
-            Outcome::Failed(_) => false,
-        }
+        matches!(
+            self.outcome,
+            Outcome::Responded {
+                is_error: false,
+                ..
+            }
+        )
     }
 
     pub fn to_text(&self) -> String {
@@ -85,6 +85,7 @@ impl RequestReport {
                 status,
                 elapsed_ms,
                 bytes,
+                ..
             } => format!("{head} -> {status} {elapsed_ms} ms {bytes} B"),
             Outcome::Failed(reason) => format!("{head} -> FAILED {reason}"),
         }
@@ -101,6 +102,7 @@ impl RequestReport {
                 status,
                 elapsed_ms,
                 bytes,
+                ..
             } => line
                 .raw("status", status)
                 .raw("elapsed_ms", elapsed_ms)
@@ -115,18 +117,21 @@ impl RequestReport {
 mod tests {
     use std::time::Duration;
 
-    use requestor_core::header::Header;
-    use requestor_core::method::HttpMethod;
+    use requestor_core::collection::{Request, Url};
+    use requestor_core::secret::REDACTED;
+    use requestor_core::settings::RequestSettings;
+    use requestor_core::variables::VariableScope;
 
     use super::*;
 
     fn prepared() -> PreparedRequest {
-        PreparedRequest {
-            method: HttpMethod::Get,
-            url: "http://h/p?token=s3cret".to_string(),
-            headers: vec![Header::new("Authorization", "Bearer s3cret")],
-            body: None,
-        }
+        let request = Request::new("GET", Url::Raw("http://h/p?token=s3cret".to_string()));
+        PreparedRequest::from_request(&request, &VariableScope::new(), &RequestSettings::default())
+            .unwrap()
+    }
+
+    fn line() -> RequestLine {
+        RequestLine::from(&prepared(), &Redactor::default())
     }
 
     fn response(status: u16) -> HttpResponse {
@@ -151,32 +156,28 @@ mod tests {
             (500, false),
         ];
         for (status, expected) in statuses {
-            let report = RequestReport::from_response(
-                "n",
-                &RequestLine::from(&prepared()),
-                &response(status),
-            );
+            let report = RequestReport::from_response("n", &line(), &response(status));
             assert_eq!(report.is_success(), expected, "status {status}");
         }
     }
 
     #[test]
     fn text_line_shows_method_url_status_time_and_size_without_secrets() {
-        let report =
-            RequestReport::from_response("List", &RequestLine::from(&prepared()), &response(200));
+        let report = RequestReport::from_response("List", &line(), &response(200));
         assert_eq!(
             report.to_text(),
-            "List: GET http://h/p?token=*** -> 200 12 ms 5 B"
+            format!("List: GET http://h/p?token={REDACTED} -> 200 12 ms 5 B")
         );
     }
 
     #[test]
     fn json_line_describes_responses_and_failures() {
-        let report =
-            RequestReport::from_response("List", &RequestLine::from(&prepared()), &response(404));
+        let report = RequestReport::from_response("List", &line(), &response(404));
         assert_eq!(
             report.to_json(),
-            r#"{"name":"List","method":"GET","url":"http://h/p?token=***","ok":false,"status":404,"elapsed_ms":12,"bytes":5}"#
+            format!(
+                r#"{{"name":"List","method":"GET","url":"http://h/p?token={REDACTED}","ok":false,"status":404,"elapsed_ms":12,"bytes":5}}"#
+            )
         );
         let failure = RequestReport::failed("Boom", None, "the request timed out");
         assert!(!failure.is_success());

@@ -75,6 +75,38 @@ pub enum Imported {
     Request(ImportedRequest),
 }
 
+impl Imported {
+    pub fn warnings(&self) -> &[String] {
+        match self {
+            Imported::Collection(imported) => &imported.warnings,
+            Imported::Request(imported) => &imported.warnings,
+            Imported::Environment(_) => &[],
+        }
+    }
+
+    fn kind(&self) -> &'static str {
+        match self {
+            Imported::Collection(_) => "a collection",
+            Imported::Environment(_) => "an environment",
+            Imported::Request(_) => "a request",
+        }
+    }
+}
+
+impl TryFrom<Imported> for ImportedRequest {
+    type Error = ImportError;
+
+    fn try_from(imported: Imported) -> Result<Self, Self::Error> {
+        match imported {
+            Imported::Request(request) => Ok(request),
+            other => Err(ImportError::UnsupportedFormat(format!(
+                "expected a single request but found {}",
+                other.kind()
+            ))),
+        }
+    }
+}
+
 impl ImportedRequest {
     pub fn into_item(self) -> Item {
         Item::for_request(self.name, self.request)
@@ -111,4 +143,32 @@ fn display_path(url: &str) -> String {
         .next()
         .unwrap_or(without_scheme)
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{import_text, ImportError, ImportedRequest};
+
+    #[test]
+    fn a_request_converts_and_other_documents_name_what_was_found() {
+        let request = import_text("curl http://h/x").unwrap();
+        assert!(ImportedRequest::try_from(request).is_ok());
+        let environment = import_text(r#"{"name":"E","values":[]}"#).unwrap();
+        match ImportedRequest::try_from(environment) {
+            Err(ImportError::UnsupportedFormat(reason)) => {
+                assert!(reason.contains("an environment"), "{reason}");
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        let collection = import_text(r#"{"info":{"name":"c"},"item":[]}"#).unwrap();
+        assert!(ImportedRequest::try_from(collection).is_err());
+    }
+
+    #[test]
+    fn warnings_are_reachable_from_every_kind() {
+        let request = import_text("curl http://h/x").unwrap();
+        assert!(request.warnings().is_empty());
+        let environment = import_text(r#"{"name":"E","values":[]}"#).unwrap();
+        assert!(environment.warnings().is_empty());
+    }
 }

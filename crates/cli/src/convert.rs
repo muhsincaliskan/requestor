@@ -1,48 +1,23 @@
-use requestor_core::collection::{Collection, Item};
-use requestor_core::environment::Environment;
-use requestor_core::import::{import_text, Imported, ImportedRequest};
+use requestor_core::error::CoreError;
+use requestor_core::import::{import_text, Imported};
 
 use crate::args::ImportOptions;
 use crate::error::CliError;
 use crate::input::read_text;
 
-pub struct PostmanDocument {
-    json: Result<String, String>,
-}
+pub struct PostmanDocument(Result<String, CoreError>);
 
 impl PostmanDocument {
     pub fn from(imported: Imported) -> Self {
-        let json = match imported {
-            Imported::Collection(collection) => collection.to_json_pretty(),
-            Imported::Environment(environment) => Environment::to_json_pretty(&environment),
-            Imported::Request(request) => Self::collection_of(request).to_json_pretty(),
-        };
-        PostmanDocument {
-            json: json.map_err(|error| error.to_string()),
-        }
+        PostmanDocument(match imported {
+            Imported::Collection(imported) => imported.collection.to_json_pretty(),
+            Imported::Environment(environment) => environment.to_json_pretty(),
+            Imported::Request(imported) => imported.into_collection().to_json_pretty(),
+        })
     }
 
     pub fn into_json(self) -> Result<String, CliError> {
-        self.json.map_err(CliError::input)
-    }
-
-    fn collection_of(imported: ImportedRequest) -> Collection {
-        let mut collection = Collection::new(imported.name.clone());
-        collection.item.push(Item {
-            id: None,
-            name: Some(imported.name),
-            description: None,
-            variable: None,
-            event: None,
-            auth: None,
-            item: None,
-            request: Some(requestor_core::collection::RequestSpec::Full(Box::new(
-                imported.request,
-            ))),
-            response: None,
-            extra: Default::default(),
-        });
-        collection
+        self.0.map_err(|error| CliError::input(error.to_string()))
     }
 }
 
@@ -50,13 +25,19 @@ pub fn execute(options: &ImportOptions, out: &mut impl std::io::Write) -> Result
     let text = read_text(&options.file)?;
     let imported = import_text(&text)
         .map_err(|error| CliError::input(format!("{}: {error}", options.file.display())))?;
+    for warning in imported.warnings() {
+        eprintln!("warning: {warning}");
+    }
     let json = PostmanDocument::from(imported).into_json()?;
-    writeln!(out, "{json}").map_err(|error| CliError::input(error.to_string()))?;
+    writeln!(out, "{json}").map_err(|error| CliError::from_write(&error))?;
     Ok(true)
 }
 
 #[cfg(test)]
 mod tests {
+    use requestor_core::collection::Collection;
+    use requestor_core::environment::Environment;
+
     use super::*;
 
     #[test]
@@ -73,5 +54,12 @@ mod tests {
         let imported = import_text(r#"{"name":"E","values":[{"key":"a","value":"1"}]}"#).unwrap();
         let json = PostmanDocument::from(imported).into_json().unwrap();
         assert!(Environment::from_json(&json).is_ok());
+    }
+
+    #[test]
+    fn collections_pass_through_unchanged_in_shape() {
+        let imported = import_text(r#"{"info":{"name":"c"},"item":[]}"#).unwrap();
+        let json = PostmanDocument::from(imported).into_json().unwrap();
+        assert_eq!(Collection::from_json(&json).unwrap().info.name, "c");
     }
 }

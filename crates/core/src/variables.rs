@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::collection::Variable;
@@ -8,10 +8,12 @@ use crate::text::scalar_text;
 const OPEN_MARK: &str = "{{";
 const CLOSE_MARK: &str = "}}";
 const MAX_EXPANDED_BYTES: usize = 1024 * 1024;
+const SECRET_KIND: &str = "secret";
 
 #[derive(Clone, Default, PartialEq)]
 pub struct VariableLayer {
     values: BTreeMap<String, String>,
+    secret_keys: BTreeSet<String>,
 }
 
 impl fmt::Debug for VariableLayer {
@@ -25,27 +27,45 @@ impl fmt::Debug for VariableLayer {
 
 impl VariableLayer {
     pub fn from_environment(environment: &Environment) -> Self {
-        let values = environment
+        environment
             .values
             .iter()
             .filter(|entry| entry.is_enabled())
-            .filter_map(|entry| Some((entry.key.clone(), scalar_text(entry.value.as_ref()?)?)))
-            .collect();
-        VariableLayer { values }
+            .filter_map(|entry| {
+                let value = scalar_text(entry.value.as_ref()?)?;
+                let secret = entry.kind.as_deref() == Some(SECRET_KIND);
+                Some((entry.key.clone(), value, secret))
+            })
+            .collect()
     }
 
     pub fn from_variables(variables: &[Variable]) -> Self {
-        let values = variables
+        variables
             .iter()
             .filter(|variable| variable.is_enabled())
-            .filter_map(|variable| Some((variable.key.clone()?, variable.text_value()?)))
-            .collect();
-        VariableLayer { values }
+            .filter_map(|variable| {
+                let secret = variable.kind.as_deref() == Some(SECRET_KIND);
+                Some((variable.key.clone()?, variable.text_value()?, secret))
+            })
+            .collect()
     }
 
     pub fn with(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.values.insert(key.into(), value.into());
         self
+    }
+}
+
+impl FromIterator<(String, String, bool)> for VariableLayer {
+    fn from_iter<Entries: IntoIterator<Item = (String, String, bool)>>(entries: Entries) -> Self {
+        let mut layer = VariableLayer::default();
+        for (key, value, secret) in entries {
+            if secret {
+                layer.secret_keys.insert(key.clone());
+            }
+            layer.values.insert(key, value);
+        }
+        layer
     }
 }
 
@@ -77,6 +97,41 @@ pub struct VariableScope {
 impl VariableScope {
     pub fn new() -> Self {
         VariableScope::default()
+    }
+
+    pub fn layered(
+        collection: &[Variable],
+        folder: &[Variable],
+        environment: Option<&Environment>,
+        overrides: &[(String, String)],
+    ) -> Self {
+        let override_layer = overrides
+            .iter()
+            .fold(VariableLayer::default(), |layer, pair| {
+                layer.with(pair.0.as_str(), pair.1.as_str())
+            });
+        let mut scope = VariableScope::new()
+            .with_layer(VariableLayer::from_variables(collection))
+            .with_layer(VariableLayer::from_variables(folder));
+        if let Some(environment) = environment {
+            scope = scope.with_layer(VariableLayer::from_environment(environment));
+        }
+        scope.with_layer(override_layer)
+    }
+
+    pub fn secret_values(&self) -> Vec<String> {
+        let mut values = Vec::new();
+        for layer in &self.layers {
+            for key in &layer.secret_keys {
+                let raw = &layer.values[key];
+                values.push(self.resolve(raw).text);
+                values.push(raw.clone());
+            }
+        }
+        values.retain(|value| !value.is_empty());
+        values.sort();
+        values.dedup();
+        values
     }
 
     pub fn with_layer(mut self, layer: VariableLayer) -> Self {
@@ -209,6 +264,8 @@ impl<'a> Placeholder<'a> {
 #[cfg(test)]
 mod tests {
     use super::{placeholder_names, VariableLayer, VariableScope};
+    use crate::collection::Variable;
+    use crate::environment::Environment;
 
     fn scope() -> VariableScope {
         VariableScope::new()
@@ -301,6 +358,60 @@ mod tests {
             placeholder_names("{{b}} {{a}} {{b}} {{ }}"),
             vec!["a".to_string(), "b".to_string()]
         );
+    }
+
+    #[test]
+    fn layers_follow_collection_folder_environment_override_precedence() {
+        let variable = |value: &str| -> Vec<Variable> {
+            serde_json::from_str(&format!(r#"[{{"key":"v","value":"{value}"}}]"#)).unwrap()
+        };
+        let environment =
+            Environment::from_json(r#"{"name":"E","values":[{"key":"v","value":"env"}]}"#).unwrap();
+        let resolve = |scope: VariableScope| scope.resolve("{{v}}").text;
+        let (collection, folder) = (variable("collection"), variable("folder"));
+        assert_eq!(
+            resolve(VariableScope::layered(&collection, &[], None, &[])),
+            "collection"
+        );
+        assert_eq!(
+            resolve(VariableScope::layered(&collection, &folder, None, &[])),
+            "folder"
+        );
+        assert_eq!(
+            resolve(VariableScope::layered(
+                &collection,
+                &folder,
+                Some(&environment),
+                &[]
+            )),
+            "env"
+        );
+        let overrides = [("v".to_string(), "cli".to_string())];
+        assert_eq!(
+            resolve(VariableScope::layered(
+                &collection,
+                &folder,
+                Some(&environment),
+                &overrides
+            )),
+            "cli"
+        );
+    }
+
+    #[test]
+    fn secret_values_come_from_secret_typed_entries_only() {
+        let environment = Environment::from_json(
+            r#"{"name":"E","values":[
+                {"key":"apiToken","value":"tok-1","type":"secret"},
+                {"key":"nested","value":"x-{{apiToken}}","type":"secret"},
+                {"key":"plain","value":"visible","type":"default"}]}"#,
+        )
+        .unwrap();
+        let scope = VariableScope::layered(&[], &[], Some(&environment), &[]);
+        let secrets = scope.secret_values();
+        assert!(secrets.contains(&"tok-1".to_string()));
+        assert!(secrets.contains(&"x-tok-1".to_string()));
+        assert!(!secrets.contains(&"visible".to_string()));
     }
 
     #[test]

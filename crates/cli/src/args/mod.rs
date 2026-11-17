@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::path::PathBuf;
 
 use crate::cursor::Cursor;
@@ -6,6 +9,7 @@ use crate::network::NetworkOptions;
 use crate::plan::Selection;
 
 const FLAG_PREFIX: &str = "--";
+const HELP_FLAGS: [&str; 2] = ["--help", "-h"];
 const ENV_FLAG: &str = "--env";
 const FOLDER_FLAG: &str = "--folder";
 const REQUEST_FLAG: &str = "--request";
@@ -51,9 +55,12 @@ impl Command {
         let name = cursor
             .next_item()
             .ok_or_else(|| CliError::usage("missing command"))?;
+        if HELP_FLAGS.contains(&name.as_str()) || name == "help" {
+            return Ok(Command::Help);
+        }
         match name.as_str() {
-            "--help" | "-h" | "help" => Ok(Command::Help),
             "--version" | "-V" => Ok(Command::Version),
+            "run" | "send" | "import" if cursor.contains_any(&HELP_FLAGS) => Ok(Command::Help),
             "run" => RunOptions::parse(cursor).map(Command::Run),
             "send" => SendOptions::parse(cursor).map(Command::Send),
             "import" => ImportOptions::parse(cursor).map(Command::Import),
@@ -96,17 +103,18 @@ impl RunOptions {
 impl SendOptions {
     fn parse(mut cursor: Cursor) -> Result<Self, CliError> {
         let mut network = NetworkOptions::default();
+        let mut target = Vec::new();
         while let Some(argument) = cursor.next_item() {
-            if network.accept(&argument, &mut cursor)? {
-                continue;
+            if !network.accept(&argument, &mut cursor)? {
+                target.push(argument);
             }
-            let mut target = vec![argument];
-            target.extend(cursor.drain());
-            return Ok(SendOptions { target, network });
         }
-        Err(CliError::usage(
-            "send needs a curl command or a raw http file",
-        ))
+        if target.is_empty() {
+            return Err(CliError::usage(
+                "send needs a curl command or a raw http file",
+            ));
+        }
+        Ok(SendOptions { target, network })
     }
 }
 
@@ -157,104 +165,5 @@ fn parse_assignment(text: &str) -> Result<(String, String), CliError> {
         _ => Err(CliError::usage(format!(
             "{VAR_FLAG} needs key=value, got {text:?}"
         ))),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn parse(arguments: &[&str]) -> Result<Command, CliError> {
-        Command::parse(arguments.iter().map(ToString::to_string).collect())
-    }
-
-    #[test]
-    fn parses_every_run_option() {
-        let command = parse(&[
-            "run",
-            "c.json",
-            "--env",
-            "e.json",
-            "--folder",
-            "Users",
-            "--request",
-            "List",
-            "--var",
-            "a=1",
-            "--var",
-            "b=x=y",
-            "--timeout-ms",
-            "250",
-            "--insecure",
-            "--no-follow-redirects",
-            "--json",
-        ])
-        .unwrap();
-        let Command::Run(options) = command else {
-            panic!("expected run")
-        };
-        assert_eq!(options.collection, PathBuf::from("c.json"));
-        assert_eq!(options.environment, Some(PathBuf::from("e.json")));
-        assert_eq!(options.selection.folder.as_deref(), Some("Users"));
-        assert_eq!(options.selection.request.as_deref(), Some("List"));
-        assert_eq!(
-            options.variables,
-            vec![("a".into(), "1".into()), ("b".into(), "x=y".into())]
-        );
-        assert_eq!(options.network.timeout_ms, Some(250));
-        assert!(options.network.insecure && options.network.no_follow_redirects);
-        assert!(options.json);
-    }
-
-    #[test]
-    fn run_requires_a_collection() {
-        assert!(parse(&["run", "--json"]).is_err());
-    }
-
-    #[test]
-    fn run_rejects_bad_input() {
-        assert!(parse(&["run", "c.json", "--bogus"]).is_err());
-        assert!(parse(&["run", "a.json", "b.json"]).is_err());
-        assert!(parse(&["run", "c.json", "--var", "novalue"]).is_err());
-        assert!(parse(&["run", "c.json", "--timeout-ms", "soon"]).is_err());
-        assert!(parse(&["run", "c.json", "--env"]).is_err());
-    }
-
-    #[test]
-    fn send_keeps_curl_arguments_untouched() {
-        let command = parse(&["send", "--insecure", "curl", "-X", "POST", "http://h"]).unwrap();
-        let Command::Send(options) = command else {
-            panic!("expected send")
-        };
-        assert_eq!(options.target, ["curl", "-X", "POST", "http://h"]);
-        assert!(options.network.insecure);
-    }
-
-    #[test]
-    fn send_requires_a_target() {
-        assert!(parse(&["send"]).is_err());
-        assert!(parse(&["send", "--insecure"]).is_err());
-    }
-
-    #[test]
-    fn import_requires_postman_target() {
-        assert!(parse(&["import", "f.txt"]).is_err());
-        assert!(parse(&["import", "f.txt", "--to", "yaml"]).is_err());
-        assert!(parse(&["import", "--to", "postman"]).is_err());
-        let command = parse(&["import", "f.txt", "--to", "postman"]).unwrap();
-        assert_eq!(
-            command,
-            Command::Import(ImportOptions {
-                file: PathBuf::from("f.txt")
-            })
-        );
-    }
-
-    #[test]
-    fn recognizes_help_version_and_unknown_commands() {
-        assert_eq!(parse(&["--help"]).unwrap(), Command::Help);
-        assert_eq!(parse(&["--version"]).unwrap(), Command::Version);
-        assert!(parse(&["fly"]).is_err());
-        assert!(parse(&[]).is_err());
     }
 }

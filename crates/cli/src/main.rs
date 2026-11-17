@@ -6,7 +6,6 @@ mod input;
 mod json;
 mod network;
 mod plan;
-mod redacted_url;
 mod report;
 mod response_view;
 mod run;
@@ -17,7 +16,7 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use args::Command;
-use error::{CliError, EXIT_REQUEST_FAILED, EXIT_SUCCESS, EXIT_USAGE};
+use error::{CliError, EXIT_REQUEST_FAILED, EXIT_SUCCESS};
 
 fn main() -> ExitCode {
     let arguments = std::env::args().skip(1).collect();
@@ -26,7 +25,7 @@ fn main() -> ExitCode {
         Ok(false) => ExitCode::from(EXIT_REQUEST_FAILED),
         Err(error) => {
             report_error(&error);
-            ExitCode::from(EXIT_USAGE)
+            ExitCode::from(error.exit_code())
         }
     }
 }
@@ -42,11 +41,14 @@ fn dispatch(arguments: Vec<String>, out: &mut impl Write) -> Result<bool, CliErr
 }
 
 fn print_line(out: &mut impl Write, text: &str) -> Result<bool, CliError> {
-    writeln!(out, "{text}").map_err(|error| CliError::input(error.to_string()))?;
+    writeln!(out, "{text}").map_err(|error| CliError::from_write(&error))?;
     Ok(true)
 }
 
 fn report_error(error: &CliError) {
+    if error.is_silent() {
+        return;
+    }
     eprintln!("error: {error}");
     if error.is_usage() {
         eprintln!("{}", usage::HINT);

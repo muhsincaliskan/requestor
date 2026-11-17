@@ -1,53 +1,50 @@
 use std::io::Write;
 
-use requestor_core::import::{import_text, Imported, ImportedRequest};
+use requestor_core::import::{import_text, ImportedRequest};
 use requestor_core::prepared::PreparedRequest;
+use requestor_core::secret::Redactor;
 use requestor_core::transport::{HttpTransport, ReqwestTransport};
 use requestor_core::variables::VariableScope;
 
 use crate::args::SendOptions;
 use crate::error::CliError;
 use crate::input::load_send_target;
-use crate::report::RequestReport;
 use crate::response_view::ResponseView;
 
 const TRUNCATION_NOTICE: &str = "note: response body truncated at the configured size limit";
 
 pub fn execute(options: &SendOptions, out: &mut impl Write) -> Result<bool, CliError> {
-    let text = load_send_target(&options.target)?;
-    let imported = single_request(&text)?;
-    for warning in &imported.warnings {
+    let imported = import_text(&load_send_target(&options.target)?)
+        .map_err(|error| CliError::input(error.to_string()))?;
+    for warning in imported.warnings() {
         eprintln!("warning: {warning}");
     }
+    let imported =
+        ImportedRequest::try_from(imported).map_err(|error| CliError::input(error.to_string()))?;
+    let scope = VariableScope::new();
+    let redactor = Redactor::for_request(&scope, imported.request.auth.as_ref());
     let settings = options.network.to_settings();
-    let prepared =
-        PreparedRequest::from_request(&imported.request, &VariableScope::new(), &settings)
-            .map_err(|error| CliError::input(error.to_string()))?;
+    let prepared = match PreparedRequest::from_request(&imported.request, &scope, &settings) {
+        Ok(prepared) => prepared,
+        Err(error) => return Ok(report_failure(&redactor, &error)),
+    };
     let transport =
         ReqwestTransport::new(&settings).map_err(|error| CliError::input(error.to_string()))?;
     match transport.send(prepared) {
         Ok(response) => {
             let view = ResponseView::from(&response);
-            write!(out, "{}", view.to_text())
-                .map_err(|error| CliError::input(error.to_string()))?;
+            write!(out, "{}", view.to_text()).map_err(|error| CliError::from_write(&error))?;
             eprintln!("\n{}", view.summary);
             if view.truncated {
                 eprintln!("{TRUNCATION_NOTICE}");
             }
-            Ok(RequestReport::is_success_status(response.status))
+            Ok(!response.is_client_or_server_error())
         }
-        Err(error) => {
-            eprintln!("error: {error}");
-            Ok(false)
-        }
+        Err(error) => Ok(report_failure(&redactor, &error)),
     }
 }
 
-fn single_request(text: &str) -> Result<ImportedRequest, CliError> {
-    match import_text(text).map_err(|error| CliError::input(error.to_string()))? {
-        Imported::Request(request) => Ok(request),
-        Imported::Collection(_) | Imported::Environment(_) => Err(CliError::input(
-            "send needs one request; use `requestor run` for collections",
-        )),
-    }
+fn report_failure(redactor: &Redactor, error: &impl ToString) -> bool {
+    eprintln!("error: {}", redactor.redact_text(&error.to_string()));
+    false
 }

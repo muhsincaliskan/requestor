@@ -17,8 +17,8 @@ impl Cursor {
         self.items.pop_front()
     }
 
-    pub fn drain(&mut self) -> Vec<String> {
-        self.items.drain(..).collect()
+    pub fn contains_any(&self, flags: &[&str]) -> bool {
+        self.items.iter().any(|item| flags.contains(&item.as_str()))
     }
 
     pub fn value(&mut self, flag: &str) -> Result<String, CliError> {

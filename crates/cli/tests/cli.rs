@@ -6,6 +6,7 @@ use std::process::{Command, Output};
 
 use support::{http_response, TestServer};
 
+const REDACTED: &str = "<redacted>";
 const SECRET_TOKEN: &str = "s3cr3t-value";
 
 fn scratch(name: &str, content: &str) -> PathBuf {
@@ -133,7 +134,7 @@ fn run_never_prints_secret_query_values() {
     );
     let output = requestor(&["run", document.to_str().unwrap()]);
     assert_eq!(output.status.code(), Some(0));
-    assert!(stdout(&output).contains("api_key=***"));
+    assert!(stdout(&output).contains(&format!("api_key={REDACTED}")));
     assert!(!stdout(&output).contains(SECRET_TOKEN));
     assert!(!stderr(&output).contains(SECRET_TOKEN));
 }
@@ -180,7 +181,7 @@ fn send_accepts_separate_curl_arguments_and_masks_secret_headers() {
     let url = server.url("/cookie");
     let output = requestor(&["send", "curl", "-X", "POST", "-d", "a=1", &url]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
-    assert!(stdout(&output).contains("set-cookie: ***"));
+    assert!(stdout(&output).contains(&format!("set-cookie: {REDACTED}")));
     assert!(!stdout(&output).contains("session=abc"));
     assert!(server.requests()[0].starts_with("POST /cookie"));
 }
@@ -219,4 +220,136 @@ fn help_and_version_succeed() {
         stdout(&version).trim(),
         concat!("requestor ", env!("CARGO_PKG_VERSION"))
     );
+}
+
+fn secret_environment(server: &TestServer) -> PathBuf {
+    scratch(
+        "secret-env.json",
+        &format!(
+            r#"{{"name":"E","values":[
+                {{"key":"base","value":"http://{}","type":"default"}},
+                {{"key":"apiToken","value":"{SECRET_TOKEN}","type":"secret"}}]}}"#,
+            server.address
+        ),
+    )
+}
+
+#[test]
+fn secret_variables_are_masked_wherever_they_land_in_the_url() {
+    let server = router();
+    let environment = secret_environment(&server);
+    let document = scratch(
+        "secret-vars.json",
+        r#"{"info":{"name":"s"},"item":[
+            {"name":"Query","request":"{{base}}/ok?q={{apiToken}}"},
+            {"name":"Path","request":"{{base}}/ok/{{apiToken}}/x"}]}"#,
+    );
+    for json in [false, true] {
+        let mut arguments = vec!["run", document.to_str().unwrap()];
+        arguments.extend(["--env", environment.to_str().unwrap()]);
+        if json {
+            arguments.push("--json");
+        }
+        let output = requestor(&arguments);
+        let text = stdout(&output);
+        assert!(!text.contains(SECRET_TOKEN), "{text}");
+        assert!(!stderr(&output).contains(SECRET_TOKEN));
+        assert!(text.contains(&format!("q={REDACTED}")), "{text}");
+        assert!(text.contains(&format!("/ok/{REDACTED}/x")), "{text}");
+    }
+}
+
+#[test]
+fn folder_variables_and_inherited_noauth_apply_to_requests() {
+    let server = router();
+    let document = scratch(
+        "folder-vars.json",
+        &format!(
+            r#"{{"info":{{"name":"f"}},
+                "auth":{{"type":"bearer","bearer":[{{"key":"token","value":"{SECRET_TOKEN}"}}]}},
+                "item":[{{"name":"G","variable":[{{"key":"path","value":"/ok"}}],
+                    "item":[{{"name":"One","request":"http://{}{{{{path}}}}"}}]}}]}}"#,
+            server.address
+        ),
+    );
+    let output = requestor(&["run", document.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(server.requests()[0].contains(&format!("Bearer {SECRET_TOKEN}")));
+    assert!(!stdout(&output).contains(SECRET_TOKEN));
+}
+
+#[test]
+fn urls_with_credentials_are_masked_in_output() {
+    let server = router();
+    let document = scratch(
+        "userinfo.json",
+        &format!(
+            r#"{{"info":{{"name":"u"}},"item":[{{"name":"One","request":"http://user:pw@{}/ok"}}]}}"#,
+            server.address
+        ),
+    );
+    let output = requestor(&["run", document.to_str().unwrap()]);
+    let text = stdout(&output);
+    assert!(text.contains(&format!("http://{REDACTED}@")), "{text}");
+    assert!(!text.contains("user:pw"));
+}
+
+#[test]
+fn a_request_that_cannot_be_prepared_is_a_failed_request() {
+    let document = scratch(
+        "no-url.json",
+        r#"{"info":{"name":"n"},"item":[{"name":"Blank","request":{"method":"GET"}}]}"#,
+    );
+    let output = requestor(&["run", document.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stdout(&output).contains("FAILED"));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_closed_stdout_exits_quietly_with_success() {
+    use std::process::Stdio;
+
+    let server = router();
+    let path = collection(&server);
+    let mut child = Command::new(env!("CARGO_BIN_EXE_requestor"))
+        .args(["run", path.to_str().unwrap(), "--request", "Good"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(child.stdout.take());
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    assert!(stderr(&output).is_empty(), "{}", stderr(&output));
+}
+
+#[test]
+fn send_accepts_options_after_the_target() {
+    let server = router();
+    let command = format!("curl {}", server.url("/ok"));
+    let output = requestor(&["send", &command, "--timeout-ms", "5000"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+}
+
+#[test]
+fn help_flag_works_after_subcommands() {
+    for arguments in [["run", "-h"], ["send", "--help"], ["import", "--help"]] {
+        let output = requestor(&arguments);
+        assert_eq!(output.status.code(), Some(0));
+        assert!(stdout(&output).contains("USAGE:"));
+    }
+}
+
+#[test]
+fn import_converts_openapi_documents_and_forwards_warnings() {
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../core/tests/fixtures/petstore_openapi.json"
+    );
+    let output = requestor(&["import", fixture, "--to", "postman"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("collection/v2.1.0"));
+    assert!(text.contains("pets"));
 }
