@@ -7,4 +7,5 @@ pub use method_badge::request_title;
 pub mod action_button;
 pub mod auth_editor;
 pub mod key_value_table;
+pub mod switch;
 pub mod variable_text_edit;

@@ -102,6 +102,7 @@ impl Palette {
             state.weak_bg_fill = fill;
             state.bg_stroke = border;
             state.corner_radius = radius;
+            state.fg_stroke.color = self.text;
         }
         visuals.widgets.noninteractive.bg_stroke = border;
         visuals.widgets.noninteractive.corner_radius = radius;

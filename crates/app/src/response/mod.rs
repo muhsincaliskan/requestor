@@ -1,6 +1,8 @@
 mod buffer;
+mod search;
 
 pub use buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
+pub use search::BodySearch;
 
 use std::time::Duration;
 
@@ -22,6 +24,7 @@ pub struct ResponseView {
     pretty: bool,
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
+    search: BodySearch,
 }
 
 impl ResponseView {
@@ -42,6 +45,7 @@ impl ResponseView {
             pretty: true,
             body: response.body,
             display: None,
+            search: BodySearch::default(),
         }
     }
 
@@ -66,6 +70,7 @@ impl ResponseView {
         if self.pretty != pretty {
             self.pretty = pretty;
             self.display = None;
+            self.search.invalidate();
         }
     }
 
@@ -79,6 +84,14 @@ impl ResponseView {
 
     pub fn release_display(&mut self) {
         self.display = None;
+        self.search.invalidate();
+    }
+
+    pub fn searched_display(&mut self) -> (&ResponseBuffer, &mut BodySearch) {
+        self.display();
+        let buffer = self.display.as_ref().expect("display was just built");
+        self.search.refresh(buffer);
+        (buffer, &mut self.search)
     }
 
     #[cfg(test)]
