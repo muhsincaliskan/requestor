@@ -37,6 +37,16 @@ impl ResponseBuffer {
             .map_or(self.text.len(), |next| *next);
         self.text[start..end].trim_end_matches(['\r', '\n'])
     }
+
+    pub fn rows_containing(&self, needle: &str) -> Vec<usize> {
+        let needle = needle.to_lowercase();
+        if needle.is_empty() {
+            return Vec::new();
+        }
+        (0..self.row_count())
+            .filter(|index| self.row(*index).to_lowercase().contains(&needle))
+            .collect()
+    }
 }
 
 fn push_rows(text: &str, line_start: usize, line_end: usize, row_starts: &mut Vec<usize>) {
@@ -90,5 +100,13 @@ mod tests {
         assert_eq!(rejoined, line);
         assert!(buffer.row(0).len() <= MAX_ROW_BYTES);
         assert_eq!(buffer.row(2), "short");
+    }
+
+    #[test]
+    fn finds_rows_case_insensitively() {
+        let buffer = ResponseBuffer::from_text("Alpha\nbeta\nALPHABET\n".to_string());
+        assert_eq!(buffer.rows_containing("alpha"), [0, 2]);
+        assert!(buffer.rows_containing("").is_empty());
+        assert!(buffer.rows_containing("gamma").is_empty());
     }
 }
