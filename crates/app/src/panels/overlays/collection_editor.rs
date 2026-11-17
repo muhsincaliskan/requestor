@@ -1,10 +1,10 @@
-use eframe::egui::{Context, TextEdit, Ui};
+use eframe::egui::{Context, Ui};
 use requestor_core::collection::{Collection, Variable};
 
 use super::dialog;
 use super::table::{
-    delete_cell, edit_rows, enabled_cell, text_cell, RowEdit, ADD_VARIABLE_LABEL, DONE_LABEL,
-    KEY_HINT, NAME_LABEL, VALUE_HINT,
+    delete_cell, edit_rows, enabled_cell, footer, name_field, text_cell, RowEdit, KEY_HINT,
+    VALUE_HINT,
 };
 use crate::state::{Action, AppState};
 
@@ -15,7 +15,6 @@ const VARIABLES_LABEL: &str = "Variables";
 const AUTH_LABEL: &str = "Authorization";
 const NO_AUTH_TEXT: &str = "none";
 const COLUMNS: usize = 4;
-const NAME_WIDTH: f32 = 320.0;
 
 pub fn show(
     ctx: &Context,
@@ -31,7 +30,8 @@ pub fn show(
         auth_line(ui, collection);
         ui.strong(VARIABLES_LABEL);
         changed |= variables_table(ui, collection);
-        if ui.button(ADD_VARIABLE_LABEL).clicked() {
+        let (add, done) = footer(ui);
+        if add {
             collection
                 .variable
                 .get_or_insert_default()
@@ -41,17 +41,8 @@ pub fn show(
         if changed {
             actions.push(Action::CollectionEdited(collection_id.to_string()));
         }
-        !ui.button(DONE_LABEL).clicked()
+        !done
     })
-}
-
-fn name_field(ui: &mut Ui, name: &mut String) -> bool {
-    ui.horizontal(|ui| {
-        ui.label(NAME_LABEL);
-        ui.add(TextEdit::singleline(name).desired_width(NAME_WIDTH))
-            .changed()
-    })
-    .inner
 }
 
 fn auth_line(ui: &mut Ui, collection: &Collection) {

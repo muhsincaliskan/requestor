@@ -1,10 +1,10 @@
-use eframe::egui::{Context, Id, TextEdit, Ui};
+use eframe::egui::{Context, Id, Ui};
 use requestor_core::environment::EnvironmentValue;
 
 use super::dialog;
 use super::table::{
-    delete_cell, edit_rows, enabled_cell, text_cell, RowEdit, ADD_VARIABLE_LABEL, DONE_LABEL,
-    KEY_HINT, NAME_LABEL, VALUE_HINT,
+    delete_cell, edit_rows, enabled_cell, footer, name_field, text_cell, RowEdit, KEY_HINT,
+    VALUE_HINT,
 };
 use crate::state::{Action, AppState};
 
@@ -15,7 +15,6 @@ const TITLE: &str = "Edit environment";
 const SECRET_LABEL: &str = "Secret";
 const REVEAL_LABEL: &str = "Show secret values";
 const COLUMNS: usize = 5;
-const NAME_WIDTH: f32 = 320.0;
 
 pub fn show(
     ctx: &Context,
@@ -36,28 +35,20 @@ pub fn show(
             &mut environment.values,
             |ui, entry| row(ui, entry, reveal),
         );
-        if ui.button(ADD_VARIABLE_LABEL).clicked() {
+        let (add, done) = footer(ui);
+        if add {
             environment.values.push(EnvironmentValue::blank());
             changed = true;
         }
         if changed {
             actions.push(Action::EnvironmentEdited(environment_id.to_string()));
         }
-        !ui.button(DONE_LABEL).clicked()
+        !done
     });
     if !stays_open {
         ctx.data_mut(|data| data.remove_temp::<bool>(Id::new(REVEAL_ID)));
     }
     stays_open
-}
-
-fn name_field(ui: &mut Ui, name: &mut String) -> bool {
-    ui.horizontal(|ui| {
-        ui.label(NAME_LABEL);
-        ui.add(TextEdit::singleline(name).desired_width(NAME_WIDTH))
-            .changed()
-    })
-    .inner
 }
 
 fn reveal_toggle(ui: &mut Ui) -> bool {
