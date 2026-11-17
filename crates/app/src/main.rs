@@ -37,7 +37,8 @@ fn main() -> eframe::Result {
             ),
             ..eframe::NativeOptions::default()
         },
-        Box::new(move |_creation_context| {
+        Box::new(move |creation_context| {
+            theme::install_fonts(&creation_context.egui_ctx);
             Ok(Box::new(
                 RequestorApp::new(store).sending_active_tab_on_start(send_on_start),
             ))

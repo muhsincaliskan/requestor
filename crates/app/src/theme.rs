@@ -4,8 +4,10 @@ use requestor_core::workspace::{InterfaceSettings, ThemeName};
 mod contrast;
 mod palette;
 mod style;
+mod typeface;
 
 pub use contrast::label_on;
+pub use typeface::install as install_fonts;
 
 pub use palette::{Palette, DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
 
