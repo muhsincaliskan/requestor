@@ -33,7 +33,15 @@ APP_ARGS=()
 if [ "$RESPONSE_MB" != "0" ]; then
   (cd "$WORK/fixture" && exec python3 -m http.server "$PORT" --bind 127.0.0.1) >/dev/null 2>&1 &
   SERVER_PID=$!
-  sleep 1
+  FIXTURE_URL="http://127.0.0.1:$PORT/response.json"
+  for _ in $(seq 1 50); do
+    curl -sfI "$FIXTURE_URL" >/dev/null 2>&1 && break
+    sleep 0.2
+  done
+  if ! curl -sfI "$FIXTURE_URL" >/dev/null 2>&1; then
+    echo "::error::The response fixture server did not start"
+    exit 1
+  fi
   APP_ARGS+=(--send-active-tab)
 fi
 
@@ -42,20 +50,21 @@ APP_PID=$!
 sleep "$SETTLE_SECONDS"
 
 if ! kill -0 "$APP_PID" 2>/dev/null; then
-  echo "::warning::Requestor did not stay running, memory was not measured"
-  exit 0
+  echo "::error::Requestor exited before memory could be measured"
+  exit 1
 fi
 
 case "$(uname -s)" in
   Darwin)
     FOOTPRINT_KB="$(footprint -p "$APP_PID" --format bytes 2>/dev/null \
-      | awk '/Footprint:/ { printf "%d", $(NF-1) / 1024; exit }')"
+      | awk '/Footprint:/ { for (i = 1; i < NF; i++) if ($i == "Footprint:") { printf "%d", $(i + 1) / 1024; exit } }')"
     ;;
   *)
     FOOTPRINT_KB="$(awk '/^Pss:/ { print $2; exit }' "/proc/$APP_PID/smaps_rollup" 2>/dev/null)"
     ;;
 esac
 if [ -z "${FOOTPRINT_KB:-}" ] || [ "$FOOTPRINT_KB" = "0" ]; then
+  echo "::warning::Footprint was not available, falling back to resident set size"
   FOOTPRINT_KB="$(ps -o rss= -p "$APP_PID" | tr -d ' ')"
 fi
 FOOTPRINT_MB=$((FOOTPRINT_KB / 1024))
