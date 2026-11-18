@@ -58,13 +58,21 @@ fn layout_choice(ui: &mut Ui, view: &mut ResponseView) {
     if !view.format.has_layout() {
         return;
     }
-    let mut layout = view.layout();
+    let selected = match (view.layout(), view.is_inspectable()) {
+        (BodyLayout::Tree, false) => BodyLayout::Pretty,
+        (layout, _) => layout,
+    };
     for choice in BodyLayout::ALL {
-        if choice != BodyLayout::Tree || view.is_inspectable() {
-            ui.selectable_value(&mut layout, choice, choice.label());
+        if choice == BodyLayout::Tree && !view.is_inspectable() {
+            continue;
+        }
+        if ui
+            .selectable_label(selected == choice, choice.label())
+            .clicked()
+        {
+            view.set_layout(choice);
         }
     }
-    view.set_layout(layout);
 }
 
 fn toolbar(ui: &mut Ui, view: &mut ResponseView, tree: bool, actions: &mut Vec<Action>) {

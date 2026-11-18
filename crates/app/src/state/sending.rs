@@ -91,6 +91,9 @@ impl AppState {
         if self.tab(id).is_some_and(RequestTab::is_connected) {
             return self.send_socket_message(id, effects);
         }
+        if let Some(tab) = self.tab_mut(id) {
+            tab.remember_body_presentation();
+        }
         let Some(prepared) = self.prepare(id) else {
             return;
         };
@@ -149,9 +152,13 @@ impl AppState {
                 if let Some(report) = &report {
                     self.store_extracted(report, collection_id.as_deref());
                 }
+                let presentation = self
+                    .tab_mut(id)
+                    .and_then(|tab| tab.body_presentation.take());
                 let view = ResponseView::from_response(response, detect_format)
                     .with_report(report)
-                    .with_previous(previous);
+                    .with_previous(previous)
+                    .with_presentation(presentation);
                 Exchange::Completed(Box::new(view))
             }
             Err(reason) => Exchange::Failed(reason),

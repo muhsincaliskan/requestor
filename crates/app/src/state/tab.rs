@@ -7,6 +7,7 @@ use requestor_core::workspace::{SessionTab, Workspace};
 use super::exchange::Exchange;
 use super::schema_view::SchemaView;
 use super::sections::{EditorSection, ResponseSection};
+use crate::response::BodyPresentation;
 
 pub const UNTITLED_REQUEST: &str = "Untitled request";
 const RESTORED_AT: f64 = 0.0;
@@ -28,6 +29,7 @@ pub struct RequestTab {
     pub unsaved: bool,
     pub edited_at: Option<f64>,
     pub exchange: Exchange,
+    pub(super) body_presentation: Option<BodyPresentation>,
     pub editor_section: EditorSection,
     pub response_section: ResponseSection,
     pub message_draft: String,
@@ -190,6 +192,12 @@ impl RequestTab {
         Some(job)
     }
 
+    pub(super) fn remember_body_presentation(&mut self) {
+        if let Exchange::Completed(view) = &mut self.exchange {
+            self.body_presentation = Some(view.take_presentation());
+        }
+    }
+
     pub fn release_display(&mut self) {
         if let Exchange::Completed(view) = &mut self.exchange {
             view.release_display();
@@ -210,6 +218,7 @@ impl RequestTab {
             unsaved,
             edited_at: None,
             exchange: Exchange::Idle,
+            body_presentation: None,
             editor_section: EditorSection::default(),
             response_section: ResponseSection::default(),
             message_draft: String::new(),
