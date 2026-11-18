@@ -8,6 +8,12 @@ const HOVER_INSET: f32 = 3.0;
 const CLOSE_CROSS_SIZE: f32 = 7.0;
 const CHEVRON_HALF_WIDTH: f32 = 4.0;
 const CHEVRON_HALF_HEIGHT: f32 = 2.0;
+const EYE_HALF_WIDTH: f32 = 6.0;
+const EYE_HALF_HEIGHT: f32 = 3.5;
+const EYE_PUPIL_RADIUS: f32 = 1.6;
+const EYE_SEGMENTS: usize = 12;
+const SHOW_HINT: &str = "Show value";
+const HIDE_HINT: &str = "Hide value";
 
 pub fn icon_button(ui: &mut Ui, glyph: &str, hint: &str) -> Response {
     ui.add(
@@ -35,6 +41,25 @@ pub fn chevron_button(ui: &mut Ui, hint: &str) -> Response {
             center + vec2(CHEVRON_HALF_WIDTH, -CHEVRON_HALF_HEIGHT),
         ];
         painter.add(Shape::line(points, stroke));
+    })
+}
+
+pub fn eye_button(ui: &mut Ui, revealed: bool) -> Response {
+    let hint = if revealed { HIDE_HINT } else { SHOW_HINT };
+    painted_button(ui, hint, |painter, rect, stroke| {
+        let center = rect.center();
+        let outline: Vec<_> = (0..=EYE_SEGMENTS * 2)
+            .map(|step| {
+                let angle = std::f32::consts::PI * step as f32 / EYE_SEGMENTS as f32;
+                center + vec2(EYE_HALF_WIDTH * angle.cos(), EYE_HALF_HEIGHT * angle.sin())
+            })
+            .collect();
+        painter.add(Shape::closed_line(outline, stroke));
+        painter.circle_filled(center, EYE_PUPIL_RADIUS, stroke.color);
+        if revealed {
+            let corner = vec2(EYE_HALF_WIDTH, EYE_HALF_WIDTH);
+            painter.line_segment([center - corner, center + corner], stroke);
+        }
     })
 }
 

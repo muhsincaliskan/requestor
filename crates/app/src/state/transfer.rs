@@ -114,14 +114,12 @@ impl AppState {
         }
     }
 
-    fn export(&mut self, target: &LibraryTarget, file_path: PathBuf, effects: &mut Vec<Effect>) {
-        let format = ExportFormat::of(&file_path);
-        let settings = &self.workspace.settings.request;
-        let document = match target {
+    pub fn exposed_credential_count(&self, target: &LibraryTarget) -> usize {
+        match target {
             LibraryTarget::Collection { collection_id } => self
                 .workspace
                 .collection(collection_id)
-                .map(|collection| format.render(collection, settings)),
+                .map_or(0, Collection::literal_secret_count),
             LibraryTarget::Item {
                 collection_id,
                 item_id,
@@ -129,11 +127,55 @@ impl AppState {
                 .workspace
                 .collection(collection_id)
                 .and_then(|collection| collection.find_item(item_id))
-                .map(|item| format.render(&Collection::containing(item.clone()), settings)),
+                .map_or(0, |item| {
+                    Collection::containing(item.clone()).literal_secret_count()
+                }),
             LibraryTarget::Environment { environment_id } => self
                 .workspace
                 .environment(environment_id)
-                .map(Environment::to_export_json),
+                .map_or(0, Environment::unmarked_secret_count),
+        }
+    }
+
+    fn export(&mut self, target: &LibraryTarget, file_path: PathBuf, effects: &mut Vec<Effect>) {
+        let keep_credentials = matches!(
+            &self.overlay,
+            Some(Overlay::Export(form)) if form.keep_credentials
+        );
+        let format = ExportFormat::of(&file_path);
+        let settings = &self.workspace.settings.request;
+        let shareable = |collection: Collection| {
+            if keep_credentials {
+                collection
+            } else {
+                collection.without_literal_secrets()
+            }
+        };
+        let document = match target {
+            LibraryTarget::Collection { collection_id } => self
+                .workspace
+                .collection(collection_id)
+                .map(|collection| format.render(&shareable(collection.clone()), settings)),
+            LibraryTarget::Item {
+                collection_id,
+                item_id,
+            } => self
+                .workspace
+                .collection(collection_id)
+                .and_then(|collection| collection.find_item(item_id))
+                .map(|item| {
+                    format.render(&shareable(Collection::containing(item.clone())), settings)
+                }),
+            LibraryTarget::Environment { environment_id } => self
+                .workspace
+                .environment(environment_id)
+                .map(|environment| {
+                    if keep_credentials {
+                        environment.to_export_json()
+                    } else {
+                        environment.without_unmarked_secrets().to_export_json()
+                    }
+                }),
         };
         match document {
             Some(Ok(contents)) => {

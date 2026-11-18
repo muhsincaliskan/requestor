@@ -49,7 +49,7 @@ impl AuthAttribute {
         }
     }
 
-    fn set_text(&mut self, text: &str) {
+    pub(super) fn set_text(&mut self, text: &str) {
         if self.value.as_ref().and_then(Value::as_str) != Some(text) {
             self.value = Some(Value::String(text.to_string()));
         }

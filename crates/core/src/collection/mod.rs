@@ -1,6 +1,7 @@
 pub mod auth;
 mod body;
 mod browse;
+mod credentials;
 mod event;
 mod example;
 mod identity;

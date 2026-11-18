@@ -85,6 +85,7 @@ pub struct ExportForm {
     pub target: LibraryTarget,
     pub file_path: String,
     pub error: Option<String>,
+    pub keep_credentials: bool,
 }
 
 #[derive(Clone, PartialEq)]
@@ -153,6 +154,7 @@ impl ExportForm {
             target,
             file_path,
             error: None,
+            keep_credentials: false,
         }
     }
 }

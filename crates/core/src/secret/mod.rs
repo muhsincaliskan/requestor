@@ -11,6 +11,8 @@ pub use redactor::Redactor;
 
 const MASK: &str = "********";
 pub const REDACTED: &str = "<redacted>";
+const VARIABLE_OPEN: &str = "{{";
+const VARIABLE_CLOSE: &str = "}}";
 const SECRET_NAME_MARKERS: [&str; 9] = [
     "auth",
     "cookie",
@@ -22,6 +24,14 @@ const SECRET_NAME_MARKERS: [&str; 9] = [
     "signature",
     "credential",
 ];
+
+pub(crate) fn is_literal(value: &str) -> bool {
+    let trimmed = value.trim();
+    let reference = trimmed.starts_with(VARIABLE_OPEN)
+        && trimmed.ends_with(VARIABLE_CLOSE)
+        && trimmed.matches(VARIABLE_OPEN).count() == 1;
+    !trimmed.is_empty() && !reference
+}
 
 pub fn is_secret_name(name: &str) -> bool {
     let lowered = name.to_ascii_lowercase();
