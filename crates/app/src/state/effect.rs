@@ -23,6 +23,7 @@ pub enum Effect {
         contents: String,
     },
     CopyText(String),
+    OpenUrl(String),
     AbortSend(u64),
     PickImportFile,
     PickExportLocation {
@@ -44,6 +45,7 @@ impl Effect {
                 .map_err(|error| error.to_string()),
             Effect::Send { .. }
             | Effect::CopyText(_)
+            | Effect::OpenUrl(_)
             | Effect::AbortSend(_)
             | Effect::PickImportFile
             | Effect::PickExportLocation { .. }

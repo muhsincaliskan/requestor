@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::history::HistoryEntry;
 use requestor_core::response::HttpResponse;
+use requestor_core::update::Release;
 
 use super::folders::FolderPurpose;
 use super::overlay::{LibraryTarget, Overlay};
@@ -92,6 +93,8 @@ pub enum Action {
     },
     StopSavingToFolder(String),
     SettingsEdited,
+    UpdateAvailable(Release),
+    OpenReleasePage,
     Show(Overlay),
     DismissNotice,
 }
