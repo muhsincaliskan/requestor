@@ -1,7 +1,9 @@
 mod auth;
 mod body;
 mod body_source;
+mod code;
 mod curl;
+mod exposure;
 mod multipart;
 
 use crate::collection::{Request, Url};
@@ -13,6 +15,7 @@ use crate::settings::RequestSettings;
 use crate::variables::{placeholder_names, VariableScope};
 
 pub use body_source::{BodySource, FormField, FormValue};
+pub use code::CodeLanguage;
 
 use body::EncodedBody;
 

@@ -4,6 +4,10 @@ use crate::variables::VariableScope;
 
 pub const CONTENT_TYPE: &str = "Content-Type";
 pub const ACCEPT: &str = "Accept";
+pub const COOKIE: &str = "Cookie";
+
+const COOKIE_SEPARATOR: &str = "; ";
+const VALUE_SEPARATOR: &str = ", ";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header {
@@ -25,6 +29,16 @@ impl Header {
 
     pub fn is_sensitive(&self) -> bool {
         is_secret_name(&self.name)
+    }
+
+    pub fn append_value(&mut self, value: &str) {
+        let separator = if self.is_named(COOKIE) {
+            COOKIE_SEPARATOR
+        } else {
+            VALUE_SEPARATOR
+        };
+        self.value.push_str(separator);
+        self.value.push_str(value);
     }
 
     pub fn shown_value(&self) -> &str {
@@ -58,6 +72,16 @@ mod tests {
     use super::Header;
     use crate::collection::Param;
     use crate::variables::VariableScope;
+
+    #[test]
+    fn repeated_values_are_joined_the_way_the_header_expects() {
+        let mut accept = Header::new("Accept", "text/plain");
+        accept.append_value("application/json");
+        assert_eq!(accept.value, "text/plain, application/json");
+        let mut cookie = Header::new("cookie", "a=1");
+        cookie.append_value("b=2");
+        assert_eq!(cookie.value, "a=1; b=2");
+    }
 
     #[test]
     fn rows_without_a_name_are_not_sent() {

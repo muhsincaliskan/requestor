@@ -1,4 +1,7 @@
+use std::fmt;
 use std::path::PathBuf;
+
+use requestor_core::prepared::CodeLanguage;
 
 use super::action::Action;
 use super::tab::TabId;
@@ -57,6 +60,14 @@ pub struct ExportForm {
     pub error: Option<String>,
 }
 
+#[derive(Clone, PartialEq)]
+pub struct CodeForm {
+    pub tab: TabId,
+    pub language: CodeLanguage,
+    pub include_secrets: bool,
+    pub code: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Overlay {
     Settings,
@@ -69,6 +80,7 @@ pub enum Overlay {
     Rename(RenameForm),
     Export(ExportForm),
     CommandPalette(PaletteForm),
+    Code(CodeForm),
 }
 
 const COLLECTION_FILE_SUFFIX: &str = ".postman_collection.json";
@@ -122,6 +134,35 @@ impl ExportForm {
         Action::ChooseExportLocation {
             target: self.target.clone(),
             suggested: PathBuf::from(self.file_path.trim()),
+        }
+    }
+}
+
+impl fmt::Debug for CodeForm {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("CodeForm")
+            .field("tab", &self.tab)
+            .field("language", &self.language)
+            .field("include_secrets", &self.include_secrets)
+            .finish_non_exhaustive()
+    }
+}
+
+impl CodeForm {
+    pub fn with_language(&self, language: CodeLanguage) -> Action {
+        Action::ShowCode {
+            tab: self.tab,
+            language,
+            include_secrets: self.include_secrets,
+        }
+    }
+
+    pub fn with_secrets(&self, include_secrets: bool) -> Action {
+        Action::ShowCode {
+            tab: self.tab,
+            language: self.language,
+            include_secrets,
         }
     }
 }

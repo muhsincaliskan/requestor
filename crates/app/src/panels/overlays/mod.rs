@@ -1,3 +1,4 @@
+mod code;
 mod collection_editor;
 mod dialogs;
 mod environment_editor;
@@ -32,6 +33,7 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         Overlay::Rename(form) => dialogs::rename(ctx, form, actions),
         Overlay::Export(form) => dialogs::export(ctx, form, actions),
         Overlay::CommandPalette(form) => palette::show(ctx, state, form, actions),
+        Overlay::Code(form) => code::show(ctx, form, actions),
     };
     if stays_open {
         state.overlay = Some(overlay);
