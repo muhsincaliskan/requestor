@@ -29,6 +29,7 @@ pub struct FolderLayout {
 }
 
 impl FolderLayout {
+    #[cfg(test)]
     pub fn of(collection: &Collection) -> Result<Self, serde_json::Error> {
         FolderLayout::around(collection, &FolderSurroundings::default())
     }

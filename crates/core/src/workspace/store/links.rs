@@ -2,16 +2,17 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::linked_folder::LinkedFolder;
+use super::linked_folder::{nested, same_folder, LinkedFolder};
 use super::{pending, read_document, WorkspaceStore};
 use crate::collection::Collection;
-use crate::workspace::folder::{read_folder, COLLECTION_FILE};
+use crate::workspace::folder::{read_folder, COLLECTION_FILE, FOLDER_FILE};
 use crate::workspace::{PendingDelete, StoreError, StoreWrite};
 
 pub(super) const LINKS_FILE: &str = "linked-folders.json";
 const HOLDS_A_COLLECTION: &str = "this folder already holds a collection; open it instead";
 const NOT_A_FOLDER: &str = "this is a file, not a folder";
 const ALREADY_OPEN: &str = "this folder is already open";
+const OVERLAPS: &str = "this folder is inside, or holds, a folder that is already open";
 
 #[derive(Debug, Default)]
 pub(super) struct LinkedFolders {
@@ -36,9 +37,17 @@ impl LinkedFolders {
         roots
     }
 
-    fn ensure_not_open(&self, root: &Path) -> Result<(), StoreError> {
+    fn ensure_apart(&self, root: &Path) -> Result<(), StoreError> {
         if self.folders.values().any(|folder| folder.is_at(root)) {
             return Err(StoreError::at(root, ALREADY_OPEN));
+        }
+        let overlapping = self.folders.values().any(|folder| folder.overlaps(root))
+            || self
+                .unavailable
+                .iter()
+                .any(|known| nested(known, root) && !same_folder(known, root));
+        if overlapping {
+            return Err(StoreError::at(root, OVERLAPS));
         }
         Ok(())
     }
@@ -57,7 +66,7 @@ impl WorkspaceStore {
         collection: &Collection,
         root: PathBuf,
     ) -> Result<StoreWrite, StoreError> {
-        self.linked.ensure_not_open(&root)?;
+        self.linked.ensure_apart(&root)?;
         ensure_free(&root)?;
         let mut folder = LinkedFolder::new(root, Vec::new());
         let write = folder
@@ -74,7 +83,7 @@ impl WorkspaceStore {
     }
 
     pub fn open_folder(&self, root: &Path) -> Result<(Collection, Vec<PathBuf>), StoreError> {
-        self.linked.ensure_not_open(root)?;
+        self.linked.ensure_apart(root)?;
         read_folder(root)
     }
 
@@ -167,7 +176,10 @@ fn ensure_free(root: &Path) -> Result<(), StoreError> {
     if root.is_file() {
         return Err(StoreError::at(root, NOT_A_FOLDER));
     }
-    if fs::symlink_metadata(root.join(COLLECTION_FILE)).is_ok() {
+    let holds_items = [COLLECTION_FILE, FOLDER_FILE]
+        .iter()
+        .any(|file| fs::symlink_metadata(root.join(file)).is_ok());
+    if holds_items {
         return Err(StoreError::at(root, HOLDS_A_COLLECTION));
     }
     Ok(())

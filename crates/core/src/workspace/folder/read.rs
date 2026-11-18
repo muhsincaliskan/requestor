@@ -4,12 +4,11 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::{COLLECTION_FILE, FOLDER_FILE, ITEMS_KEY, ORDER_KEY, REQUEST_KEY};
-use crate::collection::Collection;
+use crate::collection::{Collection, Item};
 use crate::workspace::store::JSON_EXTENSION;
 use crate::workspace::StoreError;
 
 const HIDDEN_MARK: char = '.';
-const REQUEST_MARKER: &str = "\"request\"";
 
 #[derive(Debug, Default)]
 struct FolderReader {
@@ -37,11 +36,11 @@ impl FolderReader {
             .map(|entry| (entry, true))
             .chain(unlisted.into_iter().map(|entry| (entry, false)));
         for (entry, is_listed) in entries {
-            let path = directory.join(&entry);
-            if path.is_dir() {
-                items.push(self.directory(&path, FOLDER_FILE)?);
-            } else if let Some(request) = self.request(path, is_listed)? {
-                items.push(request);
+            let mark = self.owned.len();
+            match self.item(&directory.join(&entry), is_listed) {
+                Ok(item) => items.extend(item),
+                Err(_) if !is_listed => self.owned.truncate(mark),
+                Err(error) => return Err(error),
             }
         }
         if let Value::Object(members) = &mut document {
@@ -50,18 +49,26 @@ impl FolderReader {
         Ok(document)
     }
 
-    fn request(&mut self, path: PathBuf, listed: bool) -> Result<Option<Value>, StoreError> {
-        let text = read_text(&path)?;
-        if !listed && !text.contains(REQUEST_MARKER) {
+    fn item(&mut self, path: &Path, listed: bool) -> Result<Option<Value>, StoreError> {
+        if path.is_dir() {
+            return self.directory(path, FOLDER_FILE).map(Some);
+        }
+        self.request(path, listed)
+    }
+
+    fn request(&mut self, path: &Path, listed: bool) -> Result<Option<Value>, StoreError> {
+        let text = read_text(path)?;
+        if !listed && !text.contains(&format!("\"{REQUEST_KEY}\"")) {
             return Ok(None);
         }
-        let document = match serde_json::from_str::<Value>(&text) {
-            Ok(document) if is_request(&document) => document,
-            Ok(_) => return Ok(None),
-            Err(_) if !listed => return Ok(None),
-            Err(error) => return Err(StoreError::at(&path, error)),
-        };
-        self.owned.push(path);
+        let document: Value =
+            serde_json::from_str(&text).map_err(|error| StoreError::at(path, error))?;
+        if !is_request(&document) {
+            return Ok(None);
+        }
+        serde_json::from_value::<Item>(document.clone())
+            .map_err(|error| StoreError::at(path, error))?;
+        self.owned.push(path.to_path_buf());
         Ok(Some(document))
     }
 }

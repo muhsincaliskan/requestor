@@ -24,6 +24,10 @@ impl LinkedFolder {
         same_folder(&self.root, root)
     }
 
+    pub(super) fn overlaps(&self, root: &Path) -> bool {
+        nested(&self.root, root)
+    }
+
     pub(super) fn next_write(
         &mut self,
         collection: &Collection,
@@ -50,8 +54,14 @@ impl LinkedFolder {
 }
 
 pub(super) fn same_folder(left: &Path, right: &Path) -> bool {
-    match (fs::canonicalize(left), fs::canonicalize(right)) {
-        (Ok(left), Ok(right)) => left == right,
-        _ => left == right,
-    }
+    resolved(left) == resolved(right)
+}
+
+pub(super) fn nested(left: &Path, right: &Path) -> bool {
+    let (left, right) = (resolved(left), resolved(right));
+    left.starts_with(&right) || right.starts_with(&left)
+}
+
+fn resolved(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
