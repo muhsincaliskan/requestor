@@ -5,7 +5,7 @@ use requestor_core::response::HttpResponse;
 use requestor_core::workspace::{LoadedWorkspace, StoreWrite, Workspace, WorkspaceStore};
 
 use super::autosave::QUIET_SECONDS;
-use super::{Action, AppState, Effect, Exchange, LibraryTarget, Overlay, TabId};
+use super::{Action, AppState, Effect, Exchange, LibraryTarget, Overlay, SaveTabForm, TabId};
 
 const STORE_ROOT: &str = "requestor-state-tests";
 const LATER: f64 = QUIET_SECONDS + 1.0;
@@ -200,6 +200,36 @@ fn a_scratch_tab_is_saved_into_a_collection_and_becomes_bound() {
         stored_url(&state, &collection_id, &binding.item_id),
         "https://example.test/new"
     );
+}
+
+#[test]
+fn a_collection_created_while_saving_returns_to_the_save_form() {
+    let mut state = state_with(Workspace::default());
+    state.apply(Action::NewTab, 0.0);
+    let tab = state.active_tab.unwrap();
+    state.apply(Action::SaveTab(tab), 0.0);
+    let Some(Overlay::SaveTab(form)) = state.overlay.clone() else {
+        panic!("expected the save form, got {:?}", state.overlay);
+    };
+    assert_eq!(form.collection_id, None);
+
+    state.apply(Action::NewCollectionForSave(form), 0.0);
+    let created = state.workspace.collections[0].id().to_string();
+    let Some(Overlay::SaveTab(form)) = state.overlay.clone() else {
+        panic!("expected the save form, got {:?}", state.overlay);
+    };
+    assert_eq!(form.collection_id, Some(created.clone()));
+    assert_eq!(form.folder_id, None);
+    let unnamed = SaveTabForm {
+        name: "  ".to_string(),
+        ..form.clone()
+    };
+    assert!(unnamed.submission().is_none());
+
+    state.apply(form.submission().unwrap(), 0.0);
+    let saved = state.tab(tab).unwrap();
+    assert_eq!(saved.binding.as_ref().unwrap().collection_id, created);
+    assert_eq!(state.overlay, None);
 }
 
 #[test]

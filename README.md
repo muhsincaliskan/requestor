@@ -8,6 +8,8 @@ A lightweight HTTP request client written in Rust, built to keep memory use smal
 
 Download the latest build from the Releases page: a `.dmg` or zipped `.app` for macOS (universal), a `.tar.gz` for Linux or a `.zip` for Windows. On macOS open the `.dmg` and drag Requestor to Applications.
 
+On Linux the file dialogs come from the desktop's file chooser portal (`xdg-desktop-portal`), or from `zenity` when no portal runs. Without either, Choose file does nothing, but you can still drop files onto the window or paste text and addresses into Import.
+
 The macOS app is only ad-hoc signed, so on first launch Gatekeeper may block it. Right-click the app and choose Open, or run:
 
 ```

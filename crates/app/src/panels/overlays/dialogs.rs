@@ -81,23 +81,33 @@ pub fn save_tab(
             ui.label(NO_COLLECTION_TEXT);
             return button_row(ui, |ui| {
                 if action_button::primary(ui, NEW_COLLECTION_LABEL).clicked() {
-                    actions.push(Action::NewCollection);
+                    actions.push(Action::NewCollectionForSave(form.clone()));
                     return false;
                 }
                 !ui.button(CANCEL_LABEL).clicked()
             });
         };
-        ui.add(TextEdit::singleline(&mut form.name).desired_width(FIELD_WIDTH));
+        let confirmed = name_field(ui, &mut form.name);
         collection_choice(ui, state, collection, form);
         folder_choice(ui, collection, form);
         button_row(ui, |ui| {
-            if action_button::primary(ui, SAVE_LABEL).clicked() {
-                actions.extend(form.submission());
+            let submitted = action_button::primary(ui, SAVE_LABEL).clicked() || confirmed;
+            if let Some(submission) = form.submission().filter(|_| submitted) {
+                actions.push(submission);
                 return false;
             }
             !ui.button(CANCEL_LABEL).clicked()
         })
     })
+}
+
+fn name_field(ui: &mut Ui, name: &mut String) -> bool {
+    let field = ui.add(TextEdit::singleline(name).desired_width(FIELD_WIDTH));
+    let confirmed = field.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
+    if !confirmed && ui.memory(|memory| memory.focused().is_none()) {
+        field.request_focus();
+    }
+    confirmed
 }
 
 fn collection_choice(ui: &mut Ui, state: &AppState, chosen: &Collection, form: &mut SaveTabForm) {

@@ -9,7 +9,7 @@ use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
 
 use super::folders::FolderPurpose;
-use super::overlay::{LibraryTarget, Overlay};
+use super::overlay::{LibraryTarget, Overlay, SaveTabForm};
 use super::stream::StreamUpdate;
 use super::tab::TabId;
 
@@ -82,6 +82,7 @@ pub enum Action {
     OpenHistoryEntry(Box<HistoryEntry>),
     ClearHistory,
     NewCollection,
+    NewCollectionForSave(SaveTabForm),
     AddFolder {
         collection_id: String,
         parent_id: Option<String>,
