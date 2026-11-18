@@ -11,8 +11,11 @@ mod state;
 mod theme;
 mod widgets;
 
+use std::sync::Arc;
+
 use app::RequestorApp;
 use eframe::egui::ViewportBuilder;
+use requestor_core::vault::KeychainVaultStore;
 use requestor_core::workspace::WorkspaceStore;
 
 const APP_NAME: &str = "Requestor";
@@ -28,6 +31,8 @@ const WINDOW_ICON_SIZE: u32 = 64;
 fn main() -> eframe::Result {
     let store = WorkspaceStore::in_default_location()
         .unwrap_or_else(|| WorkspaceStore::new(FALLBACK_STORE_DIRECTORY));
+    let keychain = KeychainVaultStore::for_workspace(store.root());
+    let store = store.with_vault(Arc::new(keychain));
     let send_on_start = std::env::args().any(|argument| argument == SEND_ON_START_FLAG);
     eframe::run_native(
         APP_NAME,

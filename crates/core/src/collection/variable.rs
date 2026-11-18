@@ -60,6 +60,12 @@ impl Variable {
         self.kind.as_deref() == Some(SECRET_KIND)
     }
 
+    pub fn clear_secret_value(&mut self) {
+        if self.is_secret() {
+            self.value = Some(Value::String(String::new()));
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         !self.disabled.unwrap_or(false)
     }

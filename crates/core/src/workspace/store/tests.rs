@@ -13,6 +13,7 @@ mod folder_safety;
 mod foreign_files;
 mod lifecycle;
 mod links;
+mod vault;
 
 pub(super) struct TemporaryRoot(pub PathBuf);
 

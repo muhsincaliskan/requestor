@@ -182,6 +182,7 @@ impl AppState {
             LibraryTarget::Environment { environment_id } => {
                 if self.workspace.remove_environment(environment_id).is_some() {
                     self.unsaved.forget_environment(environment_id);
+                    self.unsaved.touch_secrets(self.now);
                     effects.extend(
                         self.store
                             .release_environment_path(environment_id)

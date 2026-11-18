@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::secret::Secret;
 use crate::settings::RequestSettings;
 
 const DEFAULT_INTERFACE_SCALE: f32 = 1.0;
@@ -95,6 +96,28 @@ impl InterfaceSettings {
                 .clamp(MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE)
         } else {
             DEFAULT_INTERFACE_SCALE
+        }
+    }
+}
+
+impl AppSettings {
+    pub fn proxy_password(&self) -> Option<&Secret> {
+        self.request.proxy.as_ref()?.password.as_ref()
+    }
+
+    pub fn without_secrets(&self) -> AppSettings {
+        let mut stripped = self.clone();
+        if let Some(proxy) = stripped.request.proxy.as_mut() {
+            proxy.password = None;
+        }
+        stripped
+    }
+
+    pub fn restore_proxy_password(&mut self, saved: Option<&Secret>) {
+        if let Some(proxy) = self.request.proxy.as_mut() {
+            if proxy.password.is_none() {
+                proxy.password = saved.cloned();
+            }
         }
     }
 }

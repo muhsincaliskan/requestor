@@ -67,6 +67,14 @@ impl Collection {
         Ok(serde_json::to_string_pretty(self)?)
     }
 
+    pub fn to_export_json(&self) -> Result<String, CoreError> {
+        let mut stripped = self.clone();
+        for variable in stripped.variable.iter_mut().flatten() {
+            variable.clear_secret_value();
+        }
+        stripped.to_json_pretty()
+    }
+
     pub fn request_count(&self) -> usize {
         self.item.iter().map(Item::request_count).sum()
     }

@@ -13,7 +13,7 @@ const LATER: f64 = QUIET_SECONDS + 1.0;
 fn state_with(workspace: Workspace) -> AppState {
     let loaded = LoadedWorkspace {
         workspace,
-        warnings: Vec::new(),
+        ..LoadedWorkspace::default()
     };
     AppState::new(loaded, WorkspaceStore::new(STORE_ROOT))
 }
@@ -436,6 +436,7 @@ mod changes;
 mod folders;
 mod history;
 mod rules;
+mod secrets;
 mod sockets;
 mod streaming;
 mod transfer;
