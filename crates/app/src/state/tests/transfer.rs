@@ -5,6 +5,7 @@ use requestor_core::workspace::Workspace;
 
 use super::{open, state_with, state_with_request};
 use requestor_core::draft::BodyKind;
+use requestor_core::import::{ImportError, Imported, ImportedCollection};
 use requestor_core::soap::SoapVersion;
 
 use crate::state::{Action, Effect, LibraryTarget, Overlay};
@@ -129,4 +130,41 @@ fn a_wsdl_file_opens_its_operations_as_soap_requests() {
         "{}",
         draft.body.raw
     );
+}
+
+#[test]
+fn a_wsdl_address_is_downloaded_before_it_is_imported() {
+    let mut state = state_with(Workspace::default());
+    state.apply(Action::Show(Overlay::Import(Default::default())), 0.0);
+    let effects = state.apply(
+        Action::ImportText(" https://calc.example.test/service.asmx?WSDL ".to_string()),
+        0.0,
+    );
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::DownloadImport { address, .. }] if address == "https://calc.example.test/service.asmx?WSDL"
+    ));
+    let Some(Overlay::Import(form)) = &state.overlay else {
+        panic!("the import dialog stays open while downloading");
+    };
+    assert!(form.downloading);
+
+    let failed = Err(ImportError::Download("the server answered 404".to_string()));
+    state.apply(Action::ImportDownloaded(Box::new(failed)), 0.0);
+    let Some(Overlay::Import(form)) = &state.overlay else {
+        panic!("a failed download keeps the dialog open");
+    };
+    assert!(!form.downloading);
+    assert!(form
+        .error
+        .as_deref()
+        .is_some_and(|error| error.contains("404")));
+
+    let collection = ImportedCollection::without_warnings(Collection::new("Calculator"));
+    state.apply(
+        Action::ImportDownloaded(Box::new(Ok(Imported::Collection(collection)))),
+        0.0,
+    );
+    assert!(state.overlay.is_none());
+    assert_eq!(state.workspace.collections[0].info.name, "Calculator");
 }

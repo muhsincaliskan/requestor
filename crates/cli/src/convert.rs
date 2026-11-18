@@ -1,5 +1,7 @@
 use requestor_core::error::CoreError;
-use requestor_core::import::{import_file_text, Imported};
+use requestor_core::import::{import_address, import_file_text, Imported};
+use requestor_core::settings::RequestSettings;
+use requestor_core::transport::ReqwestTransport;
 
 use crate::args::ImportOptions;
 use crate::error::CliError;
@@ -22,15 +24,25 @@ impl PostmanDocument {
 }
 
 pub fn execute(options: &ImportOptions, out: &mut impl std::io::Write) -> Result<bool, CliError> {
-    let text = read_text(&options.file)?;
-    let imported = import_file_text(&text, &options.file)
-        .map_err(|error| CliError::input(format!("{}: {error}", options.file.display())))?;
+    let imported = load(options)?;
     for warning in imported.warnings() {
         eprintln!("warning: {warning}");
     }
     let json = PostmanDocument::from(imported).into_json()?;
     writeln!(out, "{json}").map_err(|error| CliError::from_write(&error))?;
     Ok(true)
+}
+
+fn load(options: &ImportOptions) -> Result<Imported, CliError> {
+    let imported = match options.web_address() {
+        Some(address) => {
+            let transport = ReqwestTransport::new(&RequestSettings::default())
+                .map_err(|error| CliError::input(error.to_string()))?;
+            import_address(address, &transport)
+        }
+        None => import_file_text(&read_text(&options.file)?, &options.file),
+    };
+    imported.map_err(|error| CliError::input(format!("{}: {error}", options.file.display())))
 }
 
 #[cfg(test)]

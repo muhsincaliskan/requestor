@@ -2,10 +2,11 @@ use serde_json::Value;
 
 use std::path::Path;
 
-use super::wsdl::{self, DocumentSource, FileSource, PastedSource};
+use super::wsdl::{self, DocumentSource, FileSource, PastedSource, RemoteSource};
 use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
 use crate::collection::Info;
 use crate::settings::BYTES_PER_MEGABYTE;
+use crate::transport::HttpTransport;
 
 const COLLECTION_SCHEMA_POINTER: &str = "/info/schema";
 const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
@@ -22,6 +23,16 @@ pub fn import_text(text: &str) -> Result<Imported, ImportError> {
 
 pub fn import_file_text(text: &str, path: &Path) -> Result<Imported, ImportError> {
     import_from(text, &path.to_string_lossy(), &FileSource)
+}
+
+pub fn import_address(
+    address: &str,
+    transport: &dyn HttpTransport,
+) -> Result<Imported, ImportError> {
+    let source = RemoteSource::new(transport);
+    let address = address.trim();
+    let text = source.read(address).map_err(ImportError::Download)?;
+    import_from(&text, address, &source)
 }
 
 fn import_from(

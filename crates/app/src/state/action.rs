@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::graphql::GraphQlSchema;
 use requestor_core::history::HistoryEntry;
+use requestor_core::import::{ImportError, Imported};
 use requestor_core::prepared::CodeLanguage;
 use requestor_core::response::HttpResponse;
 use requestor_core::transport::SocketEvent;
@@ -110,6 +111,7 @@ pub enum Action {
     EnvironmentEdited(String),
     ImportText(String),
     ImportFile(PathBuf),
+    ImportDownloaded(Box<Result<Imported, ImportError>>),
     ChooseImportFile,
     ChooseExportLocation {
         target: LibraryTarget,

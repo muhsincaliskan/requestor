@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use requestor_core::collection::Collection;
 use requestor_core::environment::Environment;
+use requestor_core::import::wsdl::is_wsdl_address;
 use requestor_core::import::{import_file_text, import_text, ImportError, Imported};
 
 use super::overlay::{LibraryTarget, Overlay};
@@ -13,7 +14,14 @@ const MAX_IMPORT_FILE_BYTES: u64 = 64 * 1024 * 1024;
 impl AppState {
     pub(super) fn dispatch_transfer_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
         match action {
+            Action::ImportText(text) if is_wsdl_address(&text) => {
+                self.download_import(text, effects)
+            }
             Action::ImportText(text) => self.import(import_text(&text)),
+            Action::ImportDownloaded(imported) => {
+                self.set_downloading(false);
+                self.import(*imported)
+            }
             Action::ImportFile(path) => self.import_file(&path),
             Action::Export { target, file_path } => self.export(&target, file_path, effects),
             Action::ChooseImportFile => effects.push(Effect::PickImportFile),
@@ -72,6 +80,21 @@ impl AppState {
         }
         if matches!(self.overlay, Some(Overlay::Import(_))) {
             self.overlay = None;
+        }
+    }
+
+    fn download_import(&mut self, address: String, effects: &mut Vec<Effect>) {
+        self.set_downloading(true);
+        effects.push(Effect::DownloadImport {
+            address: address.trim().to_string(),
+            settings: Box::new(self.workspace.settings.request.clone()),
+        });
+    }
+
+    fn set_downloading(&mut self, downloading: bool) {
+        if let Some(Overlay::Import(form)) = &mut self.overlay {
+            form.downloading = downloading;
+            form.error = None;
         }
     }
 

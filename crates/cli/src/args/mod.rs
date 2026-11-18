@@ -8,6 +8,7 @@ use crate::error::CliError;
 use crate::network::NetworkOptions;
 use crate::plan::Selection;
 
+const WEB_ADDRESS_PREFIXES: [&str; 2] = ["http://", "https://"];
 const FLAG_PREFIX: &str = "--";
 const HELP_FLAGS: [&str; 2] = ["--help", "-h"];
 const ENV_FLAG: &str = "--env";
@@ -47,6 +48,16 @@ pub struct SendOptions {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImportOptions {
     pub file: PathBuf,
+}
+
+impl ImportOptions {
+    pub fn web_address(&self) -> Option<&str> {
+        self.file.to_str().filter(|text| {
+            WEB_ADDRESS_PREFIXES
+                .iter()
+                .any(|prefix| text.starts_with(prefix))
+        })
+    }
 }
 
 impl Command {

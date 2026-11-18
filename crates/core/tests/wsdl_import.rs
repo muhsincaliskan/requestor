@@ -1,11 +1,15 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use requestor_core::collection::{Item, Request, RequestSpec};
+use requestor_core::import::wsdl::is_wsdl_address;
 use requestor_core::import::{
-    import_file_text, import_text, ImportError, Imported, ImportedCollection,
+    import_address, import_file_text, import_text, ImportError, Imported, ImportedCollection,
 };
 use requestor_core::prepared::PreparedRequest;
+use requestor_core::response::HttpResponse;
 use requestor_core::settings::RequestSettings;
+use requestor_core::transport::{HttpTransport, TransportError};
 use requestor_core::variables::VariableScope;
 
 const CALCULATOR: &str = include_str!("fixtures/wsdl/calculator.wsdl");
@@ -323,4 +327,106 @@ fn imports_that_are_not_regular_files_are_refused() {
         imported.warnings,
         ["/dev/zero was not loaded: it is not a regular file"]
     );
+}
+
+struct FakeWeb(Vec<(&'static str, String)>);
+
+impl HttpTransport for FakeWeb {
+    fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError> {
+        let found = self.0.iter().find(|(url, _)| *url == request.url);
+        Ok(HttpResponse {
+            status: if found.is_some() { 200 } else { 404 },
+            reason: String::new(),
+            version: String::new(),
+            headers: Vec::new(),
+            body: found
+                .map(|(_, body)| body.clone().into_bytes())
+                .unwrap_or_default(),
+            truncated: false,
+            elapsed: Duration::ZERO,
+        })
+    }
+}
+
+fn split_fixture(name: &str) -> String {
+    std::fs::read_to_string(fixture(&format!("fixtures/wsdl/split/{name}"))).unwrap()
+}
+
+#[test]
+fn a_wsdl_address_is_downloaded_with_the_documents_it_imports() {
+    let web = FakeWeb(vec![
+        (
+            "https://bank.example.test/split/service.wsdl",
+            split_fixture("service.wsdl"),
+        ),
+        (
+            "https://bank.example.test/split/abstract.wsdl",
+            split_fixture("abstract.wsdl"),
+        ),
+        (
+            "https://bank.example.test/split/types/accounts.xsd",
+            split_fixture("types/accounts.xsd"),
+        ),
+        (
+            "https://bank.example.test/split/types/common.xsd",
+            split_fixture("types/common.xsd"),
+        ),
+    ]);
+    let imported = collection_of(import_address(
+        " https://bank.example.test/split/service.wsdl ",
+        &web,
+    ));
+    assert!(imported.warnings.is_empty(), "{:?}", imported.warnings);
+    assert!(body_of(&imported.collection.item[0]).contains("<number>TR00-0000</number>"));
+
+    let partial = FakeWeb(vec![(
+        "https://bank.example.test/split/service.wsdl",
+        split_fixture("service.wsdl"),
+    )]);
+    let imported = collection_of(import_address(
+        "https://bank.example.test/split/service.wsdl",
+        &partial,
+    ));
+    assert_eq!(
+        imported.warnings,
+        ["abstract.wsdl was not loaded: the server answered 404"]
+    );
+    match import_address("https://bank.example.test/missing?wsdl", &partial) {
+        Err(ImportError::Download(reason)) => assert!(reason.ends_with("the server answered 404")),
+        other => panic!("unexpected {other:?}"),
+    }
+}
+
+#[test]
+fn remote_documents_never_reach_local_files() {
+    let wsdl = CALCULATOR.replace(
+        "<s:schema elementFormDefault",
+        "<s:schema><s:include schemaLocation=\"file:///etc/hosts\"/></s:schema><s:schema elementFormDefault",
+    );
+    let web = FakeWeb(vec![("https://calc.example.test/calc?wsdl", wsdl)]);
+    let imported = collection_of(import_address("https://calc.example.test/calc?wsdl", &web));
+    assert_eq!(
+        imported.warnings,
+        ["file:///etc/hosts was not loaded: only http and https addresses are downloaded"]
+    );
+}
+
+#[test]
+fn wsdl_addresses_are_recognised_by_their_path_or_query() {
+    for address in [
+        "http://h/Service.asmx?WSDL",
+        "https://h/svc?singleWsdl",
+        "https://h/svc?wsdl=wsdl0",
+        "https://h/files/calc.wsdl",
+    ] {
+        assert!(is_wsdl_address(address), "{address}");
+    }
+    for text in [
+        "https://h/api?wsdlx=1",
+        "https://h/users",
+        "ftp://h/a.wsdl",
+        "calc.wsdl",
+    ] {
+        assert!(!is_wsdl_address(text), "{text}");
+    }
 }

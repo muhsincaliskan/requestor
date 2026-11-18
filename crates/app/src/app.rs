@@ -86,6 +86,9 @@ impl RequestorApp {
                     }
                 }
                 Effect::AbortSend(job) => self.runner.abort(job),
+                Effect::DownloadImport { address, settings } => {
+                    self.runner.download_import(address, &settings, ctx)
+                }
                 Effect::PickImportFile => {
                     follow_ups.extend(file_picker::import_file().map(Action::ImportFile));
                 }

@@ -7,7 +7,7 @@ use crate::widgets::action_button;
 const TITLE: &str = "Start a request";
 const GUIDANCE: [&str; 2] = [
     "Type a URL or paste a cURL command into a new request.",
-    "Drop a Postman collection, environment or OpenAPI file anywhere to import it.",
+    "Drop a Postman collection, environment, OpenAPI or WSDL file anywhere to import it.",
 ];
 const NEW_REQUEST_LABEL: &str = "New request";
 const IMPORT_LABEL: &str = "Import…";

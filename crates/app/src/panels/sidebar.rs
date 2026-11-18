@@ -22,7 +22,7 @@ const FILTER_HINT: &str = "Filter requests";
 const FILTER_ID: &str = "sidebar-filter";
 const SCROLL_ID: &str = "sidebar-scroll";
 const EMPTY_TEXT: &str =
-    "No collections yet. Create one or import from Postman, OpenAPI, cURL or a raw HTTP request.";
+    "No collections yet. Create one or import from Postman, OpenAPI, WSDL, cURL or a raw HTTP request.";
 const SECTION_GAP: f32 = 8.0;
 const ROW_GAP: f32 = 2.0;
 const ROW_HEIGHT: f32 = 24.0;

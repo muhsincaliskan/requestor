@@ -10,6 +10,7 @@ use super::tab::TabId;
 pub struct ImportForm {
     pub text: String,
     pub error: Option<String>,
+    pub downloading: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
