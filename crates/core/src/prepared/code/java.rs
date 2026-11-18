@@ -17,7 +17,7 @@ const FORM_IMPORTS: [&str; 4] = [
 ];
 const RESTRICTED_HEADERS: [&str; 5] = ["Connection", "Content-Length", "Expect", "Host", "Upgrade"];
 const NON_ASCII_NOTE: &str =
-    "        // HttpClient sends header values as ASCII; other characters arrive as ?.\n";
+    "        // HttpClient accepts only ASCII header values; others are rejected or sent as ?.\n";
 const CLASS_START: &str =
     "\npublic class Main {\n    public static void main(String[] args) throws Exception {\n";
 const LINE_JOIN: &str = " +";

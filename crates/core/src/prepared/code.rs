@@ -3,6 +3,8 @@ mod http_file;
 mod java;
 mod javascript;
 mod literal;
+#[cfg(test)]
+mod portability_tests;
 mod python;
 mod snippet;
 #[cfg(test)]
