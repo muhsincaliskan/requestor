@@ -2,10 +2,9 @@ use std::fmt;
 use std::path::Path;
 
 use super::pending_write::StoreError;
-use super::vault_write::KEYCHAIN_LABEL;
 use super::{PendingWrite, VaultWrite};
 
-const KEPT_IN_FILE: &str = "the secret values stay in";
+const STAYS_IN_FILE: &str = "the secret values stay in";
 
 #[derive(Clone, PartialEq)]
 pub struct SecuredWrite {
@@ -33,10 +32,10 @@ impl SecuredWrite {
         };
         let path = self.whole.path().to_path_buf();
         self.whole.commit()?;
-        Err(StoreError::at(
-            Path::new(KEYCHAIN_LABEL),
-            format!("{error}; {KEPT_IN_FILE} {}", path.display()),
-        ))
+        Err(StoreError::keychain(format!(
+            "{error}; {STAYS_IN_FILE} {}",
+            path.display()
+        )))
     }
 }
 

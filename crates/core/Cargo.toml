@@ -10,5 +10,8 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tungstenite = { version = "0.30", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
 
+[features]
+test-support = []
+
 [lints]
 workspace = true

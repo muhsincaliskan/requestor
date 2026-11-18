@@ -3,6 +3,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use super::vault_write::KEYCHAIN_LABEL;
+
 const TEMPORARY_SUFFIX: &str = "tmp";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +33,10 @@ impl fmt::Display for StoreError {
 impl std::error::Error for StoreError {}
 
 impl StoreError {
+    pub(super) fn keychain(reason: impl fmt::Display) -> Self {
+        StoreError::at(Path::new(KEYCHAIN_LABEL), reason)
+    }
+
     pub(super) fn at(path: &Path, reason: impl fmt::Display) -> Self {
         StoreError {
             path: path.to_path_buf(),

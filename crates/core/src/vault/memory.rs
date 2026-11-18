@@ -5,25 +5,34 @@ use super::{VaultError, VaultSlot, VaultStore};
 use crate::secret::Secret;
 
 const UNAVAILABLE: &str = "no keychain is available";
+const REFUSED: &str = "the keychain refused the value";
 
 #[derive(Debug, Default)]
 pub struct MemoryVaultStore {
     saved: Mutex<BTreeMap<VaultSlot, Secret>>,
     unavailable: bool,
+    refusing_saves: bool,
 }
 
 impl MemoryVaultStore {
     pub fn unavailable() -> Self {
         MemoryVaultStore {
-            saved: Mutex::default(),
             unavailable: true,
+            ..MemoryVaultStore::default()
+        }
+    }
+
+    pub fn refusing_saves() -> Self {
+        MemoryVaultStore {
+            refusing_saves: true,
+            ..MemoryVaultStore::default()
         }
     }
 
     pub fn holding(slot: VaultSlot, value: Secret) -> Self {
         MemoryVaultStore {
             saved: Mutex::new(BTreeMap::from([(slot, value)])),
-            unavailable: false,
+            ..MemoryVaultStore::default()
         }
     }
 
@@ -45,6 +54,9 @@ impl VaultStore for MemoryVaultStore {
     }
 
     fn save(&self, slot: &VaultSlot, value: Option<&Secret>) -> Result<(), VaultError> {
+        if self.refusing_saves {
+            return Err(VaultError::new(REFUSED));
+        }
         let mut slots = self.slots()?;
         match value {
             Some(value) => slots.insert(slot.clone(), value.clone()),

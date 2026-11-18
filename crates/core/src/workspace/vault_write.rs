@@ -25,8 +25,7 @@ impl VaultWrite {
     }
 
     pub fn commit(self) -> Result<(), StoreError> {
-        self.save()
-            .map_err(|error| StoreError::at(Path::new(KEYCHAIN_LABEL), error))
+        self.save().map_err(StoreError::keychain)
     }
 
     pub(super) fn save(&self) -> Result<(), VaultError> {

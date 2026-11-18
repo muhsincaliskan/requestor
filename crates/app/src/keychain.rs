@@ -17,9 +17,7 @@ pub struct KeychainVaultStore {
 
 impl KeychainVaultStore {
     pub fn for_workspace(root: &Path) -> Self {
-        let workspace = std::fs::canonicalize(root)
-            .or_else(|_| std::path::absolute(root))
-            .unwrap_or_else(|_| root.to_path_buf());
+        let workspace = std::path::absolute(root).unwrap_or_else(|_| root.to_path_buf());
         KeychainVaultStore {
             workspace,
             known: Mutex::default(),
@@ -76,3 +74,6 @@ impl VaultStore for KeychainVaultStore {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;

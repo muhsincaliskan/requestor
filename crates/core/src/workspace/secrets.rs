@@ -5,6 +5,9 @@ use crate::environment::Environment;
 use crate::secret::Secret;
 use crate::vault::{SecretOrigin, VaultSlot};
 
+const MISSING: &str = "no saved secret values for";
+const UNREADABLE_FOR: &str = "unreadable secret values for";
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UnsecuredSecrets {
     pub environments: BTreeSet<String>,
@@ -19,6 +22,15 @@ pub struct SecretRestore {
 }
 
 impl SecretRestore {
+    pub fn warnings(&self) -> impl Iterator<Item = String> + '_ {
+        let missing = self.missing.iter().map(|name| format!("{MISSING} {name}"));
+        let unreadable = self
+            .unreadable
+            .iter()
+            .map(|name| format!("{UNREADABLE_FOR} {name}"));
+        missing.chain(unreadable)
+    }
+
     fn record(&mut self, environment: &Environment, origin: SecretOrigin) {
         let id = environment.id.clone().unwrap_or_default();
         match origin {

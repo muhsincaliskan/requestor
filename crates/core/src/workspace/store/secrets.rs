@@ -1,17 +1,14 @@
-use std::path::Path;
 use std::sync::Arc;
 
 use super::super::pending_write::{PendingWrite, StoreError};
-use super::super::vault_write::{VaultWrite, KEYCHAIN_LABEL};
-use super::super::{SecretRestore, SecuredWrite, StoreWrite, UnsecuredSecrets, Workspace};
+use super::super::vault_write::VaultWrite;
+use super::super::{SecuredWrite, StoreWrite, UnsecuredSecrets, Workspace};
 use super::{pending, WorkspaceStore};
 use crate::environment::Environment;
 use crate::vault::{VaultSlot, VaultStore};
 use crate::workspace::AppSettings;
 
 const KEPT_IN_FILES: &str = "secrets stay in the workspace files";
-const MISSING: &str = "no saved secret values for";
-const UNREADABLE: &str = "unreadable secret values for";
 
 impl WorkspaceStore {
     pub fn with_vault(mut self, vault: Arc<dyn VaultStore>) -> Self {
@@ -33,7 +30,12 @@ impl WorkspaceStore {
             return Ok(StoreWrite::from(whole));
         };
         let value = if environment.declares_secrets() {
-            Some(environment.secrets().to_secret().map_err(keychain_error)?)
+            Some(
+                environment
+                    .secrets()
+                    .to_secret()
+                    .map_err(StoreError::keychain)?,
+            )
         } else {
             None
         };
@@ -76,13 +78,13 @@ impl WorkspaceStore {
             Ok(saved) => {
                 self.secured = true;
                 let restore = workspace.restore_secrets(&saved);
-                warn_about(&restore, warnings);
+                warnings.extend(restore.warnings().map(StoreError::keychain));
                 restore.unsecured
             }
             Err(error) => {
                 if !slots.is_empty() {
                     let reason = format!("{KEPT_IN_FILES} ({error})");
-                    warnings.push(keychain_error(reason));
+                    warnings.push(StoreError::keychain(reason));
                 }
                 UnsecuredSecrets::default()
             }
@@ -92,20 +94,4 @@ impl WorkspaceStore {
     fn secured_vault(&self) -> Option<Arc<dyn VaultStore>> {
         self.vault.clone().filter(|_| self.secured)
     }
-}
-
-fn warn_about(restore: &SecretRestore, warnings: &mut Vec<StoreError>) {
-    let missing = restore
-        .missing
-        .iter()
-        .map(|name| format!("{MISSING} {name}"));
-    let unreadable = restore
-        .unreadable
-        .iter()
-        .map(|name| format!("{UNREADABLE} {name}"));
-    warnings.extend(missing.chain(unreadable).map(keychain_error));
-}
-
-fn keychain_error(reason: impl std::fmt::Display) -> StoreError {
-    StoreError::at(Path::new(KEYCHAIN_LABEL), reason)
 }

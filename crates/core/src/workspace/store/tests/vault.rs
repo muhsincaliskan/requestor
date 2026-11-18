@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::super::{ENVIRONMENTS_DIRECTORY, SETTINGS_FILE};
 use super::TemporaryRoot;
 use crate::environment::Environment;
 use crate::settings::ProxySettings;
@@ -45,8 +46,8 @@ fn commit_all(writes: Vec<StoreWrite>) -> usize {
 
 fn files_text(store: &WorkspaceStore) -> String {
     let root = store.root();
-    let mut text = std::fs::read_to_string(root.join("settings.json")).unwrap();
-    for entry in std::fs::read_dir(root.join("environments")).unwrap() {
+    let mut text = std::fs::read_to_string(root.join(SETTINGS_FILE)).unwrap();
+    for entry in std::fs::read_dir(root.join(ENVIRONMENTS_DIRECTORY)).unwrap() {
         text.push_str(&std::fs::read_to_string(entry.unwrap().path()).unwrap());
     }
     text
@@ -127,14 +128,21 @@ fn a_damaged_environment_file_keeps_its_secrets_in_the_keychain() {
 #[test]
 fn a_keychain_that_refuses_a_save_leaves_the_secret_in_the_file() {
     let root = TemporaryRoot::new();
-    let mut store = with_vault(&root, &Arc::new(MemoryVaultStore::default()));
-    store.load();
-    let writes = save(&mut store, &workspace_with_secrets());
-    let mut refusing = with_vault(&root, &Arc::new(MemoryVaultStore::unavailable()));
-    refusing.load();
-    let refused = save(&mut refusing, &workspace_with_secrets());
-    assert_eq!(writes.len(), refused.len());
-    assert_eq!(commit_all(refused), 2);
+    let mut store = with_vault(&root, &Arc::new(MemoryVaultStore::refusing_saves()));
+    assert!(store.load().warnings.is_empty());
+    let workspace = workspace_with_secrets();
+    assert_eq!(commit_all(save(&mut store, &workspace)), 2);
+    assert!(files_text(&store).contains(TOKEN_VALUE));
+    assert_eq!(store.load().unsecured.environments.len(), 1);
+}
+
+#[test]
+fn an_unavailable_keychain_never_secures_an_empty_workspace() {
+    let root = TemporaryRoot::new();
+    let mut store = with_vault(&root, &Arc::new(MemoryVaultStore::unavailable()));
+    assert!(store.load().warnings.is_empty());
+    let workspace = workspace_with_secrets();
+    assert_eq!(commit_all(save(&mut store, &workspace)), 0);
     assert!(files_text(&store).contains(TOKEN_VALUE));
 }
 
@@ -167,12 +175,4 @@ fn an_unavailable_keychain_keeps_files_whole_and_warns_about_secrets() {
     assert_eq!(loaded.warnings.len(), 1);
     assert_eq!(commit_all(save(&mut store, &loaded.workspace)), 0);
     assert!(files_text(&store).contains(TOKEN_VALUE));
-}
-
-#[test]
-fn an_unavailable_keychain_is_quiet_when_nothing_is_secret() {
-    let root = TemporaryRoot::new();
-    let vault = Arc::new(MemoryVaultStore::unavailable());
-    let loaded = with_vault(&root, &vault).load();
-    assert!(loaded.warnings.is_empty());
 }
