@@ -1,4 +1,5 @@
 use eframe::egui::Ui;
+use requestor_core::collection::InheritedHeader;
 use requestor_core::draft::RequestDraft;
 
 use crate::widgets::key_value_table::KeyValueTable;
@@ -28,7 +29,14 @@ pub fn params(ui: &mut Ui, draft: &mut RequestDraft, hints: &VariableHints) -> b
     query_changed || path_changed
 }
 
-pub fn headers(ui: &mut Ui, draft: &mut RequestDraft, hints: &VariableHints) -> bool {
+pub fn headers(
+    ui: &mut Ui,
+    draft: &mut RequestDraft,
+    hints: &VariableHints,
+    inherited: &[InheritedHeader],
+) -> bool {
     ui.strong(HEADERS_TITLE);
-    KeyValueTable::new(&mut draft.headers, hints, HEADERS_SALT).show(ui)
+    let changed = KeyValueTable::new(&mut draft.headers, hints, HEADERS_SALT).show(ui);
+    super::inherited::headers(ui, draft, inherited);
+    changed
 }

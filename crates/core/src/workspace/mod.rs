@@ -131,13 +131,21 @@ impl Workspace {
         item_id: Option<&str>,
         mut request: Request,
     ) -> Request {
+        let Some((collection, item)) = collection_id
+            .and_then(|id| self.collection(id))
+            .zip(item_id)
+        else {
+            return request;
+        };
         if request.auth.is_none() {
-            request.auth = collection_id
-                .and_then(|id| self.collection(id))
-                .zip(item_id)
-                .and_then(|(collection, item)| collection.inherited_auth(item))
-                .cloned();
+            request.auth = collection.inherited_auth(item).cloned();
         }
+        let inherited: Vec<_> = collection
+            .inherited_headers(item)
+            .into_iter()
+            .map(|inherited| inherited.header)
+            .collect();
+        request.add_inherited_headers(&inherited);
         request
     }
 

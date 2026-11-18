@@ -10,6 +10,7 @@ mod param;
 mod path_variables;
 mod request;
 mod run;
+mod shared_headers;
 mod tree;
 mod url;
 mod variable;
@@ -27,6 +28,7 @@ pub(crate) use param::{FILE_KIND, STRING_KIND, TEXT_KIND};
 pub use path_variables::path_variable_names;
 pub use request::{Request, RequestSpec};
 pub use run::RunnableRequest;
+pub use shared_headers::InheritedHeader;
 pub use url::{Url, UrlParts, SCHEME_SEPARATOR};
 pub use variable::Variable;
 

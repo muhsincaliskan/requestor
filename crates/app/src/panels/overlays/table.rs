@@ -128,3 +128,11 @@ pub(super) fn reveal_toggle(ui: &mut Ui, id: &str) -> bool {
 pub(super) fn forget_reveal(ctx: &Context, id: &str) {
     ctx.data_mut(|data| data.remove_temp::<bool>(Id::new(id)));
 }
+
+pub(super) fn footer_done(ui: &mut Ui) -> bool {
+    ui.add_space(FOOTER_GAP);
+    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+        action_button::primary(ui, DONE_LABEL).clicked()
+    })
+    .inner
+}

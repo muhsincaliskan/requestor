@@ -11,6 +11,7 @@ mod exchange;
 mod export_format;
 mod folders;
 mod history;
+mod inheritance;
 mod library;
 mod notice;
 mod overlay;
@@ -37,6 +38,7 @@ pub use examples::ExampleRef;
 pub use exchange::Exchange;
 pub use export_format::ExportFormat;
 pub use folders::FolderPurpose;
+pub use inheritance::{Inheritance, InheritedAuth};
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
     CodeForm, DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, PaletteForm,

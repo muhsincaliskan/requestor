@@ -6,9 +6,8 @@ use super::variable_text_edit::{VariableHints, VariableTextEdit};
 const KIND_SALT: &str = "auth-kind";
 const GRID_SALT: &str = "auth-fields";
 const REVEAL_SALT: &str = "reveal";
-const INHERIT_HINT: &str =
-    "This request uses the authorization of its parent folder or collection.";
-const NONE_HINT: &str = "This request is sent without authorization.";
+const INHERIT_HINT: &str = "Uses the authorization of the parent folder or collection.";
+const NONE_HINT: &str = "Sent without authorization.";
 const UNSUPPORTED_NOTE: &str =
     "This auth type is preserved when saving, but it cannot be edited here:";
 const KIND_LABEL: &str = "Type";

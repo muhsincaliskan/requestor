@@ -123,6 +123,12 @@ fn item_entries(ui: &mut Ui, collection_id: &str, item: &Item, actions: &mut Vec
             collection_id: collection_id.to_string(),
             parent_id,
         });
+        entry(ui, EDIT_LABEL, actions, || {
+            Action::Show(Overlay::FolderEditor {
+                collection_id: collection_id.to_string(),
+                folder_id: item_id.to_string(),
+            })
+        });
     } else {
         entry(ui, OPEN_LABEL, actions, || Action::OpenItem {
             collection_id: collection_id.to_string(),

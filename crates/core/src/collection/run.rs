@@ -1,4 +1,4 @@
-use super::{Auth, Collection, Item, Request, Variable};
+use super::{Auth, Collection, Item, Param, Request, Variable};
 use crate::checks::ResponseRules;
 
 const PATH_SEPARATOR: &str = "/";
@@ -27,6 +27,7 @@ impl Collection {
             path: Vec::new(),
             auth: self.auth.clone(),
             variables: Vec::new(),
+            headers: self.shared_headers(),
         };
         root.collect(&self.item, &mut found);
         found
@@ -50,6 +51,7 @@ struct Scope {
     path: Vec<String>,
     auth: Option<Auth>,
     variables: Vec<Variable>,
+    headers: Vec<Param>,
 }
 
 impl Scope {
@@ -68,10 +70,13 @@ impl Scope {
         path.push(folder.name.clone().unwrap_or_default());
         let mut variables = self.variables.clone();
         variables.extend(folder.variable.iter().flatten().cloned());
+        let mut headers = self.headers.clone();
+        headers.extend(folder.shared_headers());
         Scope {
             path,
             auth: folder.auth.clone().or_else(|| self.auth.clone()),
             variables,
+            headers,
         }
     }
 
@@ -79,6 +84,7 @@ impl Scope {
         if request.auth.is_none() {
             request.auth = item.auth.clone().or_else(|| self.auth.clone());
         }
+        request.add_inherited_headers(&self.headers);
         RunnableRequest {
             path: self.path.clone(),
             name: item.name.clone().unwrap_or_default(),
