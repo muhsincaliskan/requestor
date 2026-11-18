@@ -11,9 +11,11 @@ use std::fmt;
 use crate::collection::{Collection, Item, Request, Url, UrlParts, SCHEME_SEPARATOR};
 use crate::environment::Environment;
 
-pub use detect::{import_file_text, import_text};
+pub use detect::{download_address, import_address, import_file_text, import_text};
+pub use wsdl::is_wsdl_address;
 
 const DEFAULT_SCHEME: &str = "http";
+pub const WEB_SCHEMES: [&str; 2] = ["http", "https"];
 const GET_METHOD: &str = "GET";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,6 +26,7 @@ pub enum ImportError {
     InvalidRequestLine(String),
     InvalidJson(String),
     InvalidXml(String),
+    Download(String),
     UnsupportedFormat(String),
 }
 
@@ -40,6 +43,7 @@ impl fmt::Display for ImportError {
             }
             ImportError::InvalidJson(reason) => write!(formatter, "invalid JSON: {reason}"),
             ImportError::InvalidXml(reason) => write!(formatter, "invalid XML: {reason}"),
+            ImportError::Download(reason) => write!(formatter, "could not download it: {reason}"),
             ImportError::UnsupportedFormat(reason) => {
                 write!(formatter, "unsupported format: {reason}")
             }
@@ -137,6 +141,17 @@ impl ImportedRequest {
             warnings: Vec::new(),
         }
     }
+}
+
+pub fn is_web_address(text: &str) -> bool {
+    !text.contains(char::is_whitespace)
+        && text
+            .split_once(SCHEME_SEPARATOR)
+            .is_some_and(|(scheme, _)| {
+                WEB_SCHEMES
+                    .iter()
+                    .any(|web| web.eq_ignore_ascii_case(scheme))
+            })
 }
 
 fn display_path(url: &str) -> String {

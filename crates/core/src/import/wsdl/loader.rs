@@ -5,16 +5,16 @@ use std::path::Path;
 
 use roxmltree::{Document, Node};
 
+use super::super::is_web_address;
 use super::definitions::Definitions;
 use super::schema::Schema;
 use super::xml::{ElementNode, SCHEMA_NAMESPACE, WSDL_NAMESPACE};
-use super::MAX_DOCUMENT_BYTES;
+use super::{too_large, MAX_DOCUMENT_BYTES};
 use crate::settings::BYTES_PER_MEGABYTE;
 
 const MAX_DOCUMENTS: usize = 64;
 const MAX_TOTAL_BYTES: usize = 64 * BYTES_PER_MEGABYTE;
 const NOT_A_FILE: &str = "it is not a regular file";
-const REMOTE_SCHEMES: [&str; 2] = ["http://", "https://"];
 const STANDARD_SCHEMA_HOSTS: [&str; 3] = [
     "http://schemas.xmlsoap.org/",
     "http://www.w3.org/",
@@ -35,7 +35,7 @@ pub struct PastedSource;
 
 impl DocumentSource for FileSource {
     fn resolve(&self, base: &str, location: &str) -> String {
-        if is_remote(location) {
+        if is_web_address(location) {
             return location.to_string();
         }
         let joined = Path::new(base).parent().map_or_else(
@@ -49,7 +49,7 @@ impl DocumentSource for FileSource {
     }
 
     fn read(&self, location: &str) -> Result<String, String> {
-        if is_remote(location) {
+        if is_web_address(location) {
             return Err(REMOTE_NOT_FETCHED.to_string());
         }
         let is_file = fs::metadata(location)
@@ -64,10 +64,7 @@ impl DocumentSource for FileSource {
             .read_to_string(&mut text)
             .map_err(|error| error.to_string())?;
         if text.len() > MAX_DOCUMENT_BYTES {
-            return Err(format!(
-                "it is larger than {} MB",
-                MAX_DOCUMENT_BYTES / BYTES_PER_MEGABYTE
-            ));
+            return Err(too_large());
         }
         Ok(text)
     }
@@ -180,12 +177,6 @@ impl<'a> Loader<'a> {
         self.warnings
             .push(format!("{location} was not loaded: {reason}"));
     }
-}
-
-fn is_remote(location: &str) -> bool {
-    REMOTE_SCHEMES
-        .iter()
-        .any(|scheme| location.starts_with(scheme))
 }
 
 fn is_standard_schema(location: &str) -> bool {

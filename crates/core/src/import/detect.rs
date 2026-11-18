@@ -2,13 +2,14 @@ use serde_json::Value;
 
 use std::path::Path;
 
-use super::wsdl::{self, DocumentSource, FileSource, PastedSource};
-use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
+use super::wsdl::{self, DocumentSource, FileSource, PastedSource, RemoteSource};
+use super::{is_web_address, openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
 use crate::collection::Info;
+use crate::settings::RequestSettings;
 use crate::settings::BYTES_PER_MEGABYTE;
+use crate::transport::{DocumentTransport, HttpTransport};
 
 const COLLECTION_SCHEMA_POINTER: &str = "/info/schema";
-const URL_SCHEMES: [&str; 2] = ["http://", "https://"];
 const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
 const OPENAPI_KEY_MARKERS: [&str; 2] = ["\"openapi\"", "\"swagger\""];
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];
@@ -22,6 +23,25 @@ pub fn import_text(text: &str) -> Result<Imported, ImportError> {
 
 pub fn import_file_text(text: &str, path: &Path) -> Result<Imported, ImportError> {
     import_from(text, &path.to_string_lossy(), &FileSource)
+}
+
+pub fn download_address(
+    address: &str,
+    settings: &RequestSettings,
+) -> Result<Imported, ImportError> {
+    let transport = DocumentTransport::new(settings, wsdl::MAX_DOCUMENT_BYTES)
+        .map_err(|error| ImportError::Download(error.to_string()))?;
+    import_address(address, &transport)
+}
+
+pub fn import_address(
+    address: &str,
+    transport: &dyn HttpTransport,
+) -> Result<Imported, ImportError> {
+    let source = RemoteSource::new(transport);
+    let address = address.trim();
+    let text = source.read(address).map_err(ImportError::Download)?;
+    import_from(&text, address, &source)
 }
 
 fn import_from(
@@ -48,7 +68,7 @@ fn import_from(
     if ImportedRequest::is_curl_command(trimmed) {
         return ImportedRequest::from_curl(trimmed).map(Imported::Request);
     }
-    if is_bare_url(trimmed) {
+    if is_web_address(trimmed) {
         return Ok(Imported::Request(ImportedRequest::from_url(trimmed)));
     }
     if YAML_OPENAPI_MARKERS
@@ -108,8 +128,4 @@ fn import_collection(document: Value) -> Result<Imported, ImportError> {
             }
             _ => ImportError::InvalidJson(error.to_string()),
         })
-}
-
-fn is_bare_url(text: &str) -> bool {
-    !text.contains(char::is_whitespace) && URL_SCHEMES.iter().any(|scheme| text.starts_with(scheme))
 }

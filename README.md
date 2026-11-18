@@ -28,7 +28,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 
 - Collections and environments stay compatible with Postman v2.1 JSON. Fields Requestor does not know are kept on export.
 - Import from Postman, OpenAPI 3 (JSON), WSDL 1.1, cURL and raw HTTP requests. Paste a cURL command into the URL field to fill in the whole request.
-- A WSDL becomes a collection with one ready SOAP request per operation: the address, the SOAPAction (or the SOAP 1.2 action), and a sample envelope with `?` where values go. Each SOAP port gets its own folder. Schemas and WSDLs it imports are read from next to the file; pasted WSDL text cannot load them.
+- A WSDL becomes a collection with one ready SOAP request per operation: the address, the SOAPAction (or the SOAP 1.2 action), and a sample envelope with `?` where values go. Each SOAP port gets its own folder. Schemas and WSDLs it imports are read from next to the file. Paste a WSDL address such as `https://host/service.asmx?wsdl` into the import window to download it together with the documents it imports; pasted WSDL text cannot load them.
 - Variables:
   - `{{variables}}` resolve from the collection and the active environment.
   - Fields suggest names as you type and color each placeholder: defined in blue, undefined in red.
@@ -105,6 +105,7 @@ requestor run api/ --env dev.json
 requestor send "curl -X POST https://example.test/pets -d '{\"name\":\"Rex\"}'"
 requestor import openapi.json --to postman
 requestor import service.wsdl --to postman
+requestor import "https://host/service.asmx?wsdl" --to postman
 ```
 
 `run` evaluates the checks saved with each request and passes values extracted from a response to the requests after it. A failed check fails the request.

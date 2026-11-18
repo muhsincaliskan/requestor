@@ -10,6 +10,33 @@ use super::tab::TabId;
 pub struct ImportForm {
     pub text: String,
     pub error: Option<String>,
+    download: Option<u64>,
+}
+
+impl ImportForm {
+    pub fn with_text(text: String) -> Self {
+        ImportForm {
+            text,
+            ..ImportForm::default()
+        }
+    }
+
+    pub fn is_downloading(&self) -> bool {
+        self.download.is_some()
+    }
+
+    pub fn start_download(&mut self, job: u64) {
+        self.download = Some(job);
+        self.error = None;
+    }
+
+    pub fn finish_download(&mut self, job: u64) -> bool {
+        let current = self.download == Some(job);
+        if current {
+            self.download = None;
+        }
+        current
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]

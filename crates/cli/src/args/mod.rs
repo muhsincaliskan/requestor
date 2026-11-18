@@ -3,6 +3,8 @@ mod tests;
 
 use std::path::PathBuf;
 
+use requestor_core::import::is_web_address;
+
 use crate::cursor::Cursor;
 use crate::error::CliError;
 use crate::network::NetworkOptions;
@@ -47,6 +49,12 @@ pub struct SendOptions {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImportOptions {
     pub file: PathBuf,
+}
+
+impl ImportOptions {
+    pub fn web_address(&self) -> Option<&str> {
+        self.file.to_str().filter(|text| is_web_address(text))
+    }
 }
 
 impl Command {

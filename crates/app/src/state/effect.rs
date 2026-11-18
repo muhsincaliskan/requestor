@@ -42,6 +42,11 @@ pub enum Effect {
     OpenUrl(String),
     AbortSend(u64),
     PickImportFile,
+    DownloadImport {
+        job: u64,
+        address: String,
+        settings: Box<RequestSettings>,
+    },
     PickExportLocation {
         target: LibraryTarget,
         suggested: PathBuf,
@@ -67,6 +72,7 @@ impl Effect {
             | Effect::OpenUrl(_)
             | Effect::AbortSend(_)
             | Effect::PickImportFile
+            | Effect::DownloadImport { .. }
             | Effect::PickExportLocation { .. }
             | Effect::PickFolder(_) => Ok(()),
         }

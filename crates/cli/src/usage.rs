@@ -4,7 +4,7 @@ Requestor command-line HTTP client
 USAGE:
     requestor run <collection.json or folder> [OPTIONS]
     requestor send [OPTIONS] <curl command | raw http file>
-    requestor import <file> --to postman
+    requestor import <file or address> --to postman
     requestor --help | --version
 
 RUN OPTIONS:
