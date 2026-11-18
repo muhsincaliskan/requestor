@@ -1,5 +1,6 @@
 mod drag;
 mod environments;
+mod examples;
 mod history;
 mod menus;
 mod reveal;

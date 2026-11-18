@@ -1,14 +1,16 @@
+use eframe::egui::scroll_area::{ScrollAreaOutput, ScrollBarVisibility};
 use eframe::egui::{
     vec2, Atom, Button, Direction, Id, Layout, Rect, Response, ScrollArea, Ui, UiBuilder,
 };
 
+mod overflow;
+
 use crate::state::{Action, AppState, RequestTab};
-use crate::widgets::{icon_button, request_title, ICON_BUTTON_SIZE, UNSAVED_DOT};
+use crate::widgets::{close_button, request_title, ICON_BUTTON_SIZE, UNSAVED_DOT};
 
 const STRIP_SCROLL_ID: &str = "tab-strip-scroll";
 const NEW_TAB_LABEL: &str = "+";
 const NEW_TAB_HINT: &str = "New tab";
-const CLOSE_LABEL: &str = "×";
 const CLOSE_SLOT_ID: &str = "tab-close-slot";
 const CLOSE_HINT: &str = "Close tab";
 const UNSAVED_HINT: &str = "Unsaved changes";
@@ -18,9 +20,32 @@ const CLOSE_ITEM: &str = "Close";
 const CLOSE_OTHERS_ITEM: &str = "Close others";
 
 pub fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
+    ui.horizontal(|ui| {
+        let controls = 2.0 * (ICON_BUTTON_SIZE + ui.spacing().item_spacing.x);
+        let strip = vec2(
+            (ui.available_width() - controls).max(0.0),
+            ui.available_height(),
+        );
+        let output = ui.allocate_ui(strip, |ui| tabs(ui, state, actions)).inner;
+        overflow::fade_edges(ui, &output);
+        if overflow::overflows(&output) {
+            overflow::all_tabs_menu(ui, state, actions);
+        }
+        if ui
+            .button(NEW_TAB_LABEL)
+            .on_hover_text(NEW_TAB_HINT)
+            .clicked()
+        {
+            actions.push(Action::NewTab);
+        }
+    });
+}
+
+fn tabs(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) -> ScrollAreaOutput<()> {
     let with_method = state.interface().show_icons_with_tab_names;
     ScrollArea::horizontal()
         .id_salt(STRIP_SCROLL_ID)
+        .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 for tab in &state.tabs {
@@ -29,15 +54,9 @@ pub fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
                         tab_button(ui, tab, active, with_method, actions)
                     });
                 }
-                if ui
-                    .button(NEW_TAB_LABEL)
-                    .on_hover_text(NEW_TAB_HINT)
-                    .clicked()
-                {
-                    actions.push(Action::NewTab);
-                }
             });
-        });
+            overflow::scroll_wheel_sideways(ui);
+        })
 }
 
 fn tab_button(
@@ -55,6 +74,9 @@ fn tab_button(
     let button = laid_out.response.clone();
     if button.clicked() {
         actions.push(Action::ActivateTab(tab.id));
+    }
+    if active {
+        overflow::reveal_when_activated(ui, &button, tab.id);
     }
     let closed = laid_out
         .rect(slot_id)
@@ -87,7 +109,7 @@ fn close_slot(ui: &mut Ui, button: &Response, slot: Rect, unsaved: bool, active:
             .layout(Layout::centered_and_justified(Direction::LeftToRight)),
     );
     if shows_close {
-        return icon_button(&mut slot_ui, CLOSE_LABEL, CLOSE_HINT).clicked();
+        return close_button(&mut slot_ui, CLOSE_HINT).clicked();
     }
     if unsaved {
         slot_ui.weak(UNSAVED_DOT).on_hover_text(UNSAVED_HINT);

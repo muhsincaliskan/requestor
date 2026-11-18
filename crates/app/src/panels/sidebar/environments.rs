@@ -8,7 +8,9 @@ use crate::widgets::{list_row, row_label};
 const SECTION_ID: &str = "sidebar-environments";
 const TITLE: &str = "Environments";
 const NEW_ENVIRONMENT_LABEL: &str = "New environment";
-const NO_ENVIRONMENT_LABEL: &str = "No environment";
+const EMPTY_TEXT: &str = "No environments yet.";
+const ACTIVATE_HINT: &str = "Click to use this environment";
+const DEACTIVATE_HINT: &str = "In use. Click to stop using it";
 
 pub(super) fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
     let mut add_clicked = false;
@@ -30,27 +32,24 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
 
 fn rows(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
     let active = state.workspace.session.active_environment.as_deref();
-    if ui
-        .add(list_row(
-            ui,
-            active.is_none(),
-            row_label(NO_ENVIRONMENT_LABEL),
-        ))
-        .clicked()
-    {
-        actions.push(Action::SelectEnvironment(None));
+    if state.workspace.environments.is_empty() {
+        ui.weak(EMPTY_TEXT);
     }
     for environment in &state.workspace.environments {
         let Some(id) = environment.id.as_deref() else {
             continue;
         };
-        let response = ui.add(list_row(
-            ui,
-            active == Some(id),
-            row_label(&environment.name),
-        ));
+        let in_use = active == Some(id);
+        let response = ui
+            .add(list_row(ui, in_use, row_label(&environment.name)))
+            .on_hover_text(if in_use {
+                DEACTIVATE_HINT
+            } else {
+                ACTIVATE_HINT
+            });
         if response.clicked() {
-            actions.push(Action::SelectEnvironment(Some(id.to_string())));
+            let next = (!in_use).then(|| id.to_string());
+            actions.push(Action::SelectEnvironment(next));
         }
         menus::environment(&response, environment, actions);
     }

@@ -30,12 +30,13 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
         return;
     };
     let section = open.response_section;
+    let example_source = open.binding.is_some().then_some(tab);
     let mut chosen = section;
     match &mut open.exchange {
         Exchange::Idle => idle(ui),
         Exchange::Sending { job, live, .. } => sending(ui, tab, *job, live.as_deref(), actions),
         Exchange::Failed(reason) => failed(ui, reason),
-        Exchange::Completed(view) => completed(ui, view, &mut chosen, actions),
+        Exchange::Completed(view) => completed(ui, view, example_source, &mut chosen, actions),
         Exchange::Socket(session) => {
             socket::show(ui, tab, session, &mut open.message_draft, actions);
         }
@@ -96,10 +97,11 @@ fn failed(ui: &mut Ui, reason: &str) {
 fn completed(
     ui: &mut Ui,
     view: &mut ResponseView,
+    example_source: Option<TabId>,
     section: &mut ResponseSection,
     actions: &mut Vec<Action>,
 ) {
-    status::show(ui, view);
+    status::show(ui, view, example_source, actions);
     if section_label(*section, view).is_none() {
         *section = ResponseSection::Body;
     }

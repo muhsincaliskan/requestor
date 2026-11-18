@@ -26,7 +26,7 @@ impl AppState {
                 language,
                 include_secrets,
             } => self.show_code(tab, language, include_secrets),
-            other => self.dispatch_socket_action(other, effects),
+            other => self.dispatch_code_panel_action(other, effects),
         }
     }
 

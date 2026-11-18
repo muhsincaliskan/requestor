@@ -1,3 +1,4 @@
+mod code_panel;
 mod overlays;
 mod request_editor;
 mod response_viewer;
@@ -20,6 +21,8 @@ const SIDEBAR_ID: &str = "sidebar";
 const TAB_STRIP_ID: &str = "tab-strip";
 const REQUEST_BESIDE_ID: &str = "request-beside-response";
 const REQUEST_ABOVE_ID: &str = "request-above-response";
+const CODE_PANEL_ID: &str = "code-panel";
+const CODE_PANEL_WIDTH: f32 = 380.0;
 const SIDEBAR_WIDTH: f32 = 260.0;
 const SIDEBAR_MIN_WIDTH: f32 = 180.0;
 const REQUEST_SHARE: f32 = 0.5;
@@ -121,6 +124,13 @@ fn workbench(
         welcome::show(ui, actions);
         return;
     };
+    if let Some(panel) = &state.code_panel {
+        Panel::right(CODE_PANEL_ID)
+            .frame(content_frame(ui))
+            .resizable(true)
+            .default_size(CODE_PANEL_WIDTH)
+            .show(ui, |ui| code_panel::show(ui, panel, actions));
+    }
     let request_panel = if interface.two_pane_view {
         Panel::left(REQUEST_BESIDE_ID).default_size(ui.available_width() * REQUEST_SHARE)
     } else {

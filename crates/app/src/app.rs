@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use eframe::egui::{Context, Ui};
-use requestor_core::workspace::WorkspaceStore;
+use requestor_core::workspace::{DataFolder, WorkspaceStore};
 
 use crate::browser;
 use crate::file_picker;
@@ -23,9 +23,15 @@ pub struct RequestorApp {
 }
 
 impl RequestorApp {
-    pub fn new(mut store: WorkspaceStore) -> Self {
+    pub fn new(
+        mut store: WorkspaceStore,
+        data_folder: Option<(DataFolder, std::io::Result<()>)>,
+    ) -> Self {
         let loaded = store.load();
-        let state = AppState::new(loaded, store);
+        let mut state = AppState::new(loaded, store);
+        if let Some((folder, settled)) = data_folder {
+            state = state.with_data_folder(folder, settled);
+        }
         RequestorApp {
             state,
             runner: Runner::new(),

@@ -5,7 +5,7 @@ use eframe::egui::{Align, Button, Id, Label, Response, RichText, Sense, Ui, Widg
 use requestor_core::collection::{Collection, Item};
 
 use super::drag::{self, DropSlot};
-use super::{menus, reveal};
+use super::{examples, menus, reveal};
 use crate::state::{Action, AppState, ItemBinding};
 use crate::widgets::{aligned_request_title, list_row, row_label, UNSAVED_MARK};
 
@@ -18,6 +18,7 @@ struct TreeView<'a> {
     collection: &'a Collection,
     folder: Option<&'a Path>,
     active: Option<&'a ItemBinding>,
+    expanded: Option<&'a ItemBinding>,
     awaiting_save: &'a [&'a ItemBinding],
     filter: &'a str,
     revealed: bool,
@@ -26,6 +27,9 @@ struct TreeView<'a> {
 
 pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Vec<Action>) {
     let active = state.active().and_then(|tab| tab.binding.as_ref());
+    let expanded = state
+        .active()
+        .and_then(|tab| tab.binding.as_ref().or(tab.source.as_ref()));
     let revealed = reveal::active_item(ui, state);
     let awaiting_save: Vec<&ItemBinding> = state
         .tabs_awaiting_save()
@@ -39,6 +43,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
                 collection,
                 folder: state.linked_folder(collection.id()),
                 active,
+                expanded,
                 awaiting_save: &awaiting_save,
                 filter,
                 revealed,
@@ -190,4 +195,10 @@ fn request_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
         view.actions,
     );
     menus::item(&response, collection.id(), item, view.actions);
+    let expanded = view
+        .expanded
+        .is_some_and(|binding| binding.points_at(collection.id(), item_id));
+    if expanded {
+        examples::rows(ui, collection.id(), item_id, item, view.actions);
+    }
 }

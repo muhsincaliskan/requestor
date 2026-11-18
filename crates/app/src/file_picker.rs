@@ -8,6 +8,7 @@ const IMPORT_TITLE: &str = "Import into Requestor";
 const EXPORT_TITLE: &str = "Export from Requestor";
 const SAVE_FOLDER_TITLE: &str = "Choose an empty folder for the collection";
 const OPEN_FOLDER_TITLE: &str = "Open a collection folder";
+const DATA_FOLDER_TITLE: &str = "Choose where Requestor keeps its data";
 const CERTIFICATE_TITLE: &str = "Choose a PEM certificate or key";
 const PEM_FILTER_NAME: &str = "PEM";
 const PEM_EXTENSIONS: [&str; 4] = ["pem", "crt", "cer", "key"];
@@ -27,6 +28,7 @@ pub fn folder(purpose: &FolderPurpose) -> Option<PathBuf> {
     let title = match purpose {
         FolderPurpose::SaveCollection(_) => SAVE_FOLDER_TITLE,
         FolderPurpose::OpenCollection => OPEN_FOLDER_TITLE,
+        FolderPurpose::DataFolder => DATA_FOLDER_TITLE,
     };
     FileDialog::new().set_title(title).pick_folder()
 }

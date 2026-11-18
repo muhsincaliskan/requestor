@@ -211,3 +211,29 @@ fn downloads_finishing_after_the_dialog_moved_on_are_ignored() {
     assert_eq!(state.workspace.collections.len(), 1);
     assert_eq!(state.workspace.collections[0].info.name, "Current");
 }
+
+#[test]
+fn a_collection_exports_as_postman_json_or_an_http_file() {
+    let (mut state, collection_id, _) = state_with_request();
+    let target = LibraryTarget::Collection { collection_id };
+    let mut form = crate::state::ExportForm::suggested(target.clone(), "Sample");
+    assert_eq!(form.format(), crate::state::ExportFormat::Postman);
+    form.set_format(crate::state::ExportFormat::Http);
+    assert!(
+        form.file_path.ends_with("Sample.http"),
+        "{}",
+        form.file_path
+    );
+    form.set_format(crate::state::ExportFormat::Postman);
+    assert!(form.file_path.ends_with("Sample.postman_collection.json"));
+
+    let file_path = PathBuf::from("Sample.http");
+    let effects = state.apply(Action::Export { target, file_path }, 0.0);
+    let [Effect::WriteFile { contents, .. }] = effects.as_slice() else {
+        panic!("expected one written file, got {effects:?}");
+    };
+    assert!(
+        contents.starts_with("### list\nGET https://example.test/users\n"),
+        "{contents}"
+    );
+}

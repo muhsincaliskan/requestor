@@ -5,6 +5,7 @@ use requestor_core::environment::Environment;
 use requestor_core::import::wsdl::is_wsdl_address;
 use requestor_core::import::{import_file_text, import_text, ImportError, Imported};
 
+use super::export_format::ExportFormat;
 use super::overlay::{ImportForm, LibraryTarget, Overlay};
 use super::tab::RequestTab;
 use super::{Action, AppState, Effect};
@@ -114,11 +115,13 @@ impl AppState {
     }
 
     fn export(&mut self, target: &LibraryTarget, file_path: PathBuf, effects: &mut Vec<Effect>) {
+        let format = ExportFormat::of(&file_path);
+        let settings = &self.workspace.settings.request;
         let document = match target {
             LibraryTarget::Collection { collection_id } => self
                 .workspace
                 .collection(collection_id)
-                .map(Collection::to_export_json),
+                .map(|collection| format.render(collection, settings)),
             LibraryTarget::Item {
                 collection_id,
                 item_id,
@@ -126,7 +129,7 @@ impl AppState {
                 .workspace
                 .collection(collection_id)
                 .and_then(|collection| collection.find_item(item_id))
-                .map(|item| Collection::containing(item.clone()).to_export_json()),
+                .map(|item| format.render(&Collection::containing(item.clone()), settings)),
             LibraryTarget::Environment { environment_id } => self
                 .workspace
                 .environment(environment_id)

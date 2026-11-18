@@ -8,7 +8,7 @@ impl AppState {
         match action {
             Action::OpenHistoryEntry(entry) => self.open_history_entry(&entry),
             Action::ClearHistory => self.clear_history(),
-            other => self.dispatch_library_action(other, effects),
+            other => self.dispatch_example_action(other, effects),
         }
     }
 

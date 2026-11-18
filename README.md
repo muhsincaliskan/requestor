@@ -47,11 +47,19 @@
 
 ## Install
 
-Download the latest build from the Releases page: a `.dmg` or zipped `.app` for macOS (universal), a `.tar.gz` for Linux or a `.zip` for Windows. On macOS open the `.dmg` and drag Requestor to Applications.
+On macOS, install or update with one command:
+
+```
+curl -fsSL https://raw.githubusercontent.com/muhsincaliskan/requestor/main/scripts/install.sh | sh
+```
+
+It puts Requestor in Applications and opens without the "could not verify" warning, because files `curl` downloads are not marked as coming from the internet.
+
+Or download the latest build from the Releases page: a `.dmg` or zipped `.app` for macOS (universal), a `.tar.gz` for Linux or a `.zip` for Windows (the app is `Requestor.exe`, the command-line binary is in `cli\requestor.exe`). On macOS open the `.dmg` and drag Requestor to Applications.
 
 On Linux the file dialogs come from the desktop's file chooser portal (`xdg-desktop-portal`), or from `zenity` when no portal runs. Without either, Choose file does nothing, but you can still drop files onto the window or paste text and addresses into Import.
 
-The macOS app is only ad-hoc signed, so on first launch Gatekeeper may block it. Right-click the app and choose Open, or run:
+The macOS app is only ad-hoc signed, so when it comes from a browser download macOS says it "could not verify" Requestor. Click Done, then open System Settings › Privacy & Security and click **Open Anyway** next to the message about Requestor. Or run:
 
 ```
 xattr -dr com.apple.quarantine /Applications/Requestor.app
@@ -70,6 +78,8 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 ## Features
 
 - Collections and environments stay compatible with Postman v2.1 JSON. Fields Requestor does not know are kept on export.
+- Export a collection as Postman JSON or as one `.http` file with every request, for VS Code REST Client and JetBrains. In the `.http` file, `{{variables}}` stay as placeholders and collection variables are written as `@name = value` lines; secret ones are left out.
+- Examples: open a saved request and its examples are listed under it in the sidebar, including the ones in imported Postman collections. Click one to open its request and response in a new tab. **Save as example** next to the response status keeps the current request and response with the saved request, in Postman's format.
 - Import from Postman, OpenAPI 3 (JSON), WSDL 1.1, cURL and raw HTTP requests. Paste a cURL command into the URL field to fill in the whole request.
 - A WSDL becomes a collection with one ready SOAP request per operation: the address, the SOAPAction (or the SOAP 1.2 action), and a sample envelope with `?` where values go. Each SOAP port gets its own folder. Schemas and WSDLs it imports are read from next to the file. Paste a WSDL address such as `https://host/service.asmx?wsdl` into the import window to download it together with the documents it imports; pasted WSDL text cannot load them.
 - Variables:
@@ -90,6 +100,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - The body view is virtualized and syntax highlighted.
   - It has Pretty and Raw modes for JSON and XML, and a find box.
 - Headers and cookies have one-click copy.
+- **Copy cURL** next to Save copies the request as a cURL command with secrets as `<redacted>`; Option-click (Alt-click) includes them. **Show code panel** in the **…** menu keeps the code beside the request and updates it as you edit.
 - **Generate code** (in the **…** menu next to Save) turns the request into cURL, an `.http` file, JavaScript `fetch`, Python `requests` or Java `HttpClient` code. Secret values show as `<redacted>` unless **Include secrets** is ticked. The last language you picked is remembered. Files the request refers to do not have to exist on this computer. Header values outside ASCII are sent as UTF-8 bytes in the JavaScript and Python code; Java's `HttpClient` accepts only ASCII header values and rejects or replaces the rest.
 - Send a request again and the Changes tab shows what differs from the previous response, line by line, with JSON and XML laid out first.
 - Server-sent events (`text/event-stream`) show up in an Events tab as they arrive, with each event's type, id and data. Press **Stop** to end the stream and keep what came in. Click an event to copy its data. The last 1000 events are listed. A stream ends at 16 MB, or at the response size limit if that is lower, and stops with a notice when the server stays quiet for longer than the request timeout.
@@ -100,6 +111,12 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 - A URL typed without `http://` or `https://` is sent over HTTP, as in a browser.
 - With autosave off, requests with unsaved edits are marked in the tree and listed in an Unsaved group at the top of the sidebar.
 - A standalone `requestor` command-line binary runs collections, sends single cURL or raw HTTP requests, and converts imports to Postman format.
+
+## Using the same data on several computers
+
+Settings › Data shows the folder where Requestor keeps collections, environments, history and settings. Choose a folder that Git, Google Drive or Dropbox syncs, and Requestor uses it after a restart. An empty folder gets a copy of your current data; a folder that already holds Requestor data, for example one synced from another computer, is used as it is. Secret environment values and the proxy password stay in each computer's keychain and are not synced, so enter them once on every computer. Everything else is synced as it is written: tokens typed directly into requests or collections, the request history and saved examples. Keep tokens in secret environment variables, and keep the synced folder private. Collections saved to their own folder with **Save to folder…** are linked by their path on this computer, so link them again on the others.
+
+Run one copy of Requestor on the synced folder at a time, so two computers do not overwrite each other's changes.
 
 ## Keeping a collection in git
 

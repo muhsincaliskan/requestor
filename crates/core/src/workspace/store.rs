@@ -9,6 +9,7 @@ use serde::Serialize;
 use self::index::DocumentIndex;
 use self::links::LinkedFolders;
 use self::location::platform_root;
+use super::data_folder::DataFolder;
 use super::pending_write::{PendingDelete, PendingWrite, StoreError};
 use super::settings::AppSettings;
 use super::{Session, StoreWrite, UnsecuredSecrets, Workspace};
@@ -18,9 +19,9 @@ use crate::history::History;
 use crate::vault::VaultStore;
 
 const HOME_OVERRIDE_VARIABLE: &str = "REQUESTOR_HOME";
-const COLLECTIONS_DIRECTORY: &str = "collections";
-const ENVIRONMENTS_DIRECTORY: &str = "environments";
-const SETTINGS_FILE: &str = "settings.json";
+pub(super) const COLLECTIONS_DIRECTORY: &str = "collections";
+pub(super) const ENVIRONMENTS_DIRECTORY: &str = "environments";
+pub(super) const SETTINGS_FILE: &str = "settings.json";
 const SESSION_FILE: &str = "session.json";
 const HISTORY_FILE: &str = "history.json";
 pub(super) const JSON_EXTENSION: &str = "json";
@@ -57,11 +58,15 @@ impl WorkspaceStore {
     }
 
     pub fn in_default_location() -> Option<Self> {
+        Self::default_data_folder().map(|folder| WorkspaceStore::new(folder.location()))
+    }
+
+    pub fn default_data_folder() -> Option<DataFolder> {
         let variable = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());
         variable(HOME_OVERRIDE_VARIABLE)
             .map(PathBuf::from)
             .or_else(|| platform_root(variable))
-            .map(WorkspaceStore::new)
+            .map(DataFolder::new)
     }
 
     pub fn root(&self) -> &Path {

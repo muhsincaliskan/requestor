@@ -1,4 +1,5 @@
 mod certificates;
+mod data_folder;
 mod interface;
 mod proxy;
 mod request;
@@ -7,7 +8,7 @@ mod shortcuts;
 mod themes;
 
 use eframe::egui::{vec2, Align, Context, Id, Layout, ScrollArea, Sense, Ui, UiBuilder};
-use requestor_core::workspace::AppSettings;
+use requestor_core::workspace::{AppSettings, DataFolder};
 
 use super::{button_row, modal, TITLE_GAP};
 use crate::state::{Action, AppState};
@@ -24,6 +25,12 @@ const PANE_GAP: f32 = 24.0;
 const ABOUT_NAME: &str = "Requestor";
 const ABOUT_TAGLINE: &str = "A lightweight HTTP client.";
 const VERSION_LABEL: &str = "Version";
+const ABOUT_CREDIT: &str = "Developed by Muhsin Caliskan";
+
+struct SettingsContext<'a> {
+    settings: &'a mut AppSettings,
+    data_folder: Option<&'a DataFolder>,
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum Category {
@@ -33,17 +40,19 @@ enum Category {
     Shortcuts,
     Proxy,
     Certificates,
+    Data,
     About,
 }
 
 impl Category {
-    const ALL: [Category; 7] = [
+    const ALL: [Category; 8] = [
         Category::Request,
         Category::Interface,
         Category::Themes,
         Category::Shortcuts,
         Category::Proxy,
         Category::Certificates,
+        Category::Data,
         Category::About,
     ];
 
@@ -55,11 +64,16 @@ impl Category {
             Category::Shortcuts => "Shortcuts",
             Category::Proxy => "Proxy",
             Category::Certificates => "Certificates",
+            Category::Data => "Data",
             Category::About => "About",
         }
     }
 
-    fn show(self, ui: &mut Ui, settings: &mut AppSettings, actions: &mut Vec<Action>) -> bool {
+    fn show(self, ui: &mut Ui, context: SettingsContext<'_>, actions: &mut Vec<Action>) -> bool {
+        let SettingsContext {
+            settings,
+            data_folder,
+        } = context;
         match self {
             Category::Request => request::show(ui, settings),
             Category::Interface => interface::show(ui, &mut settings.interface),
@@ -67,6 +81,7 @@ impl Category {
             Category::Shortcuts => unchanged(ui, shortcuts::show),
             Category::Proxy => proxy::show(ui, &mut settings.request),
             Category::Certificates => certificates::show(ui, &mut settings.request, actions),
+            Category::Data => unchanged(ui, |ui| data_folder::show(ui, data_folder, actions)),
             Category::About => unchanged(ui, about),
         }
     }
@@ -89,7 +104,11 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> b
             });
             ui.add_space(PANE_GAP);
             pane(ui, CONTENT_WIDTH, |ui| {
-                edited = content(ui, category, &mut state.workspace.settings, actions);
+                let context = SettingsContext {
+                    settings: &mut state.workspace.settings,
+                    data_folder: state.data_folder.as_ref(),
+                };
+                edited = content(ui, category, context, actions);
             });
         });
         done = button_row(ui, |ui| action_button::primary(ui, DONE_LABEL).clicked());
@@ -127,14 +146,14 @@ fn category_list(ui: &mut Ui, current: Category) -> Category {
 fn content(
     ui: &mut Ui,
     category: Category,
-    settings: &mut AppSettings,
+    context: SettingsContext<'_>,
     actions: &mut Vec<Action>,
 ) -> bool {
     ScrollArea::vertical()
         .id_salt(CATEGORY_KEY)
         .auto_shrink(false)
         .max_height(CONTENT_HEIGHT)
-        .show(ui, |ui| category.show(ui, settings, actions))
+        .show(ui, |ui| category.show(ui, context, actions))
         .inner
 }
 
@@ -147,4 +166,5 @@ fn about(ui: &mut Ui) {
     ui.heading(ABOUT_NAME);
     ui.label(ABOUT_TAGLINE);
     ui.label(format!("{VERSION_LABEL} {}", env!("CARGO_PKG_VERSION")));
+    ui.weak(ABOUT_CREDIT);
 }

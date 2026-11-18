@@ -401,6 +401,15 @@ fn the_session_is_restored_with_unsaved_work() {
 }
 
 #[test]
+fn a_new_environment_is_put_in_use() {
+    let mut state = state_with(Workspace::default());
+    state.apply(Action::NewEnvironment, 0.0);
+    let id = state.workspace.environments[0].id.clone();
+    assert!(id.is_some());
+    assert_eq!(state.workspace.session.active_environment, id);
+}
+
+#[test]
 fn neighbour_activation_wraps_around() {
     let mut state = state_with(Workspace::default());
     for _ in 0..3 {
@@ -465,6 +474,7 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
 mod certificates;
 mod changes;
 mod code;
+mod examples;
 mod folders;
 mod history;
 mod rules;

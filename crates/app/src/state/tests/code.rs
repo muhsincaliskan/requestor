@@ -73,3 +73,25 @@ fn copy_as_curl_still_masks_secrets_by_default() {
     assert!(copied.starts_with("curl"));
     assert!(!copied.contains(TOKEN));
 }
+
+#[test]
+fn the_code_panel_follows_edits_and_its_options() {
+    let (mut state, tab) = opened_with_token();
+    state.workspace.settings.interface.code_language = CodeLanguage::Curl;
+    state.apply(Action::ToggleCodePanel, 0.0);
+    let code = |state: &AppState| state.code_panel.as_ref().unwrap().code.clone().unwrap();
+    assert!(code(&state).starts_with("curl"), "{}", code(&state));
+    assert!(!code(&state).contains(TOKEN));
+    state.tab_mut(tab).unwrap().draft.url = "https://example.test/changed".to_string();
+    state.apply(Action::TabEdited(tab), 0.0);
+    assert!(code(&state).contains("/changed"), "{}", code(&state));
+    let panel = state.code_panel.clone().unwrap();
+    state.apply(panel.with_options(CodeLanguage::Python, true), 0.0);
+    assert!(code(&state).contains(TOKEN), "{}", code(&state));
+    assert_eq!(
+        state.workspace.settings.interface.code_language,
+        CodeLanguage::Python
+    );
+    state.apply(Action::ToggleCodePanel, 0.0);
+    assert!(state.code_panel.is_none());
+}

@@ -13,6 +13,7 @@ const SAVE_FAILED: &str = "Could not save";
 pub enum FolderPurpose {
     SaveCollection(String),
     OpenCollection,
+    DataFolder,
 }
 
 impl AppState {
@@ -24,7 +25,9 @@ impl AppState {
                     self.save_collection_to(&collection_id, path, effects)
                 }
                 FolderPurpose::OpenCollection => self.open_collection_folder(path, effects),
+                FolderPurpose::DataFolder => self.move_data_folder(path),
             },
+            Action::ResetDataFolder => self.reset_data_folder(),
             Action::StopSavingToFolder(collection_id) => {
                 self.stop_saving_to_folder(&collection_id, effects)
             }

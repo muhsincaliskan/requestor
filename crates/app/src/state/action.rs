@@ -9,6 +9,7 @@ use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
 
 use super::certificates::CertificateFile;
+use super::examples::ExampleRef;
 use super::folders::FolderPurpose;
 use super::overlay::{LibraryTarget, Overlay, SaveTabForm};
 use super::stream::StreamUpdate;
@@ -74,6 +75,11 @@ pub enum Action {
         include_secrets: bool,
     },
     OpenCode(TabId),
+    ToggleCodePanel,
+    CodePanelOptions {
+        language: CodeLanguage,
+        include_secrets: bool,
+    },
     ShowCode {
         tab: TabId,
         language: CodeLanguage,
@@ -81,6 +87,9 @@ pub enum Action {
     },
     CopyText(String),
     OpenHistoryEntry(Box<HistoryEntry>),
+    OpenExample(ExampleRef),
+    SaveExample(TabId),
+    DeleteExample(ExampleRef),
     ClearHistory,
     NewCollection,
     NewCollectionForSave(SaveTabForm),
@@ -132,6 +141,7 @@ pub enum Action {
         file_path: PathBuf,
     },
     ChooseFolder(FolderPurpose),
+    ResetDataFolder,
     FolderPicked {
         purpose: FolderPurpose,
         path: PathBuf,
@@ -142,4 +152,13 @@ pub enum Action {
     OpenReleasePage,
     Show(Overlay),
     DismissNotice,
+}
+
+impl Action {
+    pub fn may_change_request_code(&self) -> bool {
+        !matches!(
+            self,
+            Action::StreamProgress { .. } | Action::SocketEvent { .. } | Action::DismissNotice
+        )
+    }
 }

@@ -24,6 +24,7 @@ impl AppState {
             .workspace
             .add_environment(Environment::new(NEW_ENVIRONMENT_NAME));
         self.unsaved.touch_environment(&id, self.now);
+        self.select_environment(Some(id.clone()));
         self.overlay = Some(Overlay::EnvironmentEditor { environment_id: id });
     }
 
