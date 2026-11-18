@@ -71,7 +71,7 @@ impl Runner {
     }
 
     pub fn check_for_update(&self, settings: &RequestSettings, wake: &Context) {
-        let settings = settings.with_verified_tls();
+        let settings = settings.for_update_check();
         let report = self.report.clone();
         let wake = wake.clone();
         thread::Builder::new()

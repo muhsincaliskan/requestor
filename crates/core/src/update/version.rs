@@ -11,13 +11,18 @@ pub struct Version {
     major: u64,
     minor: u64,
     patch: u64,
+    stable: bool,
 }
 
 impl Version {
     pub fn parse(text: &str) -> Option<Self> {
         let trimmed = text.trim();
         let bare = trimmed.strip_prefix(TAG_PREFIX).unwrap_or(trimmed);
-        let core = bare.split([PRE_RELEASE_MARK, BUILD_MARK]).next()?;
+        let without_build = bare.split(BUILD_MARK).next()?;
+        let (core, stable) = match without_build.split_once(PRE_RELEASE_MARK) {
+            Some((core, _)) => (core, false),
+            None => (without_build, true),
+        };
         let parts: Vec<u64> = core
             .split(PART_SEPARATOR)
             .map(|part| part.parse().ok())
@@ -27,6 +32,7 @@ impl Version {
             major,
             minor,
             patch,
+            stable,
         })
     }
 
@@ -35,6 +41,7 @@ impl Version {
             major: 0,
             minor: 0,
             patch: 0,
+            stable: false,
         })
     }
 }

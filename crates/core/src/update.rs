@@ -1,3 +1,4 @@
+mod check_settings;
 mod error;
 mod github;
 mod release;

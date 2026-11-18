@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use super::*;
+use crate::header::ACCEPT;
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
 use crate::transport::{HttpTransport, TransportError};
@@ -13,10 +14,7 @@ struct FixedAnswer {
 impl HttpTransport for FixedAnswer {
     fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError> {
         assert_eq!(request.url, LATEST_RELEASE_URL);
-        assert_eq!(
-            request.header("Accept"),
-            Some("application/vnd.github+json")
-        );
+        assert_eq!(request.header(ACCEPT), Some(github::GITHUB_JSON));
         Ok(HttpResponse {
             status: self.status,
             reason: String::new(),
@@ -66,7 +64,9 @@ fn the_same_or_an_older_release_is_not_offered() {
 fn versions_compare_by_number_not_text() {
     assert!(version("0.10.0") > version("0.9.3"));
     assert_eq!(version("v1.2.3"), version("1.2.3"));
-    assert_eq!(version("1.2.3-beta.1"), version("1.2.3"));
+    assert!(version("1.2.3-beta.1") < version("1.2.3"));
+    assert!(version("1.2.3-beta.1") > version("1.2.2"));
+    assert_eq!(version("1.2.3+build.7"), version("1.2.3"));
     assert_eq!(version("1.2.3").to_string(), "1.2.3");
     assert_eq!(Version::parse("1.2"), None);
     assert_eq!(Version::parse("latest"), None);
@@ -101,10 +101,24 @@ fn failures_are_reported_without_an_offer() {
 }
 
 #[test]
-fn update_checks_always_verify_tls() {
+fn update_checks_verify_tls_follow_redirects_and_time_out() {
     let relaxed = crate::settings::RequestSettings {
         verify_ssl: false,
+        follow_redirects: false,
+        request_timeout_ms: 0,
+        connect_timeout_ms: 0,
         ..Default::default()
     };
-    assert!(relaxed.with_verified_tls().verify_ssl);
+    let checked = relaxed.for_update_check();
+    assert!(checked.verify_ssl);
+    assert!(checked.follow_redirects);
+    assert!(checked.request_timeout_ms > 0);
+    assert!(checked.connect_timeout_ms > 0);
+}
+
+#[test]
+fn a_page_with_unsafe_characters_is_refused() {
+    let odd = r#"{"tag_name":"v9.0.0","html_url":"https://github.com/x/y\" /evil"}"#;
+    let result = newer_release(&client(200, odd), &version("0.1.0"));
+    assert_eq!(result, Err(UpdateError::InvalidResponse));
 }

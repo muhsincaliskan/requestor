@@ -8,10 +8,9 @@ use super::{ImportError, ImportedRequest};
 use crate::collection::{Auth, Body, Param};
 use crate::curl_command::COMMAND_NAME;
 use crate::encoding::FORM_PAIR_SEPARATOR;
-use crate::header::CONTENT_TYPE;
+use crate::header::{ACCEPT, CONTENT_TYPE};
 use crate::media_type;
 
-const ACCEPT: &str = "Accept";
 const DATA_CONFLICT_WARNING: &str = "data given together with a file body was ignored";
 const URLENCODE_CONFLICT_WARNING: &str =
     "-d data that is not name=value pairs was ignored because --data-urlencode was also used";

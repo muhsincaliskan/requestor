@@ -107,13 +107,6 @@ impl Default for RequestSettings {
 }
 
 impl RequestSettings {
-    pub fn with_verified_tls(&self) -> Self {
-        RequestSettings {
-            verify_ssl: true,
-            ..self.clone()
-        }
-    }
-
     pub fn request_timeout(&self) -> Option<Duration> {
         Self::optional_duration(self.request_timeout_ms)
     }

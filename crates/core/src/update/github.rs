@@ -3,15 +3,14 @@ mod latest_release;
 use latest_release::LatestReleaseResponse;
 
 use super::{Release, ReleaseClient, UpdateError};
-use crate::header::Header;
+use crate::header::{Header, ACCEPT};
 use crate::prepared::PreparedRequest;
 use crate::response::StatusClass;
 use crate::transport::HttpTransport;
 
 pub const LATEST_RELEASE_URL: &str =
     "https://api.github.com/repos/muhsincaliskan/requestor/releases/latest";
-const ACCEPT: &str = "Accept";
-const GITHUB_JSON: &str = "application/vnd.github+json";
+pub(super) const GITHUB_JSON: &str = "application/vnd.github+json";
 
 pub struct GithubReleaseClient<T> {
     transport: T,
