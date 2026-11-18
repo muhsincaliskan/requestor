@@ -135,3 +135,31 @@ fn empty_folders_and_folders_with_requests_round_trip() {
     let (read, _) = read_folder(&folder.0).unwrap();
     assert_eq!(read, collection);
 }
+
+#[test]
+fn the_order_matches_names_whose_case_the_disk_kept() {
+    let folder = TemporaryFolder::new();
+    fs::create_dir_all(&folder.0).unwrap();
+    fs::write(
+        folder.0.join("collection.json"),
+        r#"{"info":{"name":"Shop"},"order":["zeta.json","login.json"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        folder.0.join("Login.json"),
+        r#"{"name":"Login","request":{"url":"/l"}}"#,
+    )
+    .unwrap();
+    fs::write(
+        folder.0.join("zeta.json"),
+        r#"{"name":"Zeta","request":{"url":"/z"}}"#,
+    )
+    .unwrap();
+    let (read, _) = read_folder(&folder.0).unwrap();
+    let names: Vec<_> = read
+        .item
+        .iter()
+        .filter_map(|item| item.name.as_deref())
+        .collect();
+    assert_eq!(names, ["Zeta", "Login"]);
+}

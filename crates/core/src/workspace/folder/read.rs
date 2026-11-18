@@ -31,11 +31,16 @@ impl FolderReader {
         self.owned.push(metadata_path);
         let order = take_order(&mut document);
         let mut items = Vec::new();
-        for entry in ordered_entries(directory, &order)? {
+        let (listed, unlisted) = ordered_entries(directory, &order)?;
+        let entries = listed
+            .into_iter()
+            .map(|entry| (entry, true))
+            .chain(unlisted.into_iter().map(|entry| (entry, false)));
+        for (entry, is_listed) in entries {
             let path = directory.join(&entry);
             if path.is_dir() {
                 items.push(self.directory(&path, FOLDER_FILE)?);
-            } else if let Some(request) = self.request(path, order.contains(&entry))? {
+            } else if let Some(request) = self.request(path, is_listed)? {
                 items.push(request);
             }
         }
@@ -88,18 +93,25 @@ fn take_order(document: &mut Value) -> Vec<String> {
         .collect()
 }
 
-fn ordered_entries(directory: &Path, order: &[String]) -> Result<Vec<String>, StoreError> {
+fn ordered_entries(
+    directory: &Path,
+    order: &[String],
+) -> Result<(Vec<String>, Vec<String>), StoreError> {
     let mut present = child_entries(directory)?;
-    let mut entries: Vec<String> = order
+    let listed = order
         .iter()
         .filter_map(|name| {
-            let position = present.iter().position(|entry| entry == name)?;
+            let folded_name = name.to_lowercase();
+            let position = present.iter().position(|entry| entry == name).or_else(|| {
+                present
+                    .iter()
+                    .position(|entry| entry.to_lowercase() == folded_name)
+            })?;
             Some(present.remove(position))
         })
         .collect();
     present.sort();
-    entries.extend(present);
-    Ok(entries)
+    Ok((listed, present))
 }
 
 fn child_entries(directory: &Path) -> Result<Vec<String>, StoreError> {

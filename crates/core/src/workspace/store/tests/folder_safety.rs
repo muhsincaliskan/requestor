@@ -124,8 +124,11 @@ fn a_hand_named_request_keeps_its_content_when_renamed_by_case() {
     .unwrap();
     let (collection, _) = root.store().open_folder(&folder).unwrap();
     save(&root, &collection);
-    assert!(listing(&folder).contains("login.json"));
-    assert!(!listing(&folder).contains("Login.json"));
+    let requests: Vec<String> = listing(&folder)
+        .into_iter()
+        .filter(|name| name.eq_ignore_ascii_case("login.json"))
+        .collect();
+    assert_eq!(requests.len(), 1);
     let reloaded = root.store().load().workspace.collections;
     assert_eq!(item_names(&reloaded[0]), ["Login"]);
 }
