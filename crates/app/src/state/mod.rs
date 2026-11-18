@@ -3,6 +3,7 @@ mod autosave;
 mod certificates;
 mod code;
 mod code_panel;
+mod collection_run;
 mod data_folder;
 mod effect;
 mod environments;
@@ -33,6 +34,7 @@ mod updates;
 pub use action::Action;
 pub use certificates::{CertificateFile, CertificatePart};
 pub use code_panel::CodePanel;
+pub use collection_run::{CollectionRunJob, RunnerForm};
 pub use effect::Effect;
 pub use examples::ExampleRef;
 pub use exchange::Exchange;
@@ -107,7 +109,14 @@ impl AppState {
         self.now = now;
         let mut effects = Vec::new();
         let refreshes_code = action.may_change_request_code();
+        let running = match action {
+            Action::StopRun(_) | Action::RunFinished { .. } => None,
+            _ => self.running_collection_job(),
+        };
         self.dispatch(action, &mut effects);
+        let current = self.running_collection_job();
+        self.abandoned_jobs
+            .extend(running.filter(|job| Some(*job) != current));
         if refreshes_code {
             self.refresh_code_panel();
         }

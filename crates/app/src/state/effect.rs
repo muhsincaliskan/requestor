@@ -5,6 +5,7 @@ use requestor_core::settings::RequestSettings;
 use requestor_core::workspace::{PendingDelete, PendingWrite, StoreWrite};
 
 use super::certificates::CertificateFile;
+use super::collection_run::CollectionRunJob;
 use super::folders::FolderPurpose;
 use super::overlay::LibraryTarget;
 use super::tab::TabId;
@@ -33,6 +34,7 @@ pub enum Effect {
         job: u64,
         text: String,
     },
+    RunCollection(Box<CollectionRunJob>),
     Persist(StoreWrite),
     DeleteFile(PathBuf),
     WriteFile {
@@ -70,6 +72,7 @@ impl Effect {
             Effect::Send { .. }
             | Effect::OpenSocket { .. }
             | Effect::SocketSend { .. }
+            | Effect::RunCollection(_)
             | Effect::FetchSchema { .. }
             | Effect::CopyText(_)
             | Effect::OpenUrl(_)

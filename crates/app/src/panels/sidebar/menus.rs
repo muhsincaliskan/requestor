@@ -12,6 +12,7 @@ const OPEN_LABEL: &str = "Open";
 const ADD_REQUEST_LABEL: &str = "Add request";
 const ADD_FOLDER_LABEL: &str = "Add folder";
 const EDIT_LABEL: &str = "Edit";
+const RUN_LABEL: &str = "Run collection…";
 const RENAME_LABEL: &str = "Rename";
 const DUPLICATE_LABEL: &str = "Duplicate";
 const EXPORT_LABEL: &str = "Export";
@@ -40,6 +41,9 @@ pub(super) fn collection(
             Action::Show(Overlay::CollectionEditor {
                 collection_id: collection_id.to_string(),
             })
+        });
+        entry(ui, RUN_LABEL, actions, || {
+            Action::OpenRunner(collection_id.to_string())
         });
         folder_entry(ui, collection_id, folder, actions);
         let target = LibraryTarget::Collection {

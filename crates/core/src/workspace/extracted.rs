@@ -14,15 +14,26 @@ impl Workspace {
         collection_id: Option<&str>,
     ) -> ChangedStores {
         let active = self.session.active_environment.clone();
-        let environment = self
-            .environments
-            .iter_mut()
-            .find(|environment| environment.id.is_some() && environment.id == active);
+        self.store_extracted_in(report, collection_id, active.as_deref())
+    }
+
+    pub fn store_extracted_in(
+        &mut self,
+        report: &RulesReport,
+        collection_id: Option<&str>,
+        environment_id: Option<&str>,
+    ) -> ChangedStores {
+        let environment = environment_id.and_then(|id| {
+            self.environments
+                .iter_mut()
+                .find(|environment| environment.id.as_deref() == Some(id))
+        });
         let collection = collection_id.and_then(|id| {
             self.collections
                 .iter_mut()
                 .find(|collection| collection.id() == id)
         });
+        let has_collection = collection.is_some();
         let mut scratch = None;
         let variables = match collection {
             Some(collection) => &mut collection.variable,
@@ -30,9 +41,11 @@ impl Workspace {
         };
         let applied = report.apply(environment, variables);
         ChangedStores {
-            environment_id: active.filter(|_| applied.environment),
+            environment_id: environment_id
+                .filter(|_| applied.environment)
+                .map(str::to_string),
             collection_id: collection_id
-                .filter(|_| applied.collection)
+                .filter(|_| has_collection && applied.collection)
                 .map(str::to_string),
         }
     }

@@ -1,3 +1,4 @@
+mod collection_run;
 mod import;
 mod schema;
 mod sockets;

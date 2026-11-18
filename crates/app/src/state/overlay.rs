@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use requestor_core::prepared::CodeLanguage;
 
 use super::action::Action;
+use super::collection_run::RunnerForm;
 use super::tab::TabId;
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -119,6 +120,7 @@ pub enum Overlay {
     Export(ExportForm),
     CommandPalette(PaletteForm),
     Code(CodeForm),
+    CollectionRunner(RunnerForm),
 }
 
 const COLLECTION_FILE_SUFFIX: &str = ".postman_collection.json";

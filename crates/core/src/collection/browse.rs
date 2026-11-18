@@ -1,4 +1,4 @@
-use super::{Collection, Item, RequestSpec};
+use super::{Collection, Item, Request, RequestSpec};
 
 const DEFAULT_METHOD: &str = "GET";
 const PATH_SEPARATOR: &str = " / ";
@@ -8,6 +8,12 @@ pub struct RequestLocation<'a> {
     pub folders: String,
 }
 
+impl Request {
+    pub fn method_name(&self) -> &str {
+        self.method.as_deref().unwrap_or(DEFAULT_METHOD)
+    }
+}
+
 impl Item {
     pub fn matches_filter(&self, filter: &str) -> bool {
         self.matches_lowercase(&filter.to_lowercase())
@@ -15,7 +21,7 @@ impl Item {
 
     pub fn method_name(&self) -> Option<&str> {
         match self.request.as_ref()? {
-            RequestSpec::Full(request) => Some(request.method.as_deref().unwrap_or(DEFAULT_METHOD)),
+            RequestSpec::Full(request) => Some(request.method_name()),
             RequestSpec::Url(_) => Some(DEFAULT_METHOD),
         }
     }

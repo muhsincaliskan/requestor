@@ -84,6 +84,7 @@ impl RequestorApp {
                     settings,
                 } => self.runner.fetch_schema(tab, job, *request, &settings, ctx),
                 Effect::SocketSend { job, text } => self.runner.socket_send(job, text),
+                Effect::RunCollection(run) => self.runner.run_collection(*run, ctx),
                 Effect::CopyText(text) => ctx.copy_text(text),
                 Effect::OpenUrl(url) => {
                     if let Err(error) = browser::open(&url) {

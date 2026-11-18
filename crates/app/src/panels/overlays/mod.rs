@@ -1,5 +1,6 @@
 mod code;
 mod collection_editor;
+mod collection_runner;
 mod dialogs;
 mod environment_editor;
 mod folder_editor;
@@ -15,7 +16,7 @@ use eframe::egui::{vec2, Align, Context, Frame, Id, Layout, Margin, Modal, Ui};
 use crate::state::{Action, AppState, Overlay};
 
 pub(super) const TITLE_GAP: f32 = 8.0;
-const SECTION_GAP: f32 = 10.0;
+pub(super) const SECTION_GAP: f32 = 10.0;
 const DIALOG_MIN_WIDTH: f32 = 320.0;
 const DIALOG_MARGIN: i8 = 20;
 
@@ -49,8 +50,12 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         }
         Overlay::CommandPalette(form) => palette::show(ctx, state, form, actions),
         Overlay::Code(form) => code::show(ctx, form, actions),
+        Overlay::CollectionRunner(form) => collection_runner::show(ctx, state, form, actions),
     };
-    if stays_open {
+    if !stays_open && matches!(overlay, Overlay::CollectionRunner(_)) {
+        actions.insert(0, Action::CloseRunner);
+        state.overlay = Some(overlay);
+    } else if stays_open {
         state.overlay = Some(overlay);
     }
 }

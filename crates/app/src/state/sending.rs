@@ -5,6 +5,7 @@ use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
 use requestor_core::settings::RequestSettings;
 use requestor_core::variables::VariableScope;
+use requestor_core::workspace::ChangedStores;
 
 use super::exchange::Exchange;
 use super::tab::{RequestTab, TabId};
@@ -162,12 +163,15 @@ impl AppState {
 
     fn store_extracted(&mut self, report: &RulesReport, collection_id: Option<&str>) {
         let changed = self.workspace.store_extracted(report, collection_id);
-        let now = self.now;
+        self.mark_extraction_changes(changed);
+    }
+
+    pub(super) fn mark_extraction_changes(&mut self, changed: ChangedStores) {
         if let Some(environment_id) = changed.environment_id {
-            self.unsaved.touch_environment(&environment_id, now);
+            self.unsaved.touch_environment(&environment_id, self.now);
         }
         if let Some(collection_id) = changed.collection_id {
-            self.unsaved.touch_collection(&collection_id, now);
+            self.unsaved.touch_collection(&collection_id, self.now);
         }
     }
 }
