@@ -1,3 +1,4 @@
+use super::{FormField, FormValue};
 use crate::collection::{Body, JSON_OPENERS};
 use crate::header::Header;
 use crate::secret::{is_secret_name, mask_pairs, Redactor, REDACTED};
@@ -34,6 +35,24 @@ impl SecretExposure<'_> {
         match self {
             SecretExposure::Masked(redactor) => redactor.redact_url(url),
             SecretExposure::Included => url.to_string(),
+        }
+    }
+
+    pub(super) fn form_field(self, field: &FormField) -> FormField {
+        match &field.value {
+            FormValue::Text { content_type, .. } if self.masks() && is_secret_name(&field.name) => {
+                FormField::typed_text(self.text(&field.name), REDACTED, content_type.as_deref())
+            }
+            FormValue::Text { text, content_type } => FormField::typed_text(
+                self.text(&field.name),
+                self.text(text),
+                content_type.as_deref(),
+            ),
+            FormValue::File { path, content_type } => FormField::file(
+                self.text(&field.name),
+                self.text(path),
+                content_type.as_deref(),
+            ),
         }
     }
 

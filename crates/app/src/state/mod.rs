@@ -1,5 +1,6 @@
 mod action;
 mod autosave;
+mod code;
 mod effect;
 mod environments;
 mod exchange;
@@ -29,8 +30,8 @@ pub use exchange::Exchange;
 pub use folders::FolderPurpose;
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
-    DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, PaletteForm, RenameForm,
-    SaveTabForm,
+    CodeForm, DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, PaletteForm,
+    RenameForm, SaveTabForm,
 };
 pub use persistence::SaveStatus;
 pub use schema_view::{SchemaLookup, SchemaView};

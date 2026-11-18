@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::graphql::GraphQlSchema;
 use requestor_core::history::HistoryEntry;
+use requestor_core::prepared::CodeLanguage;
 use requestor_core::response::HttpResponse;
 use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
@@ -68,6 +69,12 @@ pub enum Action {
     SendSocketMessage(TabId),
     CopyAsCurl {
         tab: TabId,
+        include_secrets: bool,
+    },
+    OpenCode(TabId),
+    ShowCode {
+        tab: TabId,
+        language: CodeLanguage,
         include_secrets: bool,
     },
     CopyText(String),

@@ -15,6 +15,7 @@ const SAVE_LABEL: &str = "Save";
 const MORE_LABEL: &str = "…";
 const COPY_CURL_LABEL: &str = "Copy as cURL";
 const COPY_CURL_SECRETS_LABEL: &str = "Copy as cURL with secrets";
+const GENERATE_CODE_LABEL: &str = "Generate code…";
 const METHOD_SALT: &str = "request-method";
 const URL_SALT: &str = "request-url";
 const METHOD_WIDTH: f32 = 96.0;
@@ -148,6 +149,11 @@ fn stop_label(open: &RequestTab) -> &'static str {
 }
 
 fn copy_menu(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
+    if ui.button(GENERATE_CODE_LABEL).clicked() {
+        actions.push(Action::OpenCode(open.id));
+        ui.close();
+    }
+    ui.separator();
     for (label, include_secrets) in [(COPY_CURL_LABEL, false), (COPY_CURL_SECRETS_LABEL, true)] {
         if ui.button(label).clicked() {
             actions.push(Action::CopyAsCurl {

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::prepared::CodeLanguage;
 use crate::secret::Secret;
 use crate::settings::RequestSettings;
 use crate::vault::SecretOrigin;
@@ -37,6 +38,7 @@ pub struct InterfaceSettings {
     pub show_sidebar: bool,
     pub sidebars_swapped: bool,
     pub check_for_updates: bool,
+    pub code_language: CodeLanguage,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -83,6 +85,7 @@ impl Default for InterfaceSettings {
             show_sidebar: true,
             sidebars_swapped: false,
             check_for_updates: true,
+            code_language: CodeLanguage::default(),
         }
     }
 }
@@ -90,6 +93,12 @@ impl Default for InterfaceSettings {
 impl InterfaceSettings {
     pub const SCALE_RANGE: std::ops::RangeInclusive<f32> =
         MIN_INTERFACE_SCALE..=MAX_INTERFACE_SCALE;
+
+    pub fn remember_code_language(&mut self, language: CodeLanguage) -> bool {
+        let changed = self.code_language != language;
+        self.code_language = language;
+        changed
+    }
 
     pub fn effective_scale(&self) -> f32 {
         if self.interface_scale.is_finite() {
@@ -133,6 +142,7 @@ impl AppSettings {
 #[cfg(test)]
 mod tests {
     use super::{AppSettings, InterfaceSettings, ThemeName};
+    use crate::prepared::CodeLanguage;
 
     #[test]
     fn autosave_and_autocomplete_are_on_by_default() {
@@ -153,6 +163,15 @@ mod tests {
         assert!(settings.interface.two_pane_view);
         assert!(settings.interface.autosave);
         assert_eq!(settings.interface.effective_scale(), 2.0);
+        assert_eq!(settings.interface.code_language, CodeLanguage::Curl);
+    }
+
+    #[test]
+    fn remembering_the_same_code_language_is_not_a_change() {
+        let mut interface = InterfaceSettings::default();
+        assert!(interface.remember_code_language(CodeLanguage::Python));
+        assert!(!interface.remember_code_language(CodeLanguage::Python));
+        assert_eq!(interface.code_language, CodeLanguage::Python);
     }
 
     #[test]

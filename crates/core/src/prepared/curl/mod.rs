@@ -1,13 +1,12 @@
-mod mask;
 #[cfg(test)]
 mod tests;
 
+use super::exposure::SecretExposure;
 use super::{BodySource, PreparedRequest};
 use crate::curl_command::{shell_quote, COMMAND_NAME};
 use crate::header::CONTENT_TYPE;
 use crate::method::HttpMethod;
 use crate::secret::Redactor;
-use mask::SecretExposure;
 
 const CONTINUATION: &str = " \\\n  ";
 const HEAD_FLAG: &str = "-I";
@@ -22,7 +21,7 @@ impl PreparedRequest {
         self.curl_command(SecretExposure::Included)
     }
 
-    fn curl_command(&self, exposure: SecretExposure) -> String {
+    pub(super) fn curl_command(&self, exposure: SecretExposure) -> String {
         let mut parts = vec![COMMAND_NAME.to_string()];
         parts.extend(self.method_flag());
         parts.push(shell_quote(&exposure.url(&self.url)));

@@ -20,6 +20,7 @@ enum Command {
     ToggleWorkbench,
     SwapSidebars,
     Palette,
+    GenerateCode,
 }
 
 pub struct Shortcut {
@@ -32,7 +33,7 @@ const COMMAND_SHIFT: Modifiers = Modifiers::COMMAND.plus(Modifiers::SHIFT);
 const COMMAND_ALT: Modifiers = Modifiers::COMMAND.plus(Modifiers::ALT);
 const CONTROL_SHIFT: Modifiers = Modifiers::CTRL.plus(Modifiers::SHIFT);
 
-pub const ALL: [Shortcut; 14] = [
+pub const ALL: [Shortcut; 15] = [
     Shortcut::new(
         "Send request",
         Modifiers::COMMAND,
@@ -62,6 +63,7 @@ pub const ALL: [Shortcut; 14] = [
         Command::Palette,
     ),
     Shortcut::new("Import", Modifiers::COMMAND, Key::O, Command::Import),
+    Shortcut::new("Generate code", COMMAND_ALT, Key::G, Command::GenerateCode),
     Shortcut::new(
         "Settings",
         Modifiers::COMMAND,
@@ -142,6 +144,7 @@ impl Command {
             Command::Send => Some(Action::Send(tab)),
             Command::Save => Some(Action::SaveTab(tab)),
             Command::DuplicateTab => Some(Action::DuplicateTab(tab)),
+            Command::GenerateCode => Some(Action::OpenCode(tab)),
             _ => None,
         }
     }
@@ -194,6 +197,7 @@ mod tests {
             chorded,
             [
                 "Previous tab",
+                "Generate code",
                 "Toggle two-pane view",
                 "Show middle workbench",
                 "Swap left and right sidebars"

@@ -10,8 +10,8 @@ use crate::identity::random_u64;
 use crate::media_type;
 use crate::variables::VariableScope;
 
-const LINE_BREAK: &str = "\r\n";
-const BOUNDARY_PREFIX: &str = "----requestor";
+pub(super) const LINE_BREAK: &str = "\r\n";
+pub(super) const BOUNDARY_PREFIX: &str = "----requestor";
 const ESCAPED_REPLACEMENTS: [(char, &str); 3] = [('"', "%22"), ('\r', "%0D"), ('\n', "%0A")];
 
 struct Writer<'a> {
@@ -44,8 +44,9 @@ impl Writer<'_> {
         self.data.extend_from_slice(closing.as_bytes());
         EncodedBody {
             content_type: Some(format!(
-                "{}; boundary={}",
+                "{}; {}={}",
                 media_type::MULTIPART_FORM_DATA,
+                media_type::BOUNDARY_PARAMETER,
                 self.boundary
             )),
             data: self.data,
@@ -70,7 +71,8 @@ impl Writer<'_> {
         self.start_part(&disposition, content_type);
         self.data.extend_from_slice(value.as_bytes());
         self.end_part();
-        self.fields.push(FormField::text(raw_name, value));
+        self.fields
+            .push(FormField::typed_text(raw_name, value, content_type));
         Ok(())
     }
 
@@ -134,7 +136,7 @@ fn checked_content_type(param: &Param) -> Result<Option<&str>, CoreError> {
     }
 }
 
-fn escape(text: &str) -> String {
+pub(super) fn escape(text: &str) -> String {
     ESCAPED_REPLACEMENTS
         .iter()
         .fold(text.to_string(), |escaped, (character, replacement)| {

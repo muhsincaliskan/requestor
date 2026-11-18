@@ -2,7 +2,6 @@ use requestor_core::checks::RulesReport;
 use requestor_core::collection::Request;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
-use requestor_core::secret::Redactor;
 use requestor_core::variables::VariableScope;
 
 use super::exchange::Exchange;
@@ -21,11 +20,17 @@ impl AppState {
                 tab,
                 include_secrets,
             } => self.copy_as_curl(tab, include_secrets, effects),
+            Action::OpenCode(tab) => self.open_code(tab),
+            Action::ShowCode {
+                tab,
+                language,
+                include_secrets,
+            } => self.show_code(tab, language, include_secrets),
             other => self.dispatch_socket_action(other, effects),
         }
     }
 
-    fn sendable(&self, id: TabId) -> Option<(Request, VariableScope)> {
+    pub(super) fn sendable(&self, id: TabId) -> Option<(Request, VariableScope)> {
         let tab = self.tab(id)?;
         let collection_id = tab.scope().map(|scope| scope.collection_id.as_str());
         let item_id = tab.scope().map(|scope| scope.item_id.as_str());
@@ -135,23 +140,6 @@ impl AppState {
         }
         if let Some(collection_id) = changed.collection_id {
             self.unsaved.touch_collection(&collection_id, now);
-        }
-    }
-
-    fn copy_as_curl(&mut self, id: TabId, include_secrets: bool, effects: &mut Vec<Effect>) {
-        let Some((request, scope)) = self.sendable(id) else {
-            return;
-        };
-        let settings = &self.workspace.settings.request;
-        match PreparedRequest::from_request(&request, &scope, settings) {
-            Ok(prepared) if include_secrets => {
-                effects.push(Effect::CopyText(prepared.to_curl_with_secrets()));
-            }
-            Ok(prepared) => {
-                let redactor = Redactor::for_request(&scope, request.auth.as_ref());
-                effects.push(Effect::CopyText(prepared.to_curl(&redactor)));
-            }
-            Err(error) => self.report_error(error.to_string()),
         }
     }
 }

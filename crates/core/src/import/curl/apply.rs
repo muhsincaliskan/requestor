@@ -1,5 +1,6 @@
 use super::{options, CurlArguments};
 use crate::collection::Param;
+use crate::header::COOKIE;
 use crate::media_type;
 
 const QUOTE: char = '"';
@@ -9,7 +10,6 @@ const STDIN_MARK: &str = "-";
 const TYPE_PREFIX: &str = "type=";
 const USER_AGENT: &str = "User-Agent";
 const REFERER: &str = "Referer";
-const COOKIE: &str = "Cookie";
 const INSECURE_WARNING: &str =
     "--insecure was ignored; turn off SSL verification in the settings instead";
 const EXTRA_ARGUMENT_WARNING: &str =
