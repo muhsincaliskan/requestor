@@ -16,7 +16,6 @@ const CONNECTING_LABEL: &str = "Connecting…";
 const OPEN_LABEL: &str = "Connected";
 const CLOSING_LABEL: &str = "Closing…";
 const CLOSED_LABEL: &str = "Closed";
-const FAILED_LABEL: &str = "Connection failed";
 const MESSAGES_SUFFIX: &str = "messages";
 const SEPARATOR: &str = "·";
 const NO_MESSAGES_TEXT: &str = "No messages yet.";
@@ -64,9 +63,7 @@ fn header(ui: &mut Ui, session: &SocketSession) {
             SocketPhase::Closed(reason) => {
                 (closed_text(reason.as_deref()), visuals.weak_text_color())
             }
-            SocketPhase::Failed(reason) => {
-                (format!("{FAILED_LABEL}: {reason}"), visuals.error_fg_color)
-            }
+            SocketPhase::Failed(reason) => (reason.clone(), visuals.error_fg_color),
         };
         if session.is_live() && !session.is_open() {
             ui.add(Spinner::new());

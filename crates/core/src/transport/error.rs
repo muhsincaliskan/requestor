@@ -74,6 +74,7 @@ impl TransportError {
 impl TransportError {
     pub(super) fn from_connect(error: &std::io::Error) -> Self {
         match TransportError::from_io(error) {
+            TransportError::Other(reason) if looks_like_tls(&reason) => TransportError::Tls(reason),
             TransportError::Other(reason) => TransportError::ConnectionFailed(reason),
             other => other,
         }
