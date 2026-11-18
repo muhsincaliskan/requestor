@@ -70,12 +70,7 @@ impl Collection {
     }
 
     pub fn inherited_auth(&self, id: &str) -> Option<&Auth> {
-        let trail = self.ancestors_of(id)?;
-        trail
-            .iter()
-            .rev()
-            .find_map(|folder| folder.auth.as_ref())
-            .or(self.auth.as_ref())
+        self.auth_owner(id).map(|(auth, _)| auth)
     }
 
     pub fn inherited_variables(&self, id: &str) -> Vec<&Variable> {

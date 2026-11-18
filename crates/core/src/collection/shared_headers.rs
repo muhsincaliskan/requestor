@@ -60,6 +60,7 @@ impl Request {
         let own = self.header.get_or_insert_with(Vec::new);
         let own_names: Vec<&str> = own
             .iter()
+            .filter(|header| header.is_enabled())
             .filter_map(|header| header.key.as_deref())
             .collect();
         let added: Vec<Param> = pick(inherited, |header| header, &own_names)

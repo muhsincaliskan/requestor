@@ -35,6 +35,12 @@ impl Param {
         !self.disabled.unwrap_or(false)
     }
 
+    pub fn has_secret_name(&self) -> bool {
+        self.key
+            .as_deref()
+            .is_some_and(crate::secret::is_secret_name)
+    }
+
     pub fn set_enabled(&mut self, enabled: bool) {
         self.disabled = (!enabled).then_some(true);
     }

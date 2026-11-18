@@ -1,14 +1,13 @@
 use eframe::egui::Context;
 
-use super::dialog;
 use super::shared_fields::{auth_section, headers_section};
 use super::table::{footer_done, name_field};
+use super::{dialog, SECTION_GAP};
 use crate::state::{Action, AppState};
 use crate::widgets::variable_text_edit::VariableHints;
 
 const DIALOG_ID: &str = "folder-editor";
 const TITLE: &str = "Edit folder";
-const SECTION_GAP: f32 = 10.0;
 
 pub fn show(
     ctx: &Context,

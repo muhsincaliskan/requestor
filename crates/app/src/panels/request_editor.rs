@@ -26,7 +26,17 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
     let code_panel_open = state.code_panel.is_some();
     let protected = state.sends_to_protected_environment();
     let global = state.workspace.settings.request.clone();
-    let inheritance = state.inheritance(tab);
+    let shows_inheritance = state.tab(tab).is_some_and(|open| {
+        matches!(
+            open.editor_section,
+            EditorSection::Auth | EditorSection::Headers
+        )
+    });
+    let inheritance = if shows_inheritance {
+        state.inheritance(tab)
+    } else {
+        Inheritance::default()
+    };
     let Some(open) = state.tab_mut(tab) else {
         return;
     };

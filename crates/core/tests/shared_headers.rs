@@ -113,3 +113,19 @@ fn effective_inherited_headers_skip_names_the_request_sets() {
         .collect();
     assert_eq!(shown, [("X-Tenant", "Orders")]);
 }
+
+#[test]
+fn a_folder_without_auth_stops_the_collection_auth_and_disabled_request_headers_do_not_block() {
+    let (mut collection, folder_id, item_id) = sample();
+    collection.auth = Some(requestor_core::collection::Auth::bearer("root"));
+    collection.find_item_mut(&folder_id).unwrap().auth =
+        Some(requestor_core::collection::Auth::none());
+    assert!(collection.inherited_auth(&item_id).unwrap().is_none());
+
+    let mut request = Request::new("GET", Url::Raw("https://shop.test".to_string()));
+    let mut disabled = Param::text("x-tenant", "mine");
+    disabled.set_enabled(false);
+    request.header = Some(vec![disabled]);
+    request.add_inherited_headers(&[Param::text("X-Tenant", "shop")]);
+    assert_eq!(header_names(&request), ["X-Tenant=shop", "x-tenant=mine"]);
+}

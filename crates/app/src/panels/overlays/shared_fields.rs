@@ -2,7 +2,7 @@ use eframe::egui::{Button, Ui};
 use requestor_core::collection::{Auth, Param};
 use requestor_core::draft::AuthDraft;
 
-use super::table::{delete_cell, edit_rows, enabled_cell, text_cell, RowEdit};
+use super::table::{delete_cell, edit_rows, enabled_cell, text_cell, RowEdit, VALUE_HINT};
 use crate::widgets::auth_editor;
 use crate::widgets::variable_text_edit::VariableHints;
 
@@ -14,7 +14,6 @@ const HEADERS_HINT: &str =
     "Sent with every request inside. A header with the same name on a folder or request wins.";
 const HEADERS_TABLE_ID: &str = "shared-headers";
 const HEADER_HINT: &str = "Header";
-const VALUE_HINT: &str = "Value";
 const ADD_HEADER_LABEL: &str = "+ Add header";
 const HEADER_COLUMNS: usize = 4;
 
@@ -46,14 +45,15 @@ fn header_row(ui: &mut Ui, header: &mut Param) -> RowEdit {
         header.set_enabled(enabled);
         changed = true;
     }
-    changed |= optional_text_cell(ui, &mut header.key, HEADER_HINT);
-    changed |= optional_text_cell(ui, &mut header.value, VALUE_HINT);
+    changed |= optional_text_cell(ui, &mut header.key, HEADER_HINT, false);
+    let masked = header.has_secret_name();
+    changed |= optional_text_cell(ui, &mut header.value, VALUE_HINT, masked);
     RowEdit::from_flags(changed, delete_cell(ui))
 }
 
-fn optional_text_cell(ui: &mut Ui, text: &mut Option<String>, hint: &str) -> bool {
+fn optional_text_cell(ui: &mut Ui, text: &mut Option<String>, hint: &str, masked: bool) -> bool {
     let mut edited = text.clone().unwrap_or_default();
-    let changed = text_cell(ui, &mut edited, hint, false);
+    let changed = text_cell(ui, &mut edited, hint, masked);
     if changed {
         *text = Some(edited);
     }

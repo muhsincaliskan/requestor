@@ -15,6 +15,7 @@ use eframe::egui::{vec2, Align, Context, Frame, Id, Layout, Margin, Modal, Ui};
 use crate::state::{Action, AppState, Overlay};
 
 pub(super) const TITLE_GAP: f32 = 8.0;
+const SECTION_GAP: f32 = 10.0;
 const DIALOG_MIN_WIDTH: f32 = 320.0;
 const DIALOG_MARGIN: i8 = 20;
 

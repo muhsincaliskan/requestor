@@ -1,12 +1,12 @@
 use eframe::egui::{Context, Ui};
 use requestor_core::collection::{Collection, Variable};
 
-use super::dialog;
 use super::shared_fields::{auth_section, headers_section};
 use super::table::{
     delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, reveal_toggle,
     text_cell, RowEdit, KEY_HINT, VALUE_HINT,
 };
+use super::{dialog, SECTION_GAP};
 use crate::state::{Action, AppState};
 use crate::widgets::variable_text_edit::VariableHints;
 
@@ -15,7 +15,6 @@ const TABLE_ID: &str = "collection-variables";
 const REVEAL_ID: &str = "collection-reveal-secrets";
 const TITLE: &str = "Edit collection";
 const VARIABLES_LABEL: &str = "Variables";
-const SECTION_GAP: f32 = 10.0;
 const COLUMNS: usize = 4;
 
 pub fn show(
