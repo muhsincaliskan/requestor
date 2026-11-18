@@ -43,6 +43,7 @@ pub enum Effect {
     AbortSend(u64),
     PickImportFile,
     DownloadImport {
+        job: u64,
         address: String,
         settings: Box<RequestSettings>,
     },

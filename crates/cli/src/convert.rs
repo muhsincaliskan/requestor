@@ -1,7 +1,6 @@
 use requestor_core::error::CoreError;
-use requestor_core::import::{import_address, import_file_text, Imported};
+use requestor_core::import::{download_address, import_file_text, Imported};
 use requestor_core::settings::RequestSettings;
-use requestor_core::transport::ReqwestTransport;
 
 use crate::args::ImportOptions;
 use crate::error::CliError;
@@ -34,15 +33,12 @@ pub fn execute(options: &ImportOptions, out: &mut impl std::io::Write) -> Result
 }
 
 fn load(options: &ImportOptions) -> Result<Imported, CliError> {
-    let imported = match options.web_address() {
-        Some(address) => {
-            let transport = ReqwestTransport::new(&RequestSettings::default())
-                .map_err(|error| CliError::input(error.to_string()))?;
-            import_address(address, &transport)
-        }
-        None => import_file_text(&read_text(&options.file)?, &options.file),
-    };
-    imported.map_err(|error| CliError::input(format!("{}: {error}", options.file.display())))
+    match options.web_address() {
+        Some(address) => download_address(address, &RequestSettings::default())
+            .map_err(|error| CliError::input(error.to_string())),
+        None => import_file_text(&read_text(&options.file)?, &options.file)
+            .map_err(|error| CliError::input(format!("{}: {error}", options.file.display()))),
+    }
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use requestor_core::collection::Collection;
 use requestor_core::workspace::Workspace;
 
 use super::{open, state_with, state_with_request};
+use crate::state::AppState;
 use requestor_core::draft::BodyKind;
 use requestor_core::import::{ImportError, Imported, ImportedCollection};
 use requestor_core::soap::SoapVersion;
@@ -132,39 +133,81 @@ fn a_wsdl_file_opens_its_operations_as_soap_requests() {
     );
 }
 
+fn start_download(state: &mut AppState, address: &str) -> u64 {
+    let effects = state.apply(Action::ImportText(address.to_string()), 0.0);
+    match effects.as_slice() {
+        [Effect::DownloadImport {
+            job,
+            address: requested,
+            settings,
+        }] => {
+            assert_eq!(requested, address.trim());
+            assert_eq!(**settings, state.workspace.settings.request);
+            *job
+        }
+        other => panic!("expected a download, got {other:?}"),
+    }
+}
+
+fn downloaded(job: u64, imported: Result<Imported, ImportError>) -> Action {
+    Action::ImportDownloaded {
+        job,
+        imported: Box::new(imported),
+    }
+}
+
+fn is_downloading(state: &AppState) -> bool {
+    matches!(&state.overlay, Some(Overlay::Import(form)) if form.is_downloading())
+}
+
+fn collection_named(name: &str) -> Result<Imported, ImportError> {
+    Ok(Imported::Collection(ImportedCollection::without_warnings(
+        Collection::new(name),
+    )))
+}
+
 #[test]
 fn a_wsdl_address_is_downloaded_before_it_is_imported() {
     let mut state = state_with(Workspace::default());
     state.apply(Action::Show(Overlay::Import(Default::default())), 0.0);
-    let effects = state.apply(
-        Action::ImportText(" https://calc.example.test/service.asmx?WSDL ".to_string()),
-        0.0,
-    );
-    assert!(matches!(
-        effects.as_slice(),
-        [Effect::DownloadImport { address, .. }] if address == "https://calc.example.test/service.asmx?WSDL"
-    ));
+    let job = start_download(&mut state, " https://calc.example.test/service.asmx?WSDL ");
     let Some(Overlay::Import(form)) = &state.overlay else {
         panic!("the import dialog stays open while downloading");
     };
-    assert!(form.downloading);
+    assert!(form.is_downloading());
 
     let failed = Err(ImportError::Download("the server answered 404".to_string()));
-    state.apply(Action::ImportDownloaded(Box::new(failed)), 0.0);
+    state.apply(downloaded(job, failed), 0.0);
     let Some(Overlay::Import(form)) = &state.overlay else {
         panic!("a failed download keeps the dialog open");
     };
-    assert!(!form.downloading);
+    assert!(!form.is_downloading());
     assert!(form
         .error
         .as_deref()
         .is_some_and(|error| error.contains("404")));
 
-    let collection = ImportedCollection::without_warnings(Collection::new("Calculator"));
-    state.apply(
-        Action::ImportDownloaded(Box::new(Ok(Imported::Collection(collection)))),
-        0.0,
-    );
+    let job = start_download(&mut state, "https://calc.example.test/service.asmx?wsdl");
+    state.apply(downloaded(job, collection_named("Calculator")), 0.0);
     assert!(state.overlay.is_none());
     assert_eq!(state.workspace.collections[0].info.name, "Calculator");
+}
+
+#[test]
+fn downloads_finishing_after_the_dialog_moved_on_are_ignored() {
+    let mut state = state_with(Workspace::default());
+    let first = start_download(&mut state, "https://a.example.test/a?wsdl");
+    assert!(is_downloading(&state));
+    state.overlay = None;
+    state.apply(downloaded(first, collection_named("Closed")), 0.0);
+    assert!(state.workspace.collections.is_empty());
+
+    state.apply(Action::Show(Overlay::Import(Default::default())), 0.0);
+    let second = start_download(&mut state, "https://b.example.test/b?wsdl");
+    state.apply(downloaded(first, collection_named("Stale")), 0.0);
+    assert!(state.workspace.collections.is_empty());
+    assert!(is_downloading(&state));
+    state.apply(downloaded(second, collection_named("Current")), 0.0);
+    assert_eq!(state.workspace.collections.len(), 1);
+    assert_eq!(state.workspace.collections[0].info.name, "Current");
 }

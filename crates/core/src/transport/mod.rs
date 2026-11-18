@@ -1,4 +1,5 @@
 mod cancellation;
+mod document;
 mod error;
 mod reading;
 mod reqwest_transport;
@@ -6,6 +7,7 @@ mod socket;
 mod tungstenite_transport;
 
 pub use cancellation::Cancellation;
+pub use document::DocumentTransport;
 pub use error::TransportError;
 pub use reqwest_transport::ReqwestTransport;
 pub use socket::{SocketCommand, SocketEvent, SocketTransport};

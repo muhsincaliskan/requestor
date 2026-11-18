@@ -1,13 +1,12 @@
 use reqwest::Url;
 
+use super::super::WEB_SCHEMES;
 use super::loader::DocumentSource;
-use super::MAX_DOCUMENT_BYTES;
+use super::{too_large, MAX_DOCUMENT_BYTES};
 use crate::prepared::PreparedRequest;
 use crate::response::StatusClass;
-use crate::settings::BYTES_PER_MEGABYTE;
 use crate::transport::HttpTransport;
 
-const WEB_SCHEMES: [&str; 2] = ["http", "https"];
 const NOT_A_WEB_ADDRESS: &str = "only http and https addresses are downloaded";
 const NOT_TEXT: &str = "the response is not UTF-8 text";
 
@@ -25,6 +24,7 @@ impl DocumentSource for RemoteSource<'_> {
     fn resolve(&self, base: &str, location: &str) -> String {
         Url::parse(base)
             .and_then(|base| base.join(location))
+            .or_else(|_| Url::parse(location))
             .map_or_else(|_| location.to_string(), String::from)
     }
 
@@ -41,10 +41,7 @@ impl DocumentSource for RemoteSource<'_> {
             return Err(format!("the server answered {}", response.status));
         }
         if response.truncated || response.body.len() > MAX_DOCUMENT_BYTES {
-            return Err(format!(
-                "it is larger than {} MB",
-                MAX_DOCUMENT_BYTES / BYTES_PER_MEGABYTE
-            ));
+            return Err(too_large());
         }
         String::from_utf8(response.body).map_err(|_| NOT_TEXT.to_string())
     }

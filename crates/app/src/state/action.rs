@@ -111,7 +111,10 @@ pub enum Action {
     EnvironmentEdited(String),
     ImportText(String),
     ImportFile(PathBuf),
-    ImportDownloaded(Box<Result<Imported, ImportError>>),
+    ImportDownloaded {
+        job: u64,
+        imported: Box<Result<Imported, ImportError>>,
+    },
     ChooseImportFile,
     ChooseExportLocation {
         target: LibraryTarget,

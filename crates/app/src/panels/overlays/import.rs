@@ -26,7 +26,7 @@ pub fn show(ctx: &Context, form: &mut ImportForm, actions: &mut Vec<Action>) -> 
         ui.label(SUPPORTED_TEXT);
         file_row(ui, actions);
         paste_box(ui, &mut form.text);
-        if form.downloading {
+        if form.is_downloading() {
             ui.horizontal(|ui| {
                 ui.spinner();
                 ui.label(DOWNLOADING_TEXT);
@@ -56,7 +56,7 @@ fn paste_box(ui: &mut Ui, text: &mut String) {
 }
 
 fn text_button(ui: &mut Ui, form: &ImportForm, actions: &mut Vec<Action>) {
-    let enabled = !form.text.trim().is_empty() && !form.downloading;
+    let enabled = !form.text.trim().is_empty() && !form.is_downloading();
     let clicked = ui
         .add_enabled_ui(enabled, |ui| action_button::primary(ui, IMPORT_TEXT_LABEL))
         .inner

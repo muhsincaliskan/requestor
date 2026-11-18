@@ -1,7 +1,7 @@
 use std::thread;
 
 use eframe::egui::Context;
-use requestor_core::import::{import_address, ImportError, Imported};
+use requestor_core::import::{download_address, ImportError, Imported};
 use requestor_core::settings::RequestSettings;
 
 use super::Runner;
@@ -10,32 +10,40 @@ use crate::state::Action;
 const IMPORT_WORKER_NAME: &str = "requestor-import";
 
 impl Runner {
-    pub fn download_import(&mut self, address: String, settings: &RequestSettings, wake: &Context) {
-        let transport = match self.transport_for(settings) {
-            Ok(transport) => transport,
-            Err(reason) => return self.report_import(Err(ImportError::Download(reason))),
-        };
+    pub fn download_import(
+        &self,
+        job: u64,
+        address: String,
+        settings: &RequestSettings,
+        wake: &Context,
+    ) {
+        let settings = settings.clone();
         let report = self.report.clone();
-        let wake = wake.clone();
+        let worker_wake = wake.clone();
         let spawned = thread::Builder::new()
             .name(IMPORT_WORKER_NAME.to_string())
             .spawn(move || {
-                let imported = import_address(&address, transport.as_ref());
-                if report
-                    .send(Action::ImportDownloaded(Box::new(imported)))
-                    .is_ok()
-                {
-                    wake.request_repaint();
+                let imported = download_address(&address, &settings);
+                let finished = Action::ImportDownloaded {
+                    job,
+                    imported: Box::new(imported),
+                };
+                if report.send(finished).is_ok() {
+                    worker_wake.request_repaint();
                 }
             });
         if let Err(error) = spawned {
-            self.report_import(Err(ImportError::Download(error.to_string())));
+            self.report_import(job, Err(ImportError::Download(error.to_string())), wake);
         }
     }
 
-    fn report_import(&self, imported: Result<Imported, ImportError>) {
-        self.report
-            .send(Action::ImportDownloaded(Box::new(imported)))
-            .ok();
+    fn report_import(&self, job: u64, imported: Result<Imported, ImportError>, wake: &Context) {
+        let finished = Action::ImportDownloaded {
+            job,
+            imported: Box::new(imported),
+        };
+        if self.report.send(finished).is_ok() {
+            wake.request_repaint();
+        }
     }
 }
