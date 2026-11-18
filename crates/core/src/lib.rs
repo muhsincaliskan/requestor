@@ -12,6 +12,8 @@ pub mod history;
 pub mod identity;
 pub mod import;
 pub mod json_layout;
+pub mod json_query;
+pub mod json_tree;
 pub mod media_type;
 pub mod method;
 pub mod prepared;

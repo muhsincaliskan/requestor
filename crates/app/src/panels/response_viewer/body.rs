@@ -6,13 +6,12 @@ use eframe::egui::{
 use requestor_core::response::ResponseFormat;
 
 use super::readout::ByteSize;
-use crate::response::{BodySearch, ResponseBuffer, ResponseView};
+use super::{json_filter, tree};
+use crate::response::{BodyLayout, BodySearch, ResponseBuffer, ResponseView};
 use crate::state::Action;
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
 use crate::widgets::{append_row, icon_button, layout_row, SyntaxPalette};
 
-const PRETTY_LABEL: &str = "Pretty";
-const RAW_LABEL: &str = "Raw";
 const COPY_LABEL: &str = "Copy";
 const SCROLL_ID: &str = "response-body";
 const GUTTER_GAP: &str = "  ";
@@ -28,6 +27,9 @@ const FIND_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND
 
 pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
     toolbar(ui, view, actions);
+    if view.is_inspectable() {
+        json_filter::show(ui, view);
+    }
     ui.separator();
     let format = view.format;
     if format == ResponseFormat::Binary {
@@ -37,19 +39,44 @@ pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
         ui.add(Label::new(notice).selectable(true));
         return;
     }
+    if shows_tree(view) {
+        if let Some(root) = view.json_tree() {
+            tree::show(ui, root);
+            return;
+        }
+    }
     let (buffer, search) = view.searched_display();
     rows(ui, buffer, format, search);
 }
 
+fn shows_tree(view: &ResponseView) -> bool {
+    view.is_inspectable() && view.layout() == BodyLayout::Tree
+}
+
+fn layout_choice(ui: &mut Ui, view: &mut ResponseView) {
+    if !view.format.has_layout() {
+        return;
+    }
+    let mut layout = view.layout();
+    for choice in BodyLayout::ALL {
+        if choice != BodyLayout::Tree || view.is_inspectable() {
+            ui.selectable_value(&mut layout, choice, choice.label());
+        }
+    }
+    view.set_layout(layout);
+}
+
 fn toolbar(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
-        if view.format.has_layout() {
-            let mut pretty = view.is_pretty();
-            ui.selectable_value(&mut pretty, true, PRETTY_LABEL);
-            ui.selectable_value(&mut pretty, false, RAW_LABEL);
-            view.set_pretty(pretty);
-        }
+        layout_choice(ui, view);
         let size = ByteSize(view.size_bytes());
+        if shows_tree(view) {
+            if ui.button(COPY_LABEL).clicked() {
+                actions.push(Action::CopyText(view.display().text().to_string()));
+            }
+            ui.weak(size.to_string());
+            return;
+        }
         let searchable = view.format != ResponseFormat::Binary;
         let (buffer, search) = view.searched_display();
         if ui.button(COPY_LABEL).clicked() {
