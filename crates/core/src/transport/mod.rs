@@ -5,6 +5,7 @@ mod error;
 mod reading;
 mod reqwest_transport;
 mod socket;
+mod timing;
 mod tungstenite_transport;
 
 pub use cancellation::Cancellation;

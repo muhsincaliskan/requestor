@@ -23,6 +23,7 @@ impl HttpTransport for FixedAnswer {
             body: self.body.as_bytes().to_vec(),
             truncated: false,
             elapsed: Duration::ZERO,
+            timing: None,
         })
     }
 }

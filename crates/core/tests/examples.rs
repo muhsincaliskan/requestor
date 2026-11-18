@@ -77,6 +77,7 @@ fn saved_examples_are_added_and_removed() {
         body: b"{}".to_vec(),
         truncated: false,
         elapsed: std::time::Duration::from_millis(5),
+        timing: None,
     };
     item.add_example(&Example::from_exchange(&request, &response));
     let saved = item.example(2).unwrap();

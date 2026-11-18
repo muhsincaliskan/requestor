@@ -47,6 +47,7 @@ impl HttpTransport for FakeShop {
             body: Vec::new(),
             truncated: false,
             elapsed: Duration::from_millis(5),
+            timing: None,
         })
     }
 }

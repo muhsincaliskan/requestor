@@ -73,6 +73,7 @@ mod tests {
             body: body.to_vec(),
             truncated: false,
             elapsed: Duration::from_millis(7),
+            timing: None,
         }
     }
 

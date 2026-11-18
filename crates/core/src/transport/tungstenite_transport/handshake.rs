@@ -153,5 +153,6 @@ fn handshake_head(response: &Response, elapsed: Duration) -> HttpResponse {
         body: Vec::new(),
         truncated: false,
         elapsed,
+        timing: None,
     }
 }

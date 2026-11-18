@@ -26,7 +26,7 @@ pub fn show(
         let status = format!("{} {}", view.status, view.reason);
         badge(ui, status.trim(), color);
         ui.weak(SEPARATOR);
-        ui.label(ElapsedText(view.elapsed).to_string());
+        elapsed(ui, view);
         ui.weak(SEPARATOR);
         ui.label(ByteSize(view.size_bytes()).to_string());
         ui.weak(SEPARATOR);
@@ -55,4 +55,23 @@ pub(super) fn badge(ui: &mut Ui, text: &str, color: Color32) {
         .corner_radius(CornerRadius::same(BADGE_RADIUS))
         .inner_margin(BADGE_MARGIN)
         .show(ui, |ui| ui.label(RichText::new(text).color(color).strong()));
+}
+
+fn elapsed(ui: &mut Ui, view: &ResponseView) {
+    let label = ui.label(ElapsedText(view.elapsed).to_string());
+    if let Some(timing) = view.timing {
+        label.on_hover_ui(|ui| {
+            if let Some(dns) = timing.dns {
+                ui.label(format!("DNS {}", ElapsedText(dns)));
+            }
+            if let Some(connect) = timing.connect {
+                ui.label(format!("Connect + TLS {}", ElapsedText(connect)));
+            }
+            ui.label(format!(
+                "First byte since send {}",
+                ElapsedText(timing.first_byte)
+            ));
+            ui.label(format!("Download {}", ElapsedText(timing.download)));
+        });
+    }
 }

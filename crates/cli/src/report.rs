@@ -184,6 +184,7 @@ mod tests {
             body: vec![0; 5],
             truncated: false,
             elapsed: Duration::from_millis(12),
+            timing: None,
         }
     }
 

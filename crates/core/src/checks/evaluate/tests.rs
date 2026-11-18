@@ -15,6 +15,7 @@ fn response(body: &str) -> HttpResponse {
         body: body.as_bytes().to_vec(),
         truncated: false,
         elapsed: Duration::from_millis(120),
+        timing: None,
     }
 }
 
