@@ -44,6 +44,8 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - The body view is virtualized and syntax highlighted.
   - It has Pretty and Raw modes for JSON and XML, and a find box.
 - Headers and cookies have one-click copy.
+- Send a request again and the Changes tab shows what differs from the previous response, line by line, with JSON and XML laid out first.
+- A URL typed without `http://` or `https://` is sent over HTTP, as in a browser.
 - With autosave off, requests with unsaved edits are marked in the tree and listed in an Unsaved group at the top of the sidebar.
 - A standalone `requestor` command-line binary runs collections, sends single cURL or raw HTTP requests, and converts imports to Postman format.
 

@@ -2,6 +2,7 @@ mod action;
 mod autosave;
 mod effect;
 mod environments;
+mod exchange;
 mod folders;
 mod library;
 mod notice;
@@ -15,6 +16,7 @@ mod transfer;
 
 pub use action::Action;
 pub use effect::Effect;
+pub use exchange::Exchange;
 pub use folders::FolderPurpose;
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
@@ -22,7 +24,7 @@ pub use overlay::{
     SaveTabForm,
 };
 pub use persistence::SaveStatus;
-pub use tab::{EditorSection, Exchange, ItemBinding, RequestTab, ResponseSection, TabId};
+pub use tab::{EditorSection, ItemBinding, RequestTab, ResponseSection, TabId};
 
 use requestor_core::variables::VariableScope;
 use requestor_core::workspace::{InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore};

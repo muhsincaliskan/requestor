@@ -9,8 +9,10 @@ use std::time::Duration;
 use requestor_core::checks::RulesReport;
 use requestor_core::header::Header;
 use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
+use requestor_core::text_diff::LineDiff;
 
 const BINARY_NOTICE: &str = "Binary response body";
+const MAX_COMPARED_BYTES: usize = 2 * BYTES_PER_MEGABYTE;
 const SET_COOKIE: &str = "set-cookie";
 
 pub struct ResponseView {
@@ -26,6 +28,8 @@ pub struct ResponseView {
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
     search: BodySearch,
+    previous: Option<String>,
+    changes: Option<Option<LineDiff>>,
 }
 
 impl ResponseView {
@@ -48,7 +52,43 @@ impl ResponseView {
             body: response.body,
             display: None,
             search: BodySearch::default(),
+            previous: None,
+            changes: None,
         }
+    }
+
+    pub fn with_previous(mut self, previous: Option<String>) -> Self {
+        self.previous = previous;
+        self
+    }
+
+    pub fn has_previous(&self) -> bool {
+        self.previous.is_some()
+    }
+
+    pub fn comparison_text(&self) -> Option<String> {
+        if self.format == ResponseFormat::Binary || self.body.len() > MAX_COMPARED_BYTES {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&self.body);
+        Some(if self.format.has_layout() {
+            self.format.laid_out(&text)
+        } else {
+            text.into_owned()
+        })
+    }
+
+    pub fn changes(&mut self) -> Option<&LineDiff> {
+        if self.changes.is_none() {
+            let current = self.comparison_text();
+            let diff = self
+                .previous
+                .as_deref()
+                .zip(current.as_deref())
+                .and_then(|(before, after)| LineDiff::between(before, after));
+            self.changes = Some(diff);
+        }
+        self.changes.as_ref().and_then(Option::as_ref)
     }
 
     pub fn with_report(mut self, report: Option<RulesReport>) -> Self {
@@ -131,67 +171,4 @@ impl ResponseView {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::time::Duration;
-
-    use requestor_core::header::Header;
-    use requestor_core::response::{HttpResponse, ResponseFormat};
-
-    use super::ResponseView;
-
-    fn response(content_type: &str, body: &[u8]) -> HttpResponse {
-        HttpResponse {
-            status: 200,
-            reason: "OK".to_string(),
-            version: "HTTP/1.1".to_string(),
-            headers: vec![
-                Header::new("Content-Type", content_type),
-                Header::new("Set-Cookie", "a=1"),
-                Header::new("set-cookie", "b=2"),
-            ],
-            body: body.to_vec(),
-            truncated: false,
-            elapsed: Duration::from_millis(12),
-        }
-    }
-
-    #[test]
-    fn json_is_laid_out_for_display_and_the_raw_body_is_kept() {
-        let mut view =
-            ResponseView::from_response(response("application/json", b"{\"a\":1}"), true);
-        assert_eq!(view.format, ResponseFormat::Json);
-        assert_eq!(view.display().row_count(), 3);
-        assert_eq!(view.body_bytes(), b"{\"a\":1}");
-        view.set_pretty(false);
-        assert_eq!(view.display().row_count(), 1);
-    }
-
-    #[test]
-    fn the_display_copy_can_be_released_and_rebuilt() {
-        let mut view = ResponseView::from_response(response("text/plain", b"a\nb"), true);
-        assert!(!view.holds_display());
-        assert_eq!(view.display().row_count(), 2);
-        view.release_display();
-        assert!(!view.holds_display());
-        assert_eq!(view.display().row(1), "b");
-    }
-
-    #[test]
-    fn format_detection_can_be_turned_off_and_binary_is_not_rendered() {
-        let mut plain =
-            ResponseView::from_response(response("application/json", b"{\"a\":1}"), false);
-        assert_eq!(plain.format, ResponseFormat::Text);
-        assert_eq!(plain.display().row_count(), 1);
-        let mut binary =
-            ResponseView::from_response(response("image/png", &[0x89, 0x50, 0xff, 0x00]), true);
-        assert_eq!(binary.format, ResponseFormat::Binary);
-        assert_eq!(binary.display().row(0), "Binary response body");
-        assert_eq!(binary.size_bytes(), 4);
-    }
-
-    #[test]
-    fn cookies_are_read_from_every_set_cookie_header() {
-        let view = ResponseView::from_response(response("text/plain", b""), true);
-        assert_eq!(view.cookies().collect::<Vec<_>>(), ["a=1", "b=2"]);
-    }
-}
+mod tests;
