@@ -474,6 +474,7 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
 mod certificates;
 mod changes;
 mod code;
+mod collection_run;
 mod examples;
 mod folders;
 mod history;

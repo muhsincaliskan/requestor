@@ -31,7 +31,7 @@ impl AppState {
             Action::StopSavingToFolder(collection_id) => {
                 self.stop_saving_to_folder(&collection_id, effects)
             }
-            other => self.dispatch_certificate_action(other, effects),
+            other => self.dispatch_run_action(other, effects),
         }
     }
 

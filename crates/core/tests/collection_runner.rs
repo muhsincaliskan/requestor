@@ -1,7 +1,9 @@
 use std::cell::RefCell;
 use std::time::Duration;
 
-use requestor_core::collection::{Collection, RunPacing, RunSession, MAX_ITERATIONS};
+use requestor_core::collection::{
+    Collection, RunPacing, RunSession, RunStepResult, MAX_ITERATIONS,
+};
 use requestor_core::header::Header;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
@@ -82,4 +84,30 @@ fn pacing_keeps_iterations_and_delay_in_range() {
     assert_eq!(RunPacing::new(u32::MAX, 0).iterations(), MAX_ITERATIONS);
     assert_eq!(RunPacing::new(3, 250).delay(), Duration::from_millis(250));
     assert_eq!(RunPacing::new(3, 0).step_count(4), 12);
+}
+
+#[test]
+fn pacing_pauses_only_between_steps() {
+    let pacing = RunPacing::new(2, 100);
+    assert!(pacing.pauses_after(1, 2));
+    assert!(pacing.pauses_after(3, 2));
+    assert!(!pacing.pauses_after(4, 2));
+    assert!(!RunPacing::new(2, 0).pauses_after(1, 2));
+}
+
+#[test]
+fn an_error_status_fails_the_step_even_when_every_check_passes() {
+    let step = |status| RunStepResult {
+        iteration: 1,
+        name: "List".to_string(),
+        method: "GET".to_string(),
+        status: Some(status),
+        elapsed: Duration::ZERO,
+        checks_passed: 1,
+        checks_total: 1,
+        error: None,
+    };
+    assert!(step(302).is_success());
+    assert!(!step(404).is_success());
+    assert!(!step(503).is_success());
 }

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use requestor_core::collection::RunStepResult;
 use requestor_core::graphql::GraphQlSchema;
 use requestor_core::history::HistoryEntry;
 use requestor_core::import::{ImportError, Imported};
@@ -153,6 +154,17 @@ pub enum Action {
     SettingsEdited,
     UpdateAvailable(Release),
     OpenReleasePage,
+    OpenRunner(String),
+    StartRun,
+    StopRun(u64),
+    RunStepFinished {
+        job: u64,
+        result: Box<RunStepResult>,
+    },
+    RunFinished {
+        job: u64,
+        error: Option<String>,
+    },
     Show(Overlay),
     DismissNotice,
 }

@@ -3,7 +3,7 @@ use std::time::Duration;
 use super::{RunnableRequest, Variable};
 use crate::environment::Environment;
 use crate::prepared::PreparedRequest;
-use crate::response::HttpResponse;
+use crate::response::{HttpResponse, StatusClass};
 use crate::secret::Redactor;
 use crate::settings::RequestSettings;
 use crate::transport::HttpTransport;
@@ -68,12 +68,18 @@ impl RunPacing {
     pub fn step_count(&self, requests: usize) -> usize {
         requests.saturating_mul(self.iterations as usize)
     }
+
+    pub fn pauses_after(&self, completed: usize, requests: usize) -> bool {
+        self.delay_ms > 0 && completed < self.step_count(requests)
+    }
 }
 
 impl RunStepResult {
     pub fn is_success(&self) -> bool {
         self.error.is_none()
-            && self.status.is_some_and(|status| status < 400)
+            && self
+                .status
+                .is_some_and(|status| !StatusClass::of(status).is_error())
             && self.checks_passed == self.checks_total
     }
 
