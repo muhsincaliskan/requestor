@@ -16,6 +16,8 @@ const FORM_IMPORTS: [&str; 4] = [
     "java.util.List",
 ];
 const RESTRICTED_HEADERS: [&str; 5] = ["Connection", "Content-Length", "Expect", "Host", "Upgrade"];
+const NON_ASCII_NOTE: &str =
+    "        // HttpClient sends header values as ASCII; other characters arrive as ?.\n";
 const CLASS_START: &str =
     "\npublic class Main {\n    public static void main(String[] args) throws Exception {\n";
 const LINE_JOIN: &str = " +";
@@ -32,6 +34,9 @@ impl Snippet {
         code.push_str(CLASS_START);
         if matches!(self.body, SnippetBody::Form { .. }) {
             code.push_str(&self.java_parts());
+        }
+        if self.headers.iter().any(|header| !header.value.is_ascii()) {
+            code.push_str(NON_ASCII_NOTE);
         }
         code.push_str(&format!(
             "        HttpRequest request = HttpRequest.newBuilder()\n                .uri(URI.create({}))\n",

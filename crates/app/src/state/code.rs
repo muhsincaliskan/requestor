@@ -55,7 +55,7 @@ impl AppState {
     ) -> Option<Result<String, CoreError>> {
         let (request, scope) = self.sendable(id)?;
         let settings = &self.workspace.settings.request;
-        let prepared = match PreparedRequest::from_request(&request, &scope, settings) {
+        let prepared = match PreparedRequest::referencing_files(&request, &scope, settings) {
             Ok(prepared) => prepared,
             Err(error) => return Some(Err(error)),
         };

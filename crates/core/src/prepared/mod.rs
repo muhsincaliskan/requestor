@@ -17,7 +17,7 @@ use crate::variables::{placeholder_names, VariableScope};
 pub use body_source::{BodySource, FormField, FormValue};
 pub use code::CodeLanguage;
 
-use body::EncodedBody;
+use body::{EncodedBody, FileContents};
 
 const CACHE_CONTROL: &str = "Cache-Control";
 const NO_CACHE: &str = "no-cache";
@@ -49,6 +49,23 @@ impl PreparedRequest {
         scope: &VariableScope,
         settings: &RequestSettings,
     ) -> Result<Self, CoreError> {
+        Self::build(request, scope, settings, FileContents::Read)
+    }
+
+    pub fn referencing_files(
+        request: &Request,
+        scope: &VariableScope,
+        settings: &RequestSettings,
+    ) -> Result<Self, CoreError> {
+        Self::build(request, scope, settings, FileContents::Referenced)
+    }
+
+    fn build(
+        request: &Request,
+        scope: &VariableScope,
+        settings: &RequestSettings,
+        files: FileContents,
+    ) -> Result<Self, CoreError> {
         let url = request
             .url
             .as_ref()
@@ -67,7 +84,7 @@ impl PreparedRequest {
             body_source: BodySource::Inline,
         };
         if let Some(body) = request.body.as_ref().filter(|body| body.is_enabled()) {
-            prepared.apply_body(EncodedBody::from_body(body, scope)?);
+            prepared.apply_body(EncodedBody::from_body(body, scope, files)?);
         }
         if let Some(authentication) = &request.auth {
             prepared.apply_auth(authentication, scope);

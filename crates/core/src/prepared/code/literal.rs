@@ -17,14 +17,14 @@ pub(super) fn quoted_lines(text: &str, separator: &str, indent: &str) -> String 
         .join(&format!("{separator}\n{indent}"))
 }
 
-pub(super) fn quoted_entries(headers: &[Header]) -> String {
+pub(super) fn quoted_entries(headers: &[Header], value_literal: fn(&str) -> String) -> String {
     headers
         .iter()
         .map(|header| {
             format!(
                 "{ENTRY_INDENT}{}: {},\n",
                 quoted(&header.name),
-                quoted(&header.value)
+                value_literal(&header.value)
             )
         })
         .collect()
