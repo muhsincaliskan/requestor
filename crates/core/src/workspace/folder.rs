@@ -2,6 +2,7 @@ mod names;
 mod read;
 mod write;
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -17,6 +18,7 @@ pub(super) const COLLECTION_FILE: &str = "collection.json";
 pub(super) const FOLDER_FILE: &str = "folder.json";
 const ORDER_KEY: &str = "order";
 const ITEMS_KEY: &str = "item";
+const REQUEST_KEY: &str = "request";
 const LINE_END: char = '\n';
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -34,6 +36,11 @@ impl FolderLayout {
 
     pub fn paths(&self) -> impl Iterator<Item = &Path> {
         self.files.iter().map(|(path, _)| path.as_path())
+    }
+
+    pub fn occupies_files_in(&self, root: &Path) -> bool {
+        self.paths()
+            .any(|path| fs::symlink_metadata(root.join(path)).is_ok())
     }
 
     fn add_children(
@@ -75,6 +82,10 @@ impl FolderLayout {
         self.files.push((path, text));
         Ok(())
     }
+}
+
+pub(crate) fn folded(path: &Path) -> String {
+    path.to_string_lossy().to_lowercase()
 }
 
 #[cfg(test)]

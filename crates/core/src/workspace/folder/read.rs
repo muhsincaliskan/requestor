@@ -1,9 +1,9 @@
-use std::fs;
+use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use super::{COLLECTION_FILE, FOLDER_FILE, ITEMS_KEY, ORDER_KEY};
+use super::{COLLECTION_FILE, FOLDER_FILE, ITEMS_KEY, ORDER_KEY, REQUEST_KEY};
 use crate::collection::Collection;
 use crate::workspace::store::JSON_EXTENSION;
 use crate::workspace::StoreError;
@@ -25,17 +25,18 @@ pub fn read_folder(root: &Path) -> Result<(Collection, Vec<PathBuf>), StoreError
 
 impl FolderReader {
     fn directory(&mut self, directory: &Path, metadata_file: &str) -> Result<Value, StoreError> {
-        let mut document = self.document(&directory.join(metadata_file))?;
+        let metadata_path = directory.join(metadata_file);
+        let mut document = read_document(&metadata_path)?;
+        self.owned.push(metadata_path);
         let order = take_order(&mut document);
         let mut items = Vec::new();
         for entry in ordered_entries(directory, &order)? {
             let path = directory.join(&entry);
-            let item = if path.is_dir() {
-                self.directory(&path, FOLDER_FILE)?
-            } else {
-                self.document(&path)?
-            };
-            items.push(item);
+            if path.is_dir() {
+                items.push(self.directory(&path, FOLDER_FILE)?);
+            } else if let Some(request) = self.request(path)? {
+                items.push(request);
+            }
         }
         if let Value::Object(members) = &mut document {
             members.insert(ITEMS_KEY.to_string(), Value::Array(items));
@@ -43,12 +44,25 @@ impl FolderReader {
         Ok(document)
     }
 
-    fn document(&mut self, path: &Path) -> Result<Value, StoreError> {
-        let text = fs::read_to_string(path).map_err(|error| StoreError::at(path, error))?;
-        let value = serde_json::from_str(&text).map_err(|error| StoreError::at(path, error))?;
-        self.owned.push(path.to_path_buf());
-        Ok(value)
+    fn request(&mut self, path: PathBuf) -> Result<Option<Value>, StoreError> {
+        let document = read_document(&path)?;
+        if !is_request(&document) {
+            return Ok(None);
+        }
+        self.owned.push(path);
+        Ok(Some(document))
     }
+}
+
+fn read_document(path: &Path) -> Result<Value, StoreError> {
+    let text = fs::read_to_string(path).map_err(|error| StoreError::at(path, error))?;
+    serde_json::from_str(&text).map_err(|error| StoreError::at(path, error))
+}
+
+fn is_request(document: &Value) -> bool {
+    document
+        .as_object()
+        .is_some_and(|members| members.contains_key(REQUEST_KEY))
 }
 
 fn take_order(document: &mut Value) -> Vec<String> {
@@ -84,17 +98,21 @@ fn child_entries(directory: &Path) -> Result<Vec<String>, StoreError> {
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let name = entry.file_name().into_string().ok()?;
-            is_item_entry(&entry.path(), &name).then_some(name)
+            is_item_entry(&entry, &name).then_some(name)
         })
         .collect())
 }
 
-fn is_item_entry(path: &Path, name: &str) -> bool {
+fn is_item_entry(entry: &DirEntry, name: &str) -> bool {
     if name.starts_with(HIDDEN_MARK) || name == COLLECTION_FILE || name == FOLDER_FILE {
         return false;
     }
-    if path.is_dir() {
+    let Ok(kind) = entry.file_type() else {
+        return false;
+    };
+    let path = entry.path();
+    if kind.is_dir() {
         return path.join(FOLDER_FILE).is_file();
     }
-    path.extension().is_some_and(|kind| kind == JSON_EXTENSION)
+    kind.is_file() && path.extension().is_some_and(|kind| kind == JSON_EXTENSION)
 }

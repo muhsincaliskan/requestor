@@ -1,26 +1,47 @@
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::{pending, read_document, WorkspaceStore, JSON_EXTENSION};
+use super::linked_folder::LinkedFolder;
+use super::{pending, read_document, WorkspaceStore};
 use crate::collection::Collection;
-use crate::workspace::folder::{read_folder, FolderLayout, FolderWrite, FOLDER_FILE};
-use crate::workspace::{StoreError, StoreWrite};
+use crate::workspace::folder::{read_folder, FolderLayout};
+use crate::workspace::{PendingDelete, StoreError, StoreWrite};
 
 const LINKS_FILE: &str = "linked-folders.json";
-const HIDDEN_MARK: char = '.';
-const NOT_EMPTY: &str = "the folder already holds request files; choose an empty folder or open it";
+const OCCUPIED: &str =
+    "the folder already holds files with the same names; choose another folder or open it";
+const NOT_A_FOLDER: &str = "this is a file, not a folder";
 const ALREADY_OPEN: &str = "this folder is already open";
 
 #[derive(Debug, Default)]
 pub(super) struct LinkedFolders {
     folders: HashMap<String, LinkedFolder>,
+    unavailable: Vec<PathBuf>,
 }
 
-#[derive(Debug)]
-struct LinkedFolder {
-    root: PathBuf,
-    owned: Vec<PathBuf>,
+impl LinkedFolders {
+    fn insert(&mut self, collection_id: &str, folder: LinkedFolder) {
+        self.unavailable.retain(|root| !folder.is_at(root));
+        self.folders.insert(collection_id.to_string(), folder);
+    }
+
+    fn roots(&self) -> Vec<&Path> {
+        let mut roots: Vec<&Path> = self
+            .folders
+            .values()
+            .map(LinkedFolder::root)
+            .chain(self.unavailable.iter().map(PathBuf::as_path))
+            .collect();
+        roots.sort();
+        roots
+    }
+
+    fn ensure_not_open(&self, root: &Path) -> Result<(), StoreError> {
+        if self.folders.values().any(|folder| folder.is_at(root)) {
+            return Err(StoreError::at(root, ALREADY_OPEN));
+        }
+        Ok(())
+    }
 }
 
 impl WorkspaceStore {
@@ -28,32 +49,28 @@ impl WorkspaceStore {
         self.linked
             .folders
             .get(collection_id)
-            .map(|folder| folder.root.as_path())
+            .map(LinkedFolder::root)
     }
 
     pub fn link_collection(
         &mut self,
         collection: &Collection,
         root: PathBuf,
-    ) -> Result<Vec<StoreWrite>, StoreError> {
-        self.ensure_not_open(&root)?;
-        ensure_no_request_files(&root)?;
+    ) -> Result<StoreWrite, StoreError> {
+        self.linked.ensure_not_open(&root)?;
         let layout = FolderLayout::of(collection).map_err(|error| StoreError::at(&root, error))?;
-        let stale: Vec<PathBuf> = self
-            .collections
-            .release(collection.id())
-            .into_iter()
-            .collect();
-        let owned = layout.paths().map(|path| root.join(path)).collect();
-        let write = FolderWrite::new(root.clone(), layout, stale);
-        self.linked
-            .folders
-            .insert(collection.id().to_string(), LinkedFolder { root, owned });
-        Ok(vec![StoreWrite::Folder(write), self.links_write()?])
+        ensure_free(&root, &layout)?;
+        let mut folder = LinkedFolder::new(root, Vec::new());
+        let mut writes = vec![StoreWrite::Folder(folder.next_write(layout))];
+        self.linked.insert(collection.id(), folder);
+        writes.push(self.links_write()?);
+        let released = self.collections.release(collection.id());
+        writes.extend(released.map(|path| StoreWrite::Delete(PendingDelete::new(path))));
+        Ok(StoreWrite::Batch(writes))
     }
 
     pub fn open_folder(&self, root: &Path) -> Result<(Collection, Vec<PathBuf>), StoreError> {
-        self.ensure_not_open(root)?;
+        self.linked.ensure_not_open(root)?;
         read_folder(root)
     }
 
@@ -64,8 +81,7 @@ impl WorkspaceStore {
         owned: Vec<PathBuf>,
     ) -> Result<StoreWrite, StoreError> {
         self.linked
-            .folders
-            .insert(collection_id.to_string(), LinkedFolder { root, owned });
+            .insert(collection_id, LinkedFolder::new(root, owned));
         self.links_write()
     }
 
@@ -82,24 +98,17 @@ impl WorkspaceStore {
         collection: &Collection,
     ) -> Option<Result<StoreWrite, StoreError>> {
         let folder = self.linked.folders.get_mut(collection.id())?;
-        let layout = match FolderLayout::of(collection) {
-            Ok(layout) => layout,
-            Err(error) => return Some(Err(StoreError::at(&folder.root, error))),
-        };
-        let owned: Vec<PathBuf> = layout.paths().map(|path| folder.root.join(path)).collect();
-        let kept: HashSet<&PathBuf> = owned.iter().collect();
-        let stale = folder
-            .owned
-            .iter()
-            .filter(|path| !kept.contains(path))
-            .cloned()
-            .collect();
-        let write = FolderWrite::new(folder.root.clone(), layout, stale);
-        folder.owned = owned;
-        Some(Ok(StoreWrite::Folder(write)))
+        let write = FolderLayout::of(collection)
+            .map(|layout| StoreWrite::Folder(folder.next_write(layout)))
+            .map_err(|error| StoreError::at(folder.root(), error));
+        Some(write)
     }
 
-    pub(super) fn load_linked(&mut self, warnings: &mut Vec<StoreError>) -> Vec<Collection> {
+    pub(super) fn load_linked(
+        &mut self,
+        taken: &mut HashSet<String>,
+        warnings: &mut Vec<StoreError>,
+    ) -> Vec<Collection> {
         let path = self.root.join(LINKS_FILE);
         if !path.exists() {
             return Vec::new();
@@ -108,72 +117,53 @@ impl WorkspaceStore {
             warnings.push(error);
             Vec::new()
         });
-        let mut taken = HashSet::new();
         let mut collections = Vec::new();
         for root in roots {
             match read_folder(&root) {
-                Ok((mut collection, owned)) => {
-                    let changed = collection.claim_unique_id(&mut taken);
-                    let id = collection.id().to_string();
-                    self.linked.folders.insert(id, LinkedFolder { root, owned });
-                    if changed {
-                        let rewritten = self
-                            .folder_write(&collection)
-                            .and_then(|write| write.and_then(StoreWrite::commit).err());
-                        warnings.extend(rewritten);
-                    }
-                    collections.push(collection);
+                Ok((collection, owned)) => {
+                    collections.push(self.adopt(collection, root, owned, taken, warnings));
                 }
-                Err(error) => warnings.push(error),
+                Err(error) => {
+                    warnings.push(error);
+                    self.linked.unavailable.push(root);
+                }
             }
         }
         collections
     }
 
-    fn links_write(&self) -> Result<StoreWrite, StoreError> {
-        let mut roots: Vec<&PathBuf> = self
-            .linked
-            .folders
-            .values()
-            .map(|folder| &folder.root)
-            .collect();
-        roots.sort();
-        pending(self.root.join(LINKS_FILE), &roots).map(StoreWrite::from)
-    }
-
-    fn ensure_not_open(&self, root: &Path) -> Result<(), StoreError> {
-        let open = self
-            .linked
-            .folders
-            .values()
-            .any(|folder| same_folder(&folder.root, root));
-        if open {
-            return Err(StoreError::at(root, ALREADY_OPEN));
+    fn adopt(
+        &mut self,
+        mut collection: Collection,
+        root: PathBuf,
+        owned: Vec<PathBuf>,
+        taken: &mut HashSet<String>,
+        warnings: &mut Vec<StoreError>,
+    ) -> Collection {
+        let stored_id = collection.info.postman_id.clone();
+        collection.claim_unique_id(taken);
+        self.linked
+            .insert(collection.id(), LinkedFolder::new(root, owned));
+        if stored_id.as_deref() != Some(collection.id()) {
+            let rewritten = self
+                .folder_write(&collection)
+                .and_then(|write| write.and_then(StoreWrite::commit).err());
+            warnings.extend(rewritten);
         }
-        Ok(())
+        collection
+    }
+
+    fn links_write(&self) -> Result<StoreWrite, StoreError> {
+        pending(self.root.join(LINKS_FILE), &self.linked.roots()).map(StoreWrite::from)
     }
 }
 
-fn same_folder(left: &Path, right: &Path) -> bool {
-    match (fs::canonicalize(left), fs::canonicalize(right)) {
-        (Ok(left), Ok(right)) => left == right,
-        _ => left == right,
+fn ensure_free(root: &Path, layout: &FolderLayout) -> Result<(), StoreError> {
+    if root.is_file() {
+        return Err(StoreError::at(root, NOT_A_FOLDER));
     }
-}
-
-fn ensure_no_request_files(root: &Path) -> Result<(), StoreError> {
-    let Ok(entries) = fs::read_dir(root) else {
-        return Ok(());
-    };
-    let holds_requests = entries.filter_map(Result::ok).any(|entry| {
-        let path = entry.path();
-        let name = entry.file_name();
-        let visible = !name.to_string_lossy().starts_with(HIDDEN_MARK);
-        let request_file = path.extension().is_some_and(|kind| kind == JSON_EXTENSION);
-        visible && (request_file || path.join(FOLDER_FILE).is_file())
-    });
-    if holds_requests {
-        return Err(StoreError::at(root, NOT_EMPTY));
+    if layout.occupies_files_in(root) {
+        return Err(StoreError::at(root, OCCUPIED));
     }
     Ok(())
 }

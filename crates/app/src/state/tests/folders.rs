@@ -33,20 +33,32 @@ fn pick(state: &mut AppState, purpose: FolderPurpose, path: &Path, now: f64) -> 
     )
 }
 
+fn folder_writes(write: &StoreWrite) -> Vec<&StoreWrite> {
+    match write {
+        StoreWrite::Batch(writes) => writes.iter().flat_map(folder_writes).collect(),
+        StoreWrite::Folder(_) => vec![write],
+        _ => Vec::new(),
+    }
+}
+
 fn folder_roots(effects: &[Effect]) -> Vec<&Path> {
     effects
         .iter()
         .filter_map(|effect| match effect {
-            Effect::Persist(StoreWrite::Folder(write)) => Some(write.root()),
+            Effect::Persist(write) => Some(folder_writes(write)),
             _ => None,
         })
+        .flatten()
+        .map(StoreWrite::path)
         .collect()
 }
 
-fn commit_folders(effects: Vec<Effect>) {
+fn commit_folders(effects: &[Effect]) {
     for effect in effects {
-        if let Effect::Persist(write @ StoreWrite::Folder(_)) = effect {
-            write.commit().unwrap();
+        if let Effect::Persist(write) = effect {
+            for folder in folder_writes(write) {
+                folder.clone().commit().unwrap();
+            }
         }
     }
 }
@@ -80,7 +92,7 @@ fn a_saved_folder_opens_as_a_collection_only_once() {
     let folder = TemporaryFolder::new();
     let (mut source, collection_id, _) = state_with_request();
     let purpose = FolderPurpose::SaveCollection(collection_id);
-    commit_folders(pick(&mut source, purpose, &folder.0, 0.0));
+    commit_folders(&pick(&mut source, purpose, &folder.0, 0.0));
 
     let mut state = state_with(Workspace::default());
     pick(&mut state, FolderPurpose::OpenCollection, &folder.0, 0.0);
@@ -94,10 +106,10 @@ fn a_saved_folder_opens_as_a_collection_only_once() {
 }
 
 #[test]
-fn a_folder_holding_requests_is_never_taken_over() {
+fn a_folder_holding_files_with_the_same_names_is_never_taken_over() {
     let folder = TemporaryFolder::new();
     fs::create_dir_all(&folder.0).unwrap();
-    fs::write(folder.0.join("someone-else.json"), "{}").unwrap();
+    fs::write(folder.0.join("list.json"), "{}").unwrap();
     let (mut state, collection_id, _) = state_with_request();
     let purpose = FolderPurpose::SaveCollection(collection_id.clone());
     let effects = pick(&mut state, purpose, &folder.0, 0.0);
@@ -123,7 +135,8 @@ fn stopping_or_deleting_leaves_the_folder_files_in_place() {
         Action::Delete(LibraryTarget::Collection { collection_id }),
         LATER,
     );
-    assert!(!effects
-        .iter()
-        .any(|effect| matches!(effect, Effect::Persist(StoreWrite::Delete(_)))));
+    assert!(effects.iter().all(|effect| match effect {
+        Effect::Persist(write) => !write.path().starts_with(&folder.0),
+        _ => true,
+    }));
 }

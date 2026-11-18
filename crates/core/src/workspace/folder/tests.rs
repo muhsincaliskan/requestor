@@ -120,3 +120,18 @@ fn stale_files_are_removed_with_their_empty_directories_only() {
     assert!(folder.0.join("README.md").exists());
     assert!(folder.0.join("collection.json").exists());
 }
+
+#[test]
+fn empty_folders_and_folders_with_requests_round_trip() {
+    let folder = TemporaryFolder::new();
+    let mut collection = Collection::new("Shop");
+    collection.item = serde_json::from_str(
+        r#"[{"name":"Empty","item":[]},
+            {"name":"Orders","x-team":"core","item":[{"name":"List","request":{"url":"/o"}}]}]"#,
+    )
+    .unwrap();
+    collection.ensure_ids();
+    write(&folder.0, &collection, Vec::new());
+    let (read, _) = read_folder(&folder.0).unwrap();
+    assert_eq!(read, collection);
+}

@@ -4,6 +4,11 @@ use requestor_core::workspace::{StoreError, StoreWrite};
 
 use super::{Action, AppState, Effect};
 
+const SAVING_IN_TEXT: &str = "Saving";
+const SAVE_TO_FOLDER_FAILED: &str = "Could not save to the folder:";
+const OPEN_FOLDER_FAILED: &str = "Could not open the folder:";
+const SAVE_FAILED: &str = "Could not save";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FolderPurpose {
     SaveCollection(String),
@@ -41,15 +46,15 @@ impl AppState {
             return;
         };
         match self.store.link_collection(collection, root.clone()) {
-            Ok(writes) => {
-                effects.extend(writes.into_iter().map(Effect::Persist));
+            Ok(write) => {
+                effects.push(Effect::Persist(write));
                 self.inform(format!(
-                    "Saving {} in {}",
+                    "{SAVING_IN_TEXT} {} in {}",
                     collection.info.name,
                     root.display()
                 ));
             }
-            Err(error) => self.report_error(format!("Could not save to the folder: {error}")),
+            Err(error) => self.report_error(format!("{SAVE_TO_FOLDER_FAILED} {error}")),
         }
     }
 
@@ -57,7 +62,7 @@ impl AppState {
         let (collection, owned) = match self.store.open_folder(&root) {
             Ok(opened) => opened,
             Err(error) => {
-                self.report_error(format!("Could not open the folder: {error}"));
+                self.report_error(format!("{OPEN_FOLDER_FAILED} {error}"));
                 return;
             }
         };
@@ -74,14 +79,14 @@ impl AppState {
         }
     }
 
-    fn persist_or_report(
+    pub(super) fn persist_or_report(
         &mut self,
         write: Result<StoreWrite, StoreError>,
         effects: &mut Vec<Effect>,
     ) {
         match write {
             Ok(write) => effects.push(Effect::Persist(write)),
-            Err(error) => self.report_error(format!("Could not save {error}")),
+            Err(error) => self.report_error(format!("{SAVE_FAILED} {error}")),
         }
     }
 }

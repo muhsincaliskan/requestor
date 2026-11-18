@@ -120,10 +120,7 @@ impl AppState {
         }
         let mut effects = Vec::with_capacity(writes.len());
         for write in writes {
-            match write {
-                Ok(pending) => effects.push(Effect::Persist(pending)),
-                Err(error) => self.report_error(format!("Could not save {error}")),
-            }
+            self.persist_or_report(write, &mut effects);
         }
         effects
     }

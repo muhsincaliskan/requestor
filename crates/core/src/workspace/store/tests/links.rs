@@ -1,18 +1,20 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::documents::listing;
 use super::TemporaryRoot;
 use crate::collection::{Collection, Item, Request, Url};
-use crate::workspace::StoreWrite;
+use crate::workspace::WorkspaceStore;
 
-fn commit_all(writes: Vec<StoreWrite>) {
-    for write in writes {
-        write.commit().unwrap();
-    }
+pub(super) fn link(store: &mut WorkspaceStore, collection: &Collection, folder: &Path) {
+    store
+        .link_collection(collection, folder.to_path_buf())
+        .unwrap()
+        .commit()
+        .unwrap();
 }
 
-fn shop() -> Collection {
+pub(super) fn shop() -> Collection {
     let mut collection = Collection::new("Shop");
     collection.item = vec![
         Item::for_request(
@@ -31,7 +33,7 @@ fn shop() -> Collection {
     collection
 }
 
-fn folder_in(root: &TemporaryRoot) -> PathBuf {
+pub(super) fn folder_in(root: &TemporaryRoot) -> PathBuf {
     root.0.join("repo").join("shop")
 }
 
@@ -46,7 +48,7 @@ fn a_linked_collection_lives_in_its_folder_and_loads_from_there() {
         .commit()
         .unwrap();
     let folder = folder_in(&root);
-    commit_all(store.link_collection(&collection, folder.clone()).unwrap());
+    link(&mut store, &collection, &folder);
     assert!(listing(&root.0.join("collections")).is_empty());
     assert_eq!(
         listing(&folder),
@@ -70,7 +72,7 @@ fn removed_requests_lose_their_files_and_other_files_stay() {
     let mut store = root.store();
     let mut collection = shop();
     let folder = folder_in(&root);
-    commit_all(store.link_collection(&collection, folder.clone()).unwrap());
+    link(&mut store, &collection, &folder);
     fs::write(folder.join("README.md"), "docs").unwrap();
     collection.item.truncate(1);
     store
@@ -92,7 +94,7 @@ fn deleting_a_linked_collection_only_forgets_the_folder() {
     let mut store = root.store();
     let collection = shop();
     let folder = folder_in(&root);
-    commit_all(store.link_collection(&collection, folder.clone()).unwrap());
+    link(&mut store, &collection, &folder);
     store
         .release_collection(collection.id())
         .unwrap()
@@ -104,16 +106,17 @@ fn deleting_a_linked_collection_only_forgets_the_folder() {
 }
 
 #[test]
-fn folders_with_requests_cannot_be_linked_and_open_ones_cannot_be_opened_twice() {
+fn files_with_the_same_names_block_linking_and_open_folders_cannot_be_opened_twice() {
     let root = TemporaryRoot::new();
     let mut store = root.store();
     let folder = folder_in(&root);
     fs::create_dir_all(&folder).unwrap();
     fs::write(folder.join("package.json"), "{}").unwrap();
+    fs::write(folder.join("health.json"), "{}").unwrap();
     assert!(store.link_collection(&shop(), folder.clone()).is_err());
-    fs::remove_file(folder.join("package.json")).unwrap();
+    fs::remove_file(folder.join("health.json")).unwrap();
     let collection = shop();
-    commit_all(store.link_collection(&collection, folder.clone()).unwrap());
+    link(&mut store, &collection, &folder);
     assert!(store.open_folder(&folder).is_err());
     let (opened, owned) = root.store().open_folder(&folder).unwrap();
     assert_eq!(opened, collection);

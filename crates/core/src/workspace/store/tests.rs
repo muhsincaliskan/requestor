@@ -8,6 +8,7 @@ use crate::identity::random_uuid;
 use crate::workspace::{AppSettings, Session, SessionTab, Workspace};
 
 mod documents;
+mod folder_safety;
 mod lifecycle;
 mod links;
 

@@ -162,10 +162,8 @@ impl AppState {
             LibraryTarget::Collection { collection_id } => {
                 if self.workspace.remove_collection(collection_id).is_some() {
                     self.unsaved.forget_collection(collection_id);
-                    match self.store.release_collection(collection_id) {
-                        Some(Ok(write)) => effects.push(Effect::Persist(write)),
-                        Some(Err(error)) => self.report_error(format!("Could not save {error}")),
-                        None => {}
+                    if let Some(released) = self.store.release_collection(collection_id) {
+                        self.persist_or_report(released, effects);
                     }
                 }
             }

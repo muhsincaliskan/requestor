@@ -74,12 +74,12 @@ impl WorkspaceStore {
         );
         self.collections = collection_index;
         self.environments = environment_index;
-        let linked = self.load_linked(&mut warnings);
-        let mut collections: Vec<Collection> = collections
-            .into_iter()
-            .filter(|collection| self.linked_folder(collection.id()).is_none())
+        let mut taken: HashSet<String> = collections
+            .iter()
+            .map(|collection| collection.id().to_string())
             .collect();
-        collections.extend(linked);
+        let mut collections = collections;
+        collections.extend(self.load_linked(&mut taken, &mut warnings));
         let mut workspace = Workspace {
             collections,
             environments,
@@ -236,6 +236,7 @@ pub(super) fn safe_file_stem(id: &str) -> String {
 }
 
 mod index;
+mod linked_folder;
 mod links;
 #[cfg(test)]
 mod tests;

@@ -61,7 +61,8 @@ api/
 ```
 
 - File names come from the request names. Requests a teammate adds as new files are picked up on the next start.
-- Files Requestor did not write, such as a README, are never touched.
+- Only files Requestor wrote are ever changed or removed. Other files, such as a README or a `package.json`, are left alone, and linked directories are not followed.
+- Values are saved as written, so keep tokens and passwords in an environment rather than in the collection you commit.
 - **Open collection folder…** in the import window opens a folder someone else saved.
 - **Stop saving to folder** keeps the files and moves the collection back into the app's own storage. Deleting the collection in the app also leaves the folder alone.
 - `requestor run api/` runs a saved folder just like a collection file.
