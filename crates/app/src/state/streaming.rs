@@ -10,10 +10,9 @@ const STREAM_ENDED: &str = "The event stream stopped:";
 impl AppState {
     pub(super) fn stream_progress(&mut self, id: TabId, job: u64, update: StreamUpdate) {
         if let Some(tab) = self.tab_mut(id) {
-            if matches!(update, StreamUpdate::Opened(_)) {
+            if tab.exchange.stream(job, update) {
                 tab.response_section = ResponseSection::Events;
             }
-            tab.exchange.stream(job, update);
         }
     }
 
@@ -37,12 +36,12 @@ impl AppState {
     }
 
     fn received_before(&mut self, id: TabId, job: u64) -> Option<HttpResponse> {
-        let (live_job, stream) = self.tab_mut(id)?.exchange.take_live()?;
-        (live_job == job).then(|| stream.into_response())
+        let stream = self.tab_mut(id)?.exchange.take_live(job)?;
+        Some(stream.into_response())
     }
 
     pub(super) fn cancel_send(&mut self, id: TabId) {
-        let live = self.tab_mut(id).and_then(|tab| tab.exchange.take_live());
+        let live = self.tab_mut(id).and_then(|tab| tab.exchange.stop_live());
         match live {
             Some((job, stream)) => {
                 self.send_finished(id, job, Ok(stream.into_response()));

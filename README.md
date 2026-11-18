@@ -45,7 +45,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - It has Pretty and Raw modes for JSON and XML, and a find box.
 - Headers and cookies have one-click copy.
 - Send a request again and the Changes tab shows what differs from the previous response, line by line, with JSON and XML laid out first.
-- Server-sent events (`text/event-stream`) show up in an Events tab as they arrive, with each event's type, id and data. Press **Stop** to end the stream and keep what came in. Click an event to copy its data. The last 1000 events are listed, and the stream ends at the response size limit.
+- Server-sent events (`text/event-stream`) show up in an Events tab as they arrive, with each event's type, id and data. Press **Stop** to end the stream and keep what came in. Click an event to copy its data. The last 1000 events are listed. A stream ends at 16 MB, or at the response size limit if that is lower, and stops with a notice when the server stays quiet for longer than the request timeout.
 - The History section in the sidebar lists the last 100 requests you sent, with their status. Click one to open it in a new tab that still uses its collection's variables and auth. Sending the same request twice in a row keeps one entry. Request bodies over 32 KB are left out, and responses are never kept. History saves requests as written, including header and auth values, so keep tokens in environment variables. Right-click the History heading to clear it.
 - On start, Requestor asks GitHub once whether a newer release exists, and if so shows a link to its download page in the status bar. Turn it off with **Check for updates** in Settings.
 - A URL typed without `http://` or `https://` is sent over HTTP, as in a browser.

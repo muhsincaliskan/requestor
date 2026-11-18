@@ -15,18 +15,11 @@ impl EventLog {
     pub fn from_body(body: &[u8]) -> Self {
         let mut log = EventLog::default();
         log.receive(body);
-        log.finish();
         log
     }
 
     pub fn receive(&mut self, bytes: &[u8]) {
         for event in self.parser.push(bytes) {
-            self.keep(event);
-        }
-    }
-
-    pub fn finish(&mut self) {
-        if let Some(event) = self.parser.finish() {
             self.keep(event);
         }
     }
@@ -41,6 +34,10 @@ impl EventLog {
 
     pub fn dropped(&self) -> usize {
         self.total - self.recent.len()
+    }
+
+    pub fn number_of(&self, index: usize) -> usize {
+        self.dropped() + index + 1
     }
 
     pub fn get(&self, index: usize) -> Option<&ServerEvent> {

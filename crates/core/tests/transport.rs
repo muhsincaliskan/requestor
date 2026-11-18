@@ -1,5 +1,7 @@
 mod support;
 
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::time::Duration;
 
 use requestor_core::header::Header;
@@ -254,4 +256,36 @@ fn ordinary_responses_report_no_stream_progress() {
         )
         .unwrap();
     assert_eq!(calls, 0);
+}
+
+#[test]
+fn a_quiet_event_stream_ends_with_a_timeout_after_reporting_what_came() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/events", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut request = [0u8; 1024];
+        let _ = stream.read(&mut request);
+        let _ = stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\ndata: one\n\n");
+        std::thread::sleep(Duration::from_millis(1_500));
+    });
+    let settings = RequestSettings {
+        request_timeout_ms: 300,
+        ..RequestSettings::default()
+    };
+    let mut received = Vec::new();
+    let error = transport(&settings)
+        .send_cancellable(
+            request(HttpMethod::Get, url),
+            &Cancellation::default(),
+            &mut |progress| {
+                if let StreamProgress::Received(bytes) = progress {
+                    received.extend_from_slice(bytes);
+                }
+            },
+        )
+        .unwrap_err();
+    assert_eq!(error, TransportError::Timeout);
+    assert_eq!(received, b"data: one\n\n");
 }

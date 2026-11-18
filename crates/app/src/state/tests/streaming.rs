@@ -100,6 +100,29 @@ fn progress_from_an_older_send_is_ignored() {
 }
 
 #[test]
+fn a_failure_from_an_older_send_leaves_the_live_stream_alone() {
+    let (mut state, _, _) = state_with_request();
+    let (tab, job) = start_stream(&mut state);
+    let result = Err("timed out".to_string());
+    state.apply(
+        Action::SendFinished {
+            tab,
+            job: job + 100,
+            result,
+        },
+        0.0,
+    );
+    receive(&mut state, tab, job, b"data: still here\n\n");
+    let Exchange::Sending {
+        live: Some(live), ..
+    } = &state.tab(tab).unwrap().exchange
+    else {
+        panic!("expected a live stream");
+    };
+    assert_eq!(live.log().total(), 1);
+}
+
+#[test]
 fn a_finished_stream_lists_its_events() {
     let (mut state, _, _) = state_with_request();
     let (tab, job) = start_stream(&mut state);

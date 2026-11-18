@@ -18,13 +18,6 @@ pub struct ServerEvent {
 }
 
 impl ServerEvent {
-    pub fn parse_all(body: &[u8]) -> Vec<ServerEvent> {
-        let mut parser = EventStreamParser::default();
-        let mut events = parser.push(body);
-        events.extend(parser.finish());
-        events
-    }
-
     pub fn kind(&self) -> &str {
         self.name.as_deref().unwrap_or(DEFAULT_EVENT_NAME)
     }

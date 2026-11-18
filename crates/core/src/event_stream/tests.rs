@@ -8,11 +8,15 @@ fn event(name: Option<&str>, data: &str, id: Option<&str>) -> ServerEvent {
     }
 }
 
+fn parse_all(body: &[u8]) -> Vec<ServerEvent> {
+    EventStreamParser::default().push(body)
+}
+
 #[test]
 fn events_are_split_on_blank_lines() {
     let body = b"data: first\n\nevent: update\ndata: second\nid: 7\n\n";
     assert_eq!(
-        ServerEvent::parse_all(body),
+        parse_all(body),
         [
             event(None, "first", None),
             event(Some("update"), "second", Some("7"))
@@ -23,16 +27,13 @@ fn events_are_split_on_blank_lines() {
 #[test]
 fn data_lines_are_joined_and_comments_ignored() {
     let body = b": keep-alive\ndata: one\ndata:two\nretry: 10\n\n";
-    assert_eq!(
-        ServerEvent::parse_all(body),
-        [event(None, "one\ntwo", None)]
-    );
+    assert_eq!(parse_all(body), [event(None, "one\ntwo", None)]);
 }
 
 #[test]
 fn every_line_ending_is_understood() {
     let body = b"data: a\r\n\r\ndata: b\r\rdata: c\n\n";
-    let data: Vec<String> = ServerEvent::parse_all(body)
+    let data: Vec<String> = parse_all(body)
         .into_iter()
         .map(|event| event.data)
         .collect();
@@ -42,20 +43,19 @@ fn every_line_ending_is_understood() {
 #[test]
 fn chunks_split_anywhere_give_the_same_events() {
     let body = b"event: tick\r\ndata: {\"n\":1}\r\n\r\nid: 2\ndata: done\n\n";
-    let whole = ServerEvent::parse_all(body);
+    let whole = parse_all(body);
     for split in 0..body.len() {
         let mut parser = EventStreamParser::default();
         let mut events = parser.push(&body[..split]);
         events.extend(parser.push(&body[split..]));
-        events.extend(parser.finish());
         assert_eq!(events, whole, "split at {split}");
     }
 }
 
 #[test]
-fn the_last_id_carries_over_and_an_unfinished_event_is_kept_at_the_end() {
-    let body = b"id: 1\ndata: a\n\ndata: b";
-    let events = ServerEvent::parse_all(body);
+fn the_last_id_carries_over_and_an_unfinished_event_is_not_dispatched() {
+    let body = b"id: 1\ndata: a\n\ndata: b\n\ndata: c";
+    let events = parse_all(body);
     assert_eq!(
         events,
         [event(None, "a", Some("1")), event(None, "b", Some("1"))]
@@ -63,8 +63,20 @@ fn the_last_id_carries_over_and_an_unfinished_event_is_kept_at_the_end() {
 }
 
 #[test]
+fn a_leading_byte_order_mark_is_skipped() {
+    let events = parse_all("\u{FEFF}data: a\n\n".as_bytes());
+    assert_eq!(events, [event(None, "a", None)]);
+}
+
+#[test]
+fn an_id_with_a_null_character_is_ignored() {
+    let events = parse_all(b"id: 1\n\ndata: a\nid: 2\0\n\n");
+    assert_eq!(events, [event(None, "a", Some("1"))]);
+}
+
+#[test]
 fn events_without_data_are_skipped_and_names_default_to_message() {
-    let events = ServerEvent::parse_all(b"event: ping\n\ndata: x\n\n");
+    let events = parse_all(b"event: ping\n\ndata: x\n\n");
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].kind(), "message");
 }
@@ -86,6 +98,7 @@ fn the_log_keeps_only_the_newest_events_but_counts_all() {
     assert_eq!(log.kept(), MAX_KEPT_EVENTS);
     assert_eq!(log.dropped(), 5);
     assert_eq!(log.get(0).unwrap().data, "5");
+    assert_eq!(log.number_of(0), 6);
 }
 
 #[test]

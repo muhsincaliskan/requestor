@@ -55,20 +55,20 @@ pub(super) fn read_response(
         truncated: false,
         elapsed: started.elapsed(),
     };
-    let limit = settings.response_limit();
     let (body, truncated) = if head.is_event_stream() {
         on_stream(StreamProgress::Opened(&head));
         let endless = ReadWatch {
             deadline: None,
             ..watch
         };
-        read_stream(response, limit, &endless, on_stream)?
+        read_stream(response, settings.event_stream_limit(), &endless, on_stream)?
     } else {
         let expected = response
             .content_length()
             .map_or(INITIAL_BODY_CAPACITY, |length| {
                 usize::try_from(length).unwrap_or(usize::MAX)
             });
+        let limit = settings.response_limit();
         let capacity = expected.min(limit).min(MAX_PREALLOCATED_BODY_BYTES);
         read_capped(response, limit, capacity, &watch)?
     };
@@ -112,13 +112,9 @@ fn read_stream(
     let mut body = Vec::with_capacity(INITIAL_BODY_CAPACITY);
     let mut chunk = vec![0u8; READ_CHUNK_BYTES];
     while watch.check().is_ok() {
-        let count = match reader.read(&mut chunk) {
-            Ok(count) => count,
-            Err(error) => match TransportError::from_io(&error) {
-                TransportError::Timeout => break,
-                other => return Err(other),
-            },
-        };
+        let count = reader
+            .read(&mut chunk)
+            .map_err(|error| TransportError::from_io(&error))?;
         let taken = count.min(limit - body.len());
         if count == 0 {
             break;
