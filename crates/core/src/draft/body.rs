@@ -149,6 +149,7 @@ fn object_or_empty(value: Option<Value>) -> Map<String, Value> {
 }
 
 mod format;
+mod graphql;
 mod kind;
 mod soap;
 #[cfg(test)]

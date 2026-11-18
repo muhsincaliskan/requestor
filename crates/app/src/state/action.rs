@@ -37,6 +37,12 @@ pub enum Action {
     },
     Send(TabId),
     CancelSend(TabId),
+    FetchSchema(TabId),
+    SchemaFetched {
+        tab: TabId,
+        job: u64,
+        result: Result<HttpResponse, String>,
+    },
     SendFinished {
         tab: TabId,
         job: u64,

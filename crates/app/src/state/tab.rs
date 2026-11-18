@@ -4,6 +4,7 @@ use requestor_core::history::HistoryEntry;
 use requestor_core::workspace::{SessionTab, Workspace};
 
 use super::exchange::Exchange;
+use super::schema_view::SchemaView;
 use super::sections::{EditorSection, ResponseSection};
 
 pub const UNTITLED_REQUEST: &str = "Untitled request";
@@ -29,6 +30,7 @@ pub struct RequestTab {
     pub editor_section: EditorSection,
     pub response_section: ResponseSection,
     pub message_draft: String,
+    pub schema: SchemaView,
 }
 
 impl ItemBinding {
@@ -200,6 +202,7 @@ impl RequestTab {
             editor_section: EditorSection::default(),
             response_section: ResponseSection::default(),
             message_draft: String::new(),
+            schema: SchemaView::default(),
         }
     }
 }

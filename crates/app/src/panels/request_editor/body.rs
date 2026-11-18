@@ -2,6 +2,8 @@ use eframe::egui::{ComboBox, ScrollArea, Ui};
 use requestor_core::draft::{BodyDraft, BodyKind, RawLanguage, RequestDraft};
 use requestor_core::soap::{SoapVersion, SOAP_ACTION_HEADER};
 
+use super::graphql;
+use crate::state::{Action, RequestTab};
 use crate::widgets::key_value_table::KeyValueTable;
 use crate::widgets::variable_text_edit::{VariableHints, VariableTextEdit};
 
@@ -11,22 +13,22 @@ const FORMDATA_SALT: &str = "body-formdata";
 const SCROLL_SALT: &str = "scroll";
 const FILE_SALT: &str = "body-file";
 const RAW_SALT: &str = "body-raw";
-const QUERY_SALT: &str = "body-graphql-query";
-const VARIABLES_SALT: &str = "body-graphql-variables";
 const SOAP_ACTION_SALT: &str = "body-soap-action";
 const FILE_HINT: &str = "Path of the file to send";
 const SOAP_ACTION_HINT: &str = "Optional, for example urn:GetUser";
 const SOAP_ACTION_WIDTH: f32 = 320.0;
 const BEAUTIFY_LABEL: &str = "Beautify";
 const NONE_TEXT: &str = "This request has no body.";
-const QUERY_TITLE: &str = "Query";
-const VARIABLES_TITLE: &str = "Variables (JSON)";
 const EDITOR_MAX_HEIGHT: f32 = 320.0;
 const RAW_ROWS: usize = 14;
-const QUERY_ROWS: usize = 10;
-const VARIABLES_ROWS: usize = 5;
 
-pub fn show(ui: &mut Ui, draft: &mut RequestDraft, hints: &VariableHints) -> bool {
+pub fn show(
+    ui: &mut Ui,
+    open: &mut RequestTab,
+    hints: &VariableHints,
+    actions: &mut Vec<Action>,
+) -> bool {
+    let draft = &mut open.draft;
     let changed = kind_selector(ui, &mut draft.body);
     ui.add_space(ui.spacing().item_spacing.y);
     changed
@@ -42,7 +44,14 @@ pub fn show(ui: &mut Ui, draft: &mut RequestDraft, hints: &VariableHints) -> boo
                     .show(ui)
             }
             BodyKind::File => file_editor(ui, &mut draft.body, hints),
-            BodyKind::GraphQl => graphql_editor(ui, &mut draft.body, hints),
+            BodyKind::GraphQl => graphql::show(
+                ui,
+                &mut draft.body,
+                &mut open.schema,
+                open.id,
+                hints,
+                actions,
+            ),
             BodyKind::Soap => soap_editor(ui, draft, hints),
         }
 }
@@ -134,21 +143,7 @@ fn file_editor(ui: &mut Ui, body: &mut BodyDraft, hints: &VariableHints) -> bool
         .changed()
 }
 
-fn graphql_editor(ui: &mut Ui, body: &mut BodyDraft, hints: &VariableHints) -> bool {
-    ui.strong(QUERY_TITLE);
-    let query = scrolling_editor(ui, &mut body.graphql_query, hints, QUERY_SALT, QUERY_ROWS);
-    ui.strong(VARIABLES_TITLE);
-    let variables = scrolling_editor(
-        ui,
-        &mut body.graphql_variables,
-        hints,
-        VARIABLES_SALT,
-        VARIABLES_ROWS,
-    );
-    query | variables
-}
-
-fn scrolling_editor(
+pub(super) fn scrolling_editor(
     ui: &mut Ui,
     text: &mut String,
     hints: &VariableHints,

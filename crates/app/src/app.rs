@@ -71,6 +71,12 @@ impl RequestorApp {
                     request,
                     settings,
                 } => self.runner.open_socket(tab, job, *request, &settings, ctx),
+                Effect::FetchSchema {
+                    tab,
+                    job,
+                    request,
+                    settings,
+                } => self.runner.fetch_schema(tab, job, *request, &settings, ctx),
                 Effect::SocketSend { job, text } => self.runner.socket_send(job, text),
                 Effect::CopyText(text) => ctx.copy_text(text),
                 Effect::OpenUrl(url) => {

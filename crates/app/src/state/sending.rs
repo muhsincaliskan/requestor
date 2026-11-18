@@ -35,7 +35,7 @@ impl AppState {
         Some((request, self.workspace.scope_for(collection_id, item_id)))
     }
 
-    fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
+    pub(super) fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
         let (request, scope) = self.sendable(id)?;
         Some(
             PreparedRequest::from_request(&request, &scope, &self.workspace.settings.request)

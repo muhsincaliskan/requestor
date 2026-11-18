@@ -1,5 +1,6 @@
 mod body;
 mod checks;
+mod graphql;
 mod tables;
 mod url_bar;
 
@@ -42,7 +43,7 @@ fn show_tab(
         .id_salt(SECTION_SCROLL_SALT)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            changed |= show_section(ui, open, hints);
+            changed |= show_section(ui, open, hints, actions);
         });
     changed
 }
@@ -70,11 +71,16 @@ fn section_label(open: &RequestTab, section: EditorSection) -> String {
     }
 }
 
-fn show_section(ui: &mut Ui, open: &mut RequestTab, hints: &VariableHints) -> bool {
+fn show_section(
+    ui: &mut Ui,
+    open: &mut RequestTab,
+    hints: &VariableHints,
+    actions: &mut Vec<Action>,
+) -> bool {
     match open.editor_section {
         EditorSection::Params => tables::params(ui, &mut open.draft, hints),
         EditorSection::Headers => tables::headers(ui, &mut open.draft, hints),
-        EditorSection::Body => body::show(ui, &mut open.draft, hints),
+        EditorSection::Body => body::show(ui, open, hints, actions),
         EditorSection::Auth => auth_editor::show(ui, &mut open.draft.auth, hints, AUTH_SALT),
         EditorSection::Tests => checks::show(ui, &mut open.draft.rules),
     }

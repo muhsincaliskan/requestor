@@ -35,6 +35,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - The SOAP body type starts from a 1.1 or 1.2 envelope and has a SOAPAction field.
   - It sends the matching Content-Type.
   - It is stored as raw XML, so Postman opens it unchanged.
+- GraphQL: **Fetch schema** asks the server for its schema with the request's URL, headers and auth. The schema's queries and mutations are listed beside the query editor with a filter. Click a field to add a ready operation with its arguments as variables and its simple fields selected. The schema is kept while the tab is open.
 - Tests on each request:
   - Checks for status, response time, body text, a header or a JSON value.
   - Save a JSON value or a header into an environment or collection variable for the next requests.
