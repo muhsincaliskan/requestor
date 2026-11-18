@@ -1,12 +1,14 @@
 mod buffer;
 mod comparison;
 mod inspection;
+mod presentation;
 mod search;
 
 pub use buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
 pub use comparison::{ChangesUnavailable, ComparisonBase};
 pub use inspection::{BodyLayout, JsonInspection, JsonTreeView};
 
+pub use presentation::BodyPresentation;
 pub use search::BodySearch;
 
 use std::time::Duration;
