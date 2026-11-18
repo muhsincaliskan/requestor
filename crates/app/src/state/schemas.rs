@@ -42,7 +42,7 @@ impl AppState {
             tab: id,
             job,
             request: Box::new(request.for_schema()),
-            settings: Box::new(self.workspace.settings.request.clone()),
+            settings: Box::new(self.request_settings(id)),
         });
     }
 

@@ -13,6 +13,7 @@ pub use rules::{CheckKind, CheckRow, ExtractKind, ExtractRow, RulesDraft};
 
 use crate::collection::{Request, Url, UrlParts};
 use crate::method::HttpMethod;
+use crate::settings::RequestOverrides;
 use row::{params_from_rows, rows_from_params};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,7 +27,9 @@ pub struct RequestDraft {
     pub body: BodyDraft,
     pub auth: AuthDraft,
     pub rules: RulesDraft,
+    pub overrides: RequestOverrides,
     saved_rules: RulesDraft,
+    saved_overrides: RequestOverrides,
     source: Request,
 }
 
@@ -48,7 +51,9 @@ impl RequestDraft {
             body: BodyDraft::from_body(request.body.as_ref()),
             auth: AuthDraft::from_auth(request.auth.as_ref()),
             rules: RulesDraft::default(),
+            overrides: RequestOverrides::default(),
             saved_rules: RulesDraft::default(),
+            saved_overrides: RequestOverrides::default(),
             source: request.clone(),
         };
         draft.load_url_tables(request.url.as_ref());
@@ -58,6 +63,12 @@ impl RequestDraft {
     pub fn with_saved_rules(mut self, rules: RulesDraft) -> Self {
         self.rules = rules.clone();
         self.saved_rules = rules;
+        self
+    }
+
+    pub fn with_saved_overrides(mut self, overrides: RequestOverrides) -> Self {
+        self.overrides = overrides.clone();
+        self.saved_overrides = overrides;
         self
     }
 
@@ -87,12 +98,14 @@ impl RequestDraft {
         let request = self.to_request();
         self.source = request.clone();
         self.saved_rules = self.rules.clone();
+        self.saved_overrides = self.overrides.clone();
         request
     }
 
     pub fn is_unchanged(&self) -> bool {
         RequestDraft::from_request(self.name.clone(), &self.source)
             .with_saved_rules(self.saved_rules.clone())
+            .with_saved_overrides(self.saved_overrides.clone())
             == *self
     }
 

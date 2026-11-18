@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 use crate::secret::Secret;
 
 mod certificate;
+mod overrides;
 
 pub use certificate::ClientCertificate;
+pub use overrides::{ProxyChoice, RequestOverrides};
 
 const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 30_000;

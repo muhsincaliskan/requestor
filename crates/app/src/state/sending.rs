@@ -2,6 +2,7 @@ use requestor_core::checks::RulesReport;
 use requestor_core::collection::Request;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
+use requestor_core::settings::RequestSettings;
 use requestor_core::variables::VariableScope;
 
 use super::exchange::Exchange;
@@ -40,10 +41,18 @@ impl AppState {
         Some((request, self.workspace.scope_for(collection_id, item_id)))
     }
 
+    pub(super) fn request_settings(&self, id: TabId) -> RequestSettings {
+        let global = &self.workspace.settings.request;
+        self.tab(id).map_or_else(
+            || global.clone(),
+            |tab| tab.draft.overrides.apply_to(global),
+        )
+    }
+
     pub(super) fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
         let (request, scope) = self.sendable(id)?;
         Some(
-            PreparedRequest::from_request(&request, &scope, &self.workspace.settings.request)
+            PreparedRequest::from_request(&request, &scope, &self.request_settings(id))
                 .map_err(|error| error.to_string()),
         )
     }
@@ -89,7 +98,7 @@ impl AppState {
             tab: id,
             job,
             request: Box::new(request),
-            settings: Box::new(self.workspace.settings.request.clone()),
+            settings: Box::new(self.request_settings(id)),
         });
     }
 

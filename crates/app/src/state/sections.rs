@@ -6,6 +6,7 @@ pub enum EditorSection {
     Body,
     Auth,
     Tests,
+    Settings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -20,12 +21,13 @@ pub enum ResponseSection {
 }
 
 impl EditorSection {
-    pub const ALL: [EditorSection; 5] = [
+    pub const ALL: [EditorSection; 6] = [
         EditorSection::Params,
         EditorSection::Headers,
         EditorSection::Body,
         EditorSection::Auth,
         EditorSection::Tests,
+        EditorSection::Settings,
     ];
 
     pub fn label(self) -> &'static str {
@@ -35,6 +37,7 @@ impl EditorSection {
             EditorSection::Body => "Body",
             EditorSection::Auth => "Auth",
             EditorSection::Tests => "Tests",
+            EditorSection::Settings => "Settings",
         }
     }
 }
