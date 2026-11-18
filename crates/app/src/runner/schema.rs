@@ -1,10 +1,10 @@
 use std::thread;
 
 use eframe::egui::Context;
+use requestor_core::graphql::GraphQlSchema;
 use requestor_core::prepared::PreparedRequest;
-use requestor_core::response::HttpResponse;
 use requestor_core::settings::RequestSettings;
-use requestor_core::transport::HttpTransport;
+use requestor_core::transport::Cancellation;
 
 use super::Runner;
 use crate::state::{Action, TabId};
@@ -26,10 +26,18 @@ impl Runner {
         };
         let report = self.report.clone();
         let wake = wake.clone();
+        let cancellation = Cancellation::default();
+        self.running.retain(|_, running| !running.is_abandoned());
+        self.running.insert(job, cancellation.clone());
         let spawned = thread::Builder::new()
             .name(SCHEMA_WORKER_NAME.to_string())
             .spawn(move || {
-                let result = transport.send(request).map_err(|error| error.to_string());
+                let result = transport
+                    .send_cancellable(request, &cancellation, &mut |_| {})
+                    .map_err(|error| error.to_string())
+                    .and_then(|response| {
+                        response.graphql_schema().map_err(|error| error.to_string())
+                    });
                 if report
                     .send(Action::SchemaFetched { tab, job, result })
                     .is_ok()
@@ -42,7 +50,7 @@ impl Runner {
         }
     }
 
-    fn report_schema(&self, tab: TabId, job: u64, result: Result<HttpResponse, String>) {
+    fn report_schema(&self, tab: TabId, job: u64, result: Result<GraphQlSchema, String>) {
         self.report
             .send(Action::SchemaFetched { tab, job, result })
             .ok();

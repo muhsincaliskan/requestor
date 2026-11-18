@@ -43,6 +43,16 @@ impl AppState {
         )
     }
 
+    pub(super) fn warn_about_unresolved(&mut self, request: &PreparedRequest) {
+        let unresolved = request.unresolved_variables();
+        if !unresolved.is_empty() {
+            self.warn(format!(
+                "Not defined: {}. Add them to the environment or collection.",
+                unresolved.join(", ")
+            ));
+        }
+    }
+
     fn send(&mut self, id: TabId, effects: &mut Vec<Effect>) {
         if self.tab(id).is_some_and(RequestTab::is_connected) {
             return self.send_socket_message(id, effects);
@@ -59,13 +69,7 @@ impl AppState {
                 return;
             }
         };
-        let unresolved = request.unresolved_variables();
-        if !unresolved.is_empty() {
-            self.warn(format!(
-                "Not defined: {}. Add them to the environment or collection.",
-                unresolved.join(", ")
-            ));
-        }
+        self.warn_about_unresolved(&request);
         if request.is_websocket() {
             return self.connect(id, request, effects);
         }

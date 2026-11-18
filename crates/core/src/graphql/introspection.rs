@@ -15,15 +15,12 @@ pub const INTROSPECTION_QUERY: &str = "query IntrospectionQuery {
     types {
       kind
       name
-      description
       fields(includeDeprecated: false) {
         name
         description
-        args { name description type { ...TypeRef } }
+        args { name type { ...TypeRef } }
         type { ...TypeRef }
       }
-      inputFields { name description type { ...TypeRef } }
-      enumValues(includeDeprecated: false) { name }
     }
   }
 }

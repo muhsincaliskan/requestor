@@ -2,14 +2,15 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use super::type_ref::TypeRef;
-use super::wire::IntrospectionResponse;
-use crate::response::HttpResponse;
 
+const INTROSPECTION_PREFIX: &str = "__";
 const ARGUMENT_SEPARATOR: &str = ", ";
 const NOT_JSON: &str = "The server did not answer with JSON";
 const MISSING: &str = "The answer holds no schema. The server may have introspection turned off";
 const REJECTED: &str = "The server refused the schema request";
 const STATUS: &str = "The server answered the schema request with status";
+const TOO_LARGE: &str = "The schema is larger than the response size limit in Settings";
+const TOO_DEEP: &str = "The schema nests a type deeper than Requestor can read";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OperationKind {
@@ -31,7 +32,6 @@ pub enum TypeKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaArgument {
     pub name: String,
-    pub description: Option<String>,
     pub type_ref: TypeRef,
 }
 
@@ -41,22 +41,25 @@ pub struct SchemaField {
     pub description: Option<String>,
     pub arguments: Vec<SchemaArgument>,
     pub type_ref: TypeRef,
+    signature: String,
+    search_key: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FieldFilter(String);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaType {
     pub name: String,
     pub kind: TypeKind,
-    pub description: Option<String>,
     pub fields: Vec<SchemaField>,
-    pub input_fields: Vec<SchemaArgument>,
-    pub enum_values: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GraphQlSchema {
     roots: BTreeMap<OperationKind, String>,
     types: BTreeMap<String, SchemaType>,
+    type_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +68,8 @@ pub enum SchemaError {
     Missing,
     Rejected(String),
     Status(u16),
+    TooLarge,
+    TooDeep,
 }
 
 impl OperationKind {
@@ -91,46 +96,53 @@ impl OperationKind {
     }
 }
 
-impl TypeKind {
-    pub(super) fn from_wire(kind: &str) -> Self {
-        match kind {
-            "OBJECT" => TypeKind::Object,
-            "INTERFACE" => TypeKind::Interface,
-            "UNION" => TypeKind::Union,
-            "ENUM" => TypeKind::Enum,
-            "INPUT_OBJECT" => TypeKind::InputObject,
-            _ => TypeKind::Scalar,
-        }
+impl SchemaArgument {
+    pub fn declaration(&self) -> String {
+        format!("{}: {}", self.name, self.type_ref)
     }
 }
 
 impl SchemaField {
-    pub fn signature(&self) -> String {
-        if self.arguments.is_empty() {
-            return format!("{}: {}", self.name, self.type_ref);
+    pub fn new(
+        name: String,
+        description: Option<String>,
+        arguments: Vec<SchemaArgument>,
+        type_ref: TypeRef,
+    ) -> Self {
+        let signature = if arguments.is_empty() {
+            format!("{name}: {type_ref}")
+        } else {
+            let declared: Vec<String> = arguments.iter().map(SchemaArgument::declaration).collect();
+            format!("{name}({}): {type_ref}", declared.join(ARGUMENT_SEPARATOR))
+        };
+        SchemaField {
+            search_key: signature.to_lowercase(),
+            signature,
+            name,
+            description,
+            arguments,
+            type_ref,
         }
-        let arguments: Vec<String> = self
-            .arguments
-            .iter()
-            .map(|argument| format!("{}: {}", argument.name, argument.type_ref))
-            .collect();
-        format!(
-            "{}({}): {}",
-            self.name,
-            arguments.join(ARGUMENT_SEPARATOR),
-            self.type_ref
-        )
     }
 
-    pub fn matches(&self, filter: &str) -> bool {
-        let filter = filter.trim().to_lowercase();
-        filter.is_empty() || self.signature().to_lowercase().contains(&filter)
+    pub fn signature(&self) -> &str {
+        &self.signature
+    }
+
+    pub fn matches(&self, filter: &FieldFilter) -> bool {
+        self.search_key.contains(&filter.0)
     }
 
     pub(super) fn needs_arguments(&self) -> bool {
         self.arguments
             .iter()
             .any(|argument| argument.type_ref.is_required())
+    }
+}
+
+impl FieldFilter {
+    pub fn new(text: &str) -> Self {
+        FieldFilter(text.trim().to_lowercase())
     }
 }
 
@@ -141,19 +153,18 @@ impl SchemaType {
 }
 
 impl GraphQlSchema {
-    pub fn from_response(body: &[u8]) -> Result<Self, SchemaError> {
-        serde_json::from_slice::<IntrospectionResponse>(body)
-            .map_err(|_| SchemaError::NotJson)?
-            .to_domain()
-    }
-
     pub(super) fn new(roots: BTreeMap<OperationKind, String>, types: Vec<SchemaType>) -> Self {
+        let type_count = types
+            .iter()
+            .filter(|found| !found.name.starts_with(INTROSPECTION_PREFIX))
+            .count();
         GraphQlSchema {
             roots,
             types: types
                 .into_iter()
                 .map(|found| (found.name.clone(), found))
                 .collect(),
+            type_count,
         }
     }
 
@@ -162,10 +173,7 @@ impl GraphQlSchema {
     }
 
     pub fn type_count(&self) -> usize {
-        self.types
-            .keys()
-            .filter(|name| !name.starts_with("__"))
-            .count()
+        self.type_count
     }
 
     pub fn root_fields(&self, kind: OperationKind) -> &[SchemaField] {
@@ -182,24 +190,16 @@ impl GraphQlSchema {
     }
 }
 
-impl HttpResponse {
-    pub fn graphql_schema(&self) -> Result<GraphQlSchema, SchemaError> {
-        match GraphQlSchema::from_response(&self.body) {
-            Err(SchemaError::NotJson) if !self.is_success() => {
-                Err(SchemaError::Status(self.status))
-            }
-            parsed => parsed,
-        }
-    }
-}
-
 impl fmt::Display for SchemaError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SchemaError::NotJson => formatter.write_str(NOT_JSON),
             SchemaError::Missing => formatter.write_str(MISSING),
+            SchemaError::Rejected(reason) if reason.is_empty() => formatter.write_str(REJECTED),
             SchemaError::Rejected(reason) => write!(formatter, "{REJECTED}: {reason}"),
             SchemaError::Status(status) => write!(formatter, "{STATUS} {status}"),
+            SchemaError::TooLarge => formatter.write_str(TOO_LARGE),
+            SchemaError::TooDeep => formatter.write_str(TOO_DEEP),
         }
     }
 }

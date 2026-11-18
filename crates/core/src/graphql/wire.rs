@@ -4,20 +4,25 @@ use super::schema::{
     GraphQlSchema, OperationKind, SchemaArgument, SchemaError, SchemaField, SchemaType, TypeKind,
 };
 use super::type_ref::TypeRef;
+use crate::response::HttpResponse;
 
 const LIST_KIND: &str = "LIST";
 const NON_NULL_KIND: &str = "NON_NULL";
+const OBJECT_KIND: &str = "OBJECT";
+const INTERFACE_KIND: &str = "INTERFACE";
+const UNION_KIND: &str = "UNION";
+const ENUM_KIND: &str = "ENUM";
+const INPUT_OBJECT_KIND: &str = "INPUT_OBJECT";
 
 #[derive(Deserialize)]
-pub(super) struct IntrospectionResponse {
+struct IntrospectionResponse {
     data: Option<IntrospectionData>,
-    #[serde(default)]
-    errors: Vec<WireError>,
+    errors: Option<Vec<WireError>>,
 }
 
 #[derive(Deserialize)]
 struct WireError {
-    message: String,
+    message: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -32,8 +37,7 @@ struct WireSchema {
     query_type: Option<WireName>,
     mutation_type: Option<WireName>,
     subscription_type: Option<WireName>,
-    #[serde(default)]
-    types: Vec<WireType>,
+    types: Option<Vec<WireType>>,
 }
 
 #[derive(Deserialize)]
@@ -42,22 +46,17 @@ struct WireName {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct WireType {
     kind: String,
     name: Option<String>,
-    description: Option<String>,
     fields: Option<Vec<WireField>>,
-    input_fields: Option<Vec<WireInputValue>>,
-    enum_values: Option<Vec<WireName>>,
 }
 
 #[derive(Deserialize)]
 struct WireField {
     name: String,
     description: Option<String>,
-    #[serde(default)]
-    args: Vec<WireInputValue>,
+    args: Option<Vec<WireInputValue>>,
     #[serde(rename = "type")]
     type_ref: WireTypeRef,
 }
@@ -65,7 +64,6 @@ struct WireField {
 #[derive(Deserialize)]
 struct WireInputValue {
     name: String,
-    description: Option<String>,
     #[serde(rename = "type")]
     type_ref: WireTypeRef,
 }
@@ -78,94 +76,121 @@ struct WireTypeRef {
     of_type: Option<Box<WireTypeRef>>,
 }
 
-impl IntrospectionResponse {
-    pub(super) fn to_domain(&self) -> Result<GraphQlSchema, SchemaError> {
-        if let Some(error) = self.errors.first() {
-            return Err(SchemaError::Rejected(error.message.clone()));
+impl HttpResponse {
+    pub fn graphql_schema(&self) -> Result<GraphQlSchema, SchemaError> {
+        if self.truncated {
+            return Err(SchemaError::TooLarge);
         }
-        let schema = self
-            .data
-            .as_ref()
-            .and_then(|data| data.schema.as_ref())
-            .ok_or(SchemaError::Missing)?;
+        match GraphQlSchema::from_response(&self.body) {
+            Err(SchemaError::NotJson) if !self.is_success() => {
+                Err(SchemaError::Status(self.status))
+            }
+            parsed => parsed,
+        }
+    }
+}
+
+impl GraphQlSchema {
+    pub fn from_response(body: &[u8]) -> Result<Self, SchemaError> {
+        serde_json::from_slice::<IntrospectionResponse>(body)
+            .map_err(|_| SchemaError::NotJson)?
+            .into_domain()
+    }
+}
+
+impl IntrospectionResponse {
+    fn into_domain(self) -> Result<GraphQlSchema, SchemaError> {
+        let Some(schema) = self.data.and_then(|data| data.schema) else {
+            let first = self.errors.into_iter().flatten().next();
+            return Err(match first {
+                Some(error) => SchemaError::Rejected(error.message.unwrap_or_default()),
+                None => SchemaError::Missing,
+            });
+        };
         let roots = [
-            (OperationKind::Query, &schema.query_type),
-            (OperationKind::Mutation, &schema.mutation_type),
-            (OperationKind::Subscription, &schema.subscription_type),
+            (OperationKind::Query, schema.query_type),
+            (OperationKind::Mutation, schema.mutation_type),
+            (OperationKind::Subscription, schema.subscription_type),
         ]
         .into_iter()
-        .filter_map(|(kind, root)| Some((kind, root.as_ref()?.name.clone())))
+        .filter_map(|(kind, root)| Some((kind, root?.name)))
         .collect();
         let types = schema
             .types
-            .iter()
-            .filter_map(WireType::to_domain)
-            .collect();
+            .into_iter()
+            .flatten()
+            .filter_map(|found| found.into_domain().transpose())
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(GraphQlSchema::new(roots, types))
     }
 }
 
 impl WireType {
-    fn to_domain(&self) -> Option<SchemaType> {
-        Some(SchemaType {
-            name: self.name.clone()?,
-            kind: TypeKind::from_wire(&self.kind),
-            description: self.description.clone(),
-            fields: self
-                .fields
-                .iter()
-                .flatten()
-                .filter_map(WireField::to_domain)
-                .collect(),
-            input_fields: self
-                .input_fields
-                .iter()
-                .flatten()
-                .filter_map(WireInputValue::to_domain)
-                .collect(),
-            enum_values: self
-                .enum_values
-                .iter()
-                .flatten()
-                .map(|value| value.name.clone())
-                .collect(),
-        })
+    fn into_domain(self) -> Result<Option<SchemaType>, SchemaError> {
+        let kind = self.kind();
+        let Some(name) = self.name else {
+            return Ok(None);
+        };
+        let fields = self
+            .fields
+            .into_iter()
+            .flatten()
+            .map(WireField::into_domain)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Some(SchemaType { name, kind, fields }))
+    }
+
+    fn kind(&self) -> TypeKind {
+        match self.kind.as_str() {
+            OBJECT_KIND => TypeKind::Object,
+            INTERFACE_KIND => TypeKind::Interface,
+            UNION_KIND => TypeKind::Union,
+            ENUM_KIND => TypeKind::Enum,
+            INPUT_OBJECT_KIND => TypeKind::InputObject,
+            _ => TypeKind::Scalar,
+        }
     }
 }
 
 impl WireField {
-    fn to_domain(&self) -> Option<SchemaField> {
-        Some(SchemaField {
-            name: self.name.clone(),
-            description: self.description.clone(),
-            arguments: self
-                .args
-                .iter()
-                .filter_map(WireInputValue::to_domain)
-                .collect(),
-            type_ref: self.type_ref.to_domain()?,
-        })
+    fn into_domain(self) -> Result<SchemaField, SchemaError> {
+        let arguments = self
+            .args
+            .into_iter()
+            .flatten()
+            .map(WireInputValue::into_domain)
+            .collect::<Result<Vec<_>, _>>()?;
+        let type_ref = self.type_ref.into_domain()?;
+        Ok(SchemaField::new(
+            self.name,
+            self.description,
+            arguments,
+            type_ref,
+        ))
     }
 }
 
 impl WireInputValue {
-    fn to_domain(&self) -> Option<SchemaArgument> {
-        Some(SchemaArgument {
-            name: self.name.clone(),
-            description: self.description.clone(),
-            type_ref: self.type_ref.to_domain()?,
+    fn into_domain(self) -> Result<SchemaArgument, SchemaError> {
+        Ok(SchemaArgument {
+            name: self.name,
+            type_ref: self.type_ref.into_domain()?,
         })
     }
 }
 
 impl WireTypeRef {
-    fn to_domain(&self) -> Option<TypeRef> {
+    fn into_domain(self) -> Result<TypeRef, SchemaError> {
+        let inner = |of_type: Option<Box<WireTypeRef>>| {
+            of_type
+                .ok_or(SchemaError::TooDeep)
+                .and_then(|inner| inner.into_domain())
+                .map(Box::new)
+        };
         match self.kind.as_str() {
-            LIST_KIND => Some(TypeRef::List(Box::new(self.of_type.as_ref()?.to_domain()?))),
-            NON_NULL_KIND => Some(TypeRef::NonNull(Box::new(
-                self.of_type.as_ref()?.to_domain()?,
-            ))),
-            _ => self.name.clone().map(TypeRef::Named),
+            LIST_KIND => inner(self.of_type).map(TypeRef::List),
+            NON_NULL_KIND => inner(self.of_type).map(TypeRef::NonNull),
+            _ => self.name.map(TypeRef::Named).ok_or(SchemaError::TooDeep),
         }
     }
 }

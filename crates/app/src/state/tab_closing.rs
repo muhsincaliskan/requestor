@@ -20,6 +20,7 @@ impl AppState {
 
     pub(super) fn force_close_tab(&mut self, id: TabId) {
         self.abandon_send(id);
+        self.cancel_schema(id);
         let Some(position) = self.position_of(id) else {
             return;
         };

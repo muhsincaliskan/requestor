@@ -34,6 +34,14 @@ impl SchemaView {
         };
     }
 
+    pub fn cancel(&mut self) -> Option<u64> {
+        let SchemaLookup::Fetching(job) = self.lookup else {
+            return None;
+        };
+        self.lookup = SchemaLookup::Idle;
+        Some(job)
+    }
+
     pub fn is_fetching(&self) -> bool {
         matches!(self.lookup, SchemaLookup::Fetching(_))
     }

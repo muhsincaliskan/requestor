@@ -1,5 +1,6 @@
 mod body;
 mod checks;
+mod explorer_row;
 mod graphql;
 mod tables;
 mod url_bar;

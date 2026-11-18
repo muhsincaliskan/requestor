@@ -7,7 +7,8 @@ mod wire;
 pub use introspection::INTROSPECTION_QUERY;
 pub use operation::GraphQlOperation;
 pub use schema::{
-    GraphQlSchema, OperationKind, SchemaArgument, SchemaError, SchemaField, SchemaType, TypeKind,
+    FieldFilter, GraphQlSchema, OperationKind, SchemaArgument, SchemaError, SchemaField,
+    SchemaType, TypeKind,
 };
 pub use type_ref::TypeRef;
 
