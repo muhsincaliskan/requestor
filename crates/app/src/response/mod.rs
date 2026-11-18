@@ -1,11 +1,12 @@
 mod buffer;
 mod comparison;
+mod inspection;
 mod search;
 
 pub use buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
 pub use comparison::{ChangesUnavailable, ComparisonBase};
+pub use inspection::{BodyLayout, JsonInspection, JsonTreeView};
 
-use comparison::comparable_text;
 pub use search::BodySearch;
 
 use std::time::Duration;
@@ -17,7 +18,6 @@ use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
 use requestor_core::text_diff::LineDiff;
 
 const BINARY_NOTICE: &str = "Binary response body";
-const MAX_COMPARED_BYTES: usize = 2 * BYTES_PER_MEGABYTE;
 const SET_COOKIE: &str = "set-cookie";
 
 pub struct ResponseView {
@@ -29,7 +29,8 @@ pub struct ResponseView {
     pub format: ResponseFormat,
     pub truncated: bool,
     pub report: Option<RulesReport>,
-    pretty: bool,
+    layout: BodyLayout,
+    inspection: JsonInspection,
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
     search: BodySearch,
@@ -57,7 +58,8 @@ impl ResponseView {
             format,
             truncated: response.truncated,
             report: None,
-            pretty: true,
+            layout: BodyLayout::Pretty,
+            inspection: JsonInspection::default(),
             body: response.body,
             display: None,
             search: BodySearch::default(),
@@ -65,43 +67,6 @@ impl ResponseView {
             changes: None,
             events,
         }
-    }
-
-    pub fn with_previous(mut self, previous: Option<ComparisonBase>) -> Self {
-        self.previous = previous;
-        self
-    }
-
-    pub fn has_previous(&self) -> bool {
-        self.previous.is_some() || self.changes.is_some()
-    }
-
-    pub fn into_comparison_base(self) -> Option<ComparisonBase> {
-        let comparable = self.format != ResponseFormat::Binary && self.is_small_enough();
-        comparable.then(|| ComparisonBase::new(self.body, self.format))
-    }
-
-    pub fn changes(&mut self) -> Result<&LineDiff, ChangesUnavailable> {
-        if self.changes.is_none() {
-            let previous = self.previous.take();
-            self.changes = previous.map(|previous| self.compared_with(&previous));
-        }
-        match &self.changes {
-            Some(Ok(diff)) => Ok(diff),
-            Some(Err(reason)) => Err(*reason),
-            None => Err(ChangesUnavailable::TooLarge),
-        }
-    }
-
-    fn compared_with(&self, previous: &ComparisonBase) -> Result<LineDiff, ChangesUnavailable> {
-        if self.format == ResponseFormat::Binary {
-            return Err(ChangesUnavailable::Binary);
-        }
-        if !self.is_small_enough() {
-            return Err(ChangesUnavailable::TooLarge);
-        }
-        let current = comparable_text(&self.body, self.format);
-        LineDiff::between(&previous.text(), &current).ok_or(ChangesUnavailable::TooLarge)
     }
 
     pub fn is_storable_as_text(&self) -> bool {
@@ -120,10 +85,6 @@ impl ResponseView {
             truncated: self.truncated,
             elapsed: self.elapsed,
         }
-    }
-
-    fn is_small_enough(&self) -> bool {
-        self.body.len() <= MAX_COMPARED_BYTES
     }
 
     pub fn events(&self) -> Option<&EventLog> {
@@ -154,29 +115,56 @@ impl ResponseView {
         self.body.len()
     }
 
-    pub fn is_pretty(&self) -> bool {
-        self.pretty
+    pub fn layout(&self) -> BodyLayout {
+        self.layout
     }
 
-    pub fn set_pretty(&mut self, pretty: bool) {
-        if self.pretty != pretty {
-            self.pretty = pretty;
-            self.display = None;
-            self.search.invalidate();
+    pub fn set_layout(&mut self, layout: BodyLayout) {
+        if self.layout.is_pretty() != layout.is_pretty() {
+            self.forget_display();
         }
+        self.layout = layout;
+    }
+
+    pub fn is_inspectable(&self) -> bool {
+        self.format == ResponseFormat::Json
+    }
+
+    pub fn inspection(&self) -> &JsonInspection {
+        &self.inspection
+    }
+
+    pub fn set_filter(&mut self, text: String) {
+        if self.inspection.set_filter(text) {
+            self.forget_display();
+        }
+    }
+
+    pub fn filter_result_count(&mut self) -> Option<usize> {
+        self.inspection.result_count(&self.body)
+    }
+
+    pub fn json_tree(&mut self) -> Option<JsonTreeView<'_>> {
+        self.inspection.tree(&self.body)
+    }
+
+    fn forget_display(&mut self) {
+        self.display = None;
+        self.search.invalidate();
     }
 
     pub fn display(&mut self) -> &ResponseBuffer {
         if self.display.is_none() {
-            self.display = Some(ResponseBuffer::from_text(self.display_text()));
+            let text = self.display_text();
+            self.display = Some(ResponseBuffer::from_text(text));
         }
         self.display
             .get_or_insert_with(|| ResponseBuffer::from_text(String::new()))
     }
 
     pub fn release_display(&mut self) {
-        self.display = None;
-        self.search.invalidate();
+        self.forget_display();
+        self.inspection.release();
     }
 
     pub fn searched_display(&mut self) -> (&ResponseBuffer, &mut BodySearch) {
@@ -198,10 +186,16 @@ impl ResponseView {
             .map(|header| header.value.as_str())
     }
 
-    fn display_text(&self) -> String {
+    fn display_text(&mut self) -> String {
+        let pretty = self.layout.is_pretty();
+        if self.is_inspectable() && self.inspection.is_filtering() {
+            if let Some(text) = self.inspection.filtered_text(&self.body, pretty) {
+                return text;
+            }
+        }
         match self.format {
             ResponseFormat::Binary => BINARY_NOTICE.to_string(),
-            format if self.pretty && format.has_layout() => {
+            format if pretty && format.has_layout() => {
                 format.laid_out(&String::from_utf8_lossy(&self.body))
             }
             _ => String::from_utf8_lossy(&self.body).into_owned(),

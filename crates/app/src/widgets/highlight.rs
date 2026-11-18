@@ -2,6 +2,7 @@ mod tokens;
 
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{Color32, FontId, TextFormat};
+use requestor_core::json_tree::JsonKind;
 use requestor_core::response::ResponseFormat;
 
 use tokens::{TokenKind, Tokens};
@@ -70,6 +71,19 @@ impl SyntaxPalette {
             Self::dark()
         } else {
             Self::light()
+        }
+    }
+
+    pub fn key_color(&self) -> Color32 {
+        self.key
+    }
+
+    pub fn json_color(&self, kind: JsonKind) -> Color32 {
+        match kind {
+            JsonKind::String => self.string,
+            JsonKind::Number => self.number,
+            JsonKind::Bool | JsonKind::Null => self.keyword,
+            JsonKind::Array | JsonKind::Object => self.punctuation,
         }
     }
 

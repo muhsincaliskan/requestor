@@ -3,10 +3,12 @@ mod changes;
 mod checks;
 mod cookie;
 mod events;
+mod json_filter;
 mod lists;
 mod readout;
 mod socket;
 mod status;
+mod tree;
 
 use std::time::Duration;
 
