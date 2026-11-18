@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:a="urn:accounts"
+             targetNamespace="urn:accounts:service">
+  <import namespace="urn:accounts" location="abstract.wsdl"/>
+  <binding name="AccountsBinding" type="a:Accounts">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="GetBalance">
+      <soap:operation soapAction="urn:accounts/GetBalance"/>
+      <input><soap:body use="literal"/></input>
+    </operation>
+  </binding>
+  <service name="AccountsService">
+    <port name="AccountsPort" binding="b:AccountsBinding" xmlns:b="urn:accounts:service">
+      <soap:address location="https://bank.example.test/accounts"/>
+    </port>
+  </service>
+</definitions>

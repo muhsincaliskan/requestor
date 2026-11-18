@@ -1,5 +1,8 @@
 use serde_json::Value;
 
+use std::path::Path;
+
+use super::wsdl::{self, DocumentSource, FileSource, PastedSource};
 use super::{openapi, ImportError, Imported, ImportedCollection, ImportedRequest};
 use crate::collection::Info;
 use crate::settings::BYTES_PER_MEGABYTE;
@@ -10,10 +13,28 @@ const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
 const OPENAPI_KEY_MARKERS: [&str; 2] = ["\"openapi\"", "\"swagger\""];
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];
 
+const PASTED_LOCATION: &str = "";
+const BYTE_ORDER_MARK: char = '\u{feff}';
+
 pub fn import_text(text: &str) -> Result<Imported, ImportError> {
-    let trimmed = text.trim();
+    import_from(text, PASTED_LOCATION, &PastedSource)
+}
+
+pub fn import_file_text(text: &str, path: &Path) -> Result<Imported, ImportError> {
+    import_from(text, &path.to_string_lossy(), &FileSource)
+}
+
+fn import_from(
+    text: &str,
+    location: &str,
+    source: &dyn DocumentSource,
+) -> Result<Imported, ImportError> {
+    let trimmed = text.trim_start_matches(BYTE_ORDER_MARK).trim();
     if trimmed.is_empty() {
         return Err(ImportError::Empty);
+    }
+    if wsdl::is_xml(trimmed) {
+        return wsdl::from_xml(trimmed, location, source).map(Imported::Collection);
     }
     if trimmed.starts_with('{') {
         return import_json(trimmed);

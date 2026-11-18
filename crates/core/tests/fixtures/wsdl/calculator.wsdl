@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/"
+                  xmlns:s="http://www.w3.org/2001/XMLSchema"
+                  xmlns:tns="http://tempuri.org/"
+                  targetNamespace="http://tempuri.org/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://tempuri.org/">
+      <s:element name="Add">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="intA" type="s:int"/>
+            <s:element minOccurs="1" maxOccurs="1" name="intB" type="s:int"/>
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AddResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element name="AddResult" type="s:int"/>
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="PlaceOrder">
+        <s:complexType>
+          <s:sequence>
+            <s:element name="order" type="tns:Order"/>
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="Record">
+        <s:sequence>
+          <s:element name="Id" type="s:string"/>
+        </s:sequence>
+        <s:attribute name="version" type="s:int"/>
+      </s:complexType>
+      <s:complexType name="Order">
+        <s:complexContent>
+          <s:extension base="tns:Record">
+            <s:sequence>
+              <s:element name="Status" type="tns:Status"/>
+              <s:element name="Lines" minOccurs="0" maxOccurs="unbounded" type="tns:Line"/>
+              <s:choice>
+                <s:annotation><s:documentation>How the order is paid.</s:documentation></s:annotation>
+                <s:element name="Card" type="s:string"/>
+                <s:element name="Cash" type="s:boolean"/>
+              </s:choice>
+              <s:element name="Parent" minOccurs="0" type="tns:Order"/>
+            </s:sequence>
+            <s:attribute name="currency" type="s:string"/>
+          </s:extension>
+        </s:complexContent>
+      </s:complexType>
+      <s:complexType name="Line">
+        <s:simpleContent>
+          <s:extension base="s:decimal">
+            <s:attribute name="sku" type="s:string"/>
+          </s:extension>
+        </s:simpleContent>
+      </s:complexType>
+      <s:simpleType name="Status">
+        <s:restriction base="s:string">
+          <s:enumeration value="Open"/>
+          <s:enumeration value="Closed"/>
+        </s:restriction>
+      </s:simpleType>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="AddSoapIn">
+    <wsdl:part name="parameters" element="tns:Add"/>
+  </wsdl:message>
+  <wsdl:message name="AddSoapOut">
+    <wsdl:part name="parameters" element="tns:AddResponse"/>
+  </wsdl:message>
+  <wsdl:message name="PlaceOrderSoapIn">
+    <wsdl:part name="parameters" element="tns:PlaceOrder"/>
+  </wsdl:message>
+  <wsdl:portType name="CalculatorSoap">
+    <wsdl:operation name="Add">
+      <wsdl:documentation xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">Adds two integers.</wsdl:documentation>
+      <wsdl:input message="tns:AddSoapIn"/>
+      <wsdl:output message="tns:AddSoapOut"/>
+    </wsdl:operation>
+    <wsdl:operation name="PlaceOrder">
+      <wsdl:input message="tns:PlaceOrderSoapIn"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="CalculatorSoap" type="tns:CalculatorSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="Add">
+      <soap:operation soapAction="http://tempuri.org/Add" style="document"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="PlaceOrder">
+      <soap:operation soapAction="http://tempuri.org/PlaceOrder" style="document"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="CalculatorSoap12" type="tns:CalculatorSoap">
+    <soap12:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="Add">
+      <soap12:operation soapAction="http://tempuri.org/Add" style="document"/>
+      <wsdl:input><soap12:body use="literal"/></wsdl:input>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="CalculatorHttpGet" type="tns:CalculatorSoap">
+    <wsdl:operation name="Add"/>
+  </wsdl:binding>
+  <wsdl:service name="Calculator">
+    <wsdl:port name="CalculatorSoap" binding="tns:CalculatorSoap">
+      <soap:address location="http://www.example.test/calculator.asmx"/>
+    </wsdl:port>
+    <wsdl:port name="CalculatorSoap12" binding="tns:CalculatorSoap12">
+      <soap12:address location="http://www.example.test/calculator.asmx"/>
+    </wsdl:port>
+    <wsdl:port name="CalculatorHttpGet" binding="tns:CalculatorHttpGet">
+      <http:address xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" location="http://www.example.test/calculator.asmx"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

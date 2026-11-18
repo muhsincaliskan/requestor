@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use requestor_core::collection::Collection;
 use requestor_core::workspace::Workspace;
 
-use super::{state_with, state_with_request};
+use super::{open, state_with, state_with_request};
+use requestor_core::draft::BodyKind;
+use requestor_core::soap::SoapVersion;
+
 use crate::state::{Action, Effect, LibraryTarget, Overlay};
 
 const IMPORT_DIRECTORY: &str = "requestor-transfer-tests";
@@ -90,4 +93,40 @@ fn an_unreadable_file_reports_on_the_form_or_in_the_status_bar() {
     state.apply(Action::ImportFile(missing), 0.0);
     assert!(state.overlay.is_none());
     assert!(state.notices.current(0.0).is_some());
+}
+
+#[test]
+fn a_wsdl_file_opens_its_operations_as_soap_requests() {
+    let schema = r#"<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:ping" elementFormDefault="qualified">
+        <xs:element name="Ping"><xs:complexType><xs:sequence><xs:element name="text" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
+    </xs:schema>"#;
+    scratch_file("ping.xsd", schema);
+    let wsdl = r#"<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:ping" targetNamespace="urn:ping">
+      <types><xs:schema><xs:import namespace="urn:ping" schemaLocation="ping.xsd"/></xs:schema></types>
+      <message name="PingIn"><part name="parameters" element="p:Ping"/></message>
+      <portType name="Pinger"><operation name="Ping"><input message="p:PingIn"/></operation></portType>
+      <binding name="PingerSoap" type="p:Pinger">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="Ping"><soap:operation soapAction="urn:ping/Ping"/><input><soap:body use="literal"/></input></operation>
+      </binding>
+      <service name="PingService"><port name="PingerSoap" binding="p:PingerSoap"><soap:address location="https://ping.example.test/soap"/></port></service>
+    </definitions>"#;
+    let path = scratch_file("ping.wsdl", wsdl);
+    let mut state = state_with(Workspace::default());
+    state.apply(Action::ImportFile(path), 0.0);
+    let collection = &state.workspace.collections[0];
+    assert_eq!(collection.info.name, "PingService");
+    let collection_id = collection.id().to_string();
+    let item_id = collection.item[0].id.clone().unwrap();
+    let tab = open(&mut state, &collection_id, &item_id);
+    let draft = &state.tab_mut(tab).unwrap().draft;
+    assert_eq!(draft.body.kind, BodyKind::Soap);
+    assert_eq!(draft.body.soap_version(), Some(SoapVersion::V1_1));
+    assert_eq!(draft.soap_action(), "urn:ping/Ping");
+    assert!(
+        draft.body.raw.contains("<ns1:text>?</ns1:text>"),
+        "{}",
+        draft.body.raw
+    );
 }

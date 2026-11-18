@@ -1,5 +1,5 @@
 use requestor_core::error::CoreError;
-use requestor_core::import::{import_text, Imported};
+use requestor_core::import::{import_file_text, Imported};
 
 use crate::args::ImportOptions;
 use crate::error::CliError;
@@ -23,7 +23,7 @@ impl PostmanDocument {
 
 pub fn execute(options: &ImportOptions, out: &mut impl std::io::Write) -> Result<bool, CliError> {
     let text = read_text(&options.file)?;
-    let imported = import_text(&text)
+    let imported = import_file_text(&text, &options.file)
         .map_err(|error| CliError::input(format!("{}: {error}", options.file.display())))?;
     for warning in imported.warnings() {
         eprintln!("warning: {warning}");
@@ -37,6 +37,7 @@ pub fn execute(options: &ImportOptions, out: &mut impl std::io::Write) -> Result
 mod tests {
     use requestor_core::collection::Collection;
     use requestor_core::environment::Environment;
+    use requestor_core::import::import_text;
 
     use super::*;
 

@@ -2,18 +2,14 @@ use crate::media_type;
 
 pub const SOAP_ACTION_HEADER: &str = "SOAPAction";
 
+const ACTION_PARAMETER: &str = "action";
 const ENVELOPE_ELEMENT: &str = "Envelope";
 const SOAP_1_1_NAMESPACE: &str = "http://schemas.xmlsoap.org/soap/envelope/";
 const SOAP_1_2_NAMESPACE: &str = "http://www.w3.org/2003/05/soap-envelope";
-const ENVELOPE_TEMPLATE: &str = r#"<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="{namespace}">
-  <soap:Header/>
-  <soap:Body>
-{content}
-  </soap:Body>
-</soap:Envelope>"#;
-const NAMESPACE_SLOT: &str = "{namespace}";
-const CONTENT_SLOT: &str = "{content}";
+const XML_DECLARATION: &str = r#"<?xml version="1.0" encoding="utf-8"?>"#;
+const EMPTY_HEADER: &str = "  <soap:Header/>";
+const HEADER_START: &str = "  <soap:Header>";
+const HEADER_END: &str = "  </soap:Header>";
 const CONTENT_INDENT: &str = "    ";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -49,16 +45,32 @@ impl SoapVersion {
         }
     }
 
+    pub fn with_action(content_type: String, action: Option<&str>) -> String {
+        match action.map(str::trim) {
+            Some(action)
+                if !action.is_empty() && content_type == SoapVersion::V1_2.content_type() =>
+            {
+                format!("{content_type}; {ACTION_PARAMETER}=\"{action}\"")
+            }
+            _ => content_type,
+        }
+    }
+
     pub fn envelope(self, content: &str) -> String {
-        let indented = content
-            .trim()
-            .lines()
-            .map(|line| format!("{CONTENT_INDENT}{line}"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        ENVELOPE_TEMPLATE
-            .replace(NAMESPACE_SLOT, self.namespace())
-            .replace(CONTENT_SLOT, &indented)
+        self.envelope_with_header("", content)
+    }
+
+    pub fn envelope_with_header(self, header: &str, content: &str) -> String {
+        let header = if header.trim().is_empty() {
+            EMPTY_HEADER.to_string()
+        } else {
+            format!("{HEADER_START}\n{}\n{HEADER_END}", indented(header))
+        };
+        format!(
+            "{XML_DECLARATION}\n<soap:Envelope xmlns:soap=\"{}\">\n{header}\n  <soap:Body>\n{}\n  </soap:Body>\n</soap:Envelope>",
+            self.namespace(),
+            indented(content)
+        )
     }
 
     pub fn convert(self, xml: &str) -> String {
@@ -76,10 +88,47 @@ impl SoapVersion {
     }
 }
 
+fn indented(content: &str) -> String {
+    content
+        .trim()
+        .lines()
+        .map(|line| format!("{CONTENT_INDENT}{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::SoapVersion;
     use crate::media_type;
+
+    #[test]
+    fn only_soap_1_2_carries_the_action_in_its_content_type() {
+        let soap_1_2 = SoapVersion::V1_2.content_type().to_string();
+        assert_eq!(
+            SoapVersion::with_action(soap_1_2.clone(), Some("urn:Ping")),
+            "application/soap+xml; charset=utf-8; action=\"urn:Ping\""
+        );
+        assert_eq!(
+            SoapVersion::with_action(soap_1_2.clone(), Some(" ")),
+            soap_1_2
+        );
+        let soap_1_1 = SoapVersion::V1_1.content_type().to_string();
+        assert_eq!(
+            SoapVersion::with_action(soap_1_1.clone(), Some("urn:Ping")),
+            soap_1_1
+        );
+    }
+
+    #[test]
+    fn header_content_replaces_the_empty_header() {
+        let envelope = SoapVersion::V1_1.envelope_with_header("<a/>", "<b/>");
+        assert!(envelope
+            .contains("  <soap:Header>\n    <a/>\n  </soap:Header>\n  <soap:Body>\n    <b/>\n"));
+        assert!(SoapVersion::V1_1
+            .envelope("<b/>")
+            .contains("  <soap:Header/>\n"));
+    }
 
     #[test]
     fn envelopes_are_recognised_by_their_namespace() {

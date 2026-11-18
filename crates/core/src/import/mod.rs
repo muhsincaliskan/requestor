@@ -4,13 +4,14 @@ mod raw_http;
 mod shell_words;
 
 pub mod openapi;
+pub mod wsdl;
 
 use std::fmt;
 
 use crate::collection::{Collection, Item, Request, Url, UrlParts, SCHEME_SEPARATOR};
 use crate::environment::Environment;
 
-pub use detect::import_text;
+pub use detect::{import_file_text, import_text};
 
 const DEFAULT_SCHEME: &str = "http";
 const GET_METHOD: &str = "GET";
@@ -22,6 +23,7 @@ pub enum ImportError {
     MissingUrl,
     InvalidRequestLine(String),
     InvalidJson(String),
+    InvalidXml(String),
     UnsupportedFormat(String),
 }
 
@@ -37,6 +39,7 @@ impl fmt::Display for ImportError {
                 write!(formatter, "not a valid request line: {line}")
             }
             ImportError::InvalidJson(reason) => write!(formatter, "invalid JSON: {reason}"),
+            ImportError::InvalidXml(reason) => write!(formatter, "invalid XML: {reason}"),
             ImportError::UnsupportedFormat(reason) => {
                 write!(formatter, "unsupported format: {reason}")
             }

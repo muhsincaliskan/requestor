@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="AccountNumber">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="TR00-0000"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="Account">
+    <xs:sequence>
+      <xs:element name="number" type="AccountNumber"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
