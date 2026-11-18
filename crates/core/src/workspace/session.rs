@@ -14,6 +14,10 @@ pub struct SessionTab {
     pub unsaved_request: Option<Request>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unsaved_tests: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_collection_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_item_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -29,5 +33,11 @@ pub struct Session {
 impl SessionTab {
     pub fn is_bound(&self) -> bool {
         self.collection_id.is_some() && self.item_id.is_some()
+    }
+
+    pub fn source(&self) -> Option<(&str, &str)> {
+        self.source_collection_id
+            .as_deref()
+            .zip(self.source_item_id.as_deref())
     }
 }

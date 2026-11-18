@@ -26,11 +26,8 @@ impl AppState {
 
     fn sendable(&self, id: TabId) -> Option<(Request, VariableScope)> {
         let tab = self.tab(id)?;
-        let collection_id = tab
-            .binding
-            .as_ref()
-            .map(|bound| bound.collection_id.as_str());
-        let item_id = tab.binding.as_ref().map(|bound| bound.item_id.as_str());
+        let collection_id = tab.scope().map(|scope| scope.collection_id.as_str());
+        let item_id = tab.scope().map(|scope| scope.item_id.as_str());
         let request =
             self.workspace
                 .sendable_request(collection_id, item_id, tab.draft.to_request());

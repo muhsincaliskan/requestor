@@ -1,6 +1,6 @@
 use requestor_core::history::HistoryEntry;
 
-use super::tab::RequestTab;
+use super::tab::{ItemBinding, RequestTab};
 use super::{Action, AppState, Effect};
 
 impl AppState {
@@ -20,7 +20,11 @@ impl AppState {
 
     fn open_history_entry(&mut self, entry: &HistoryEntry) {
         let id = self.allocate_tab_id();
-        self.open_tab(RequestTab::for_request(id, &entry.name, &entry.request));
+        let mut tab = RequestTab::for_request(id, &entry.name, &entry.request);
+        tab.source = entry
+            .source()
+            .map(|(collection, item)| ItemBinding::new(collection, item));
+        self.open_tab(tab);
     }
 
     fn clear_history(&mut self) {

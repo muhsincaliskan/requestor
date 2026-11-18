@@ -2,7 +2,7 @@ mod age;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub use age::Age;
 
@@ -10,7 +10,7 @@ use crate::collection::{Request, Url};
 use crate::method::HttpMethod;
 
 pub const HISTORY_LIMIT: usize = 100;
-pub const MAX_KEPT_BODY_BYTES: usize = 256 * 1024;
+pub const MAX_KEPT_BODY_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -21,9 +21,13 @@ pub struct HistoryEntry {
     pub status: Option<u16>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub body_left_out: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 #[serde(transparent)]
 pub struct History {
     entries: Vec<HistoryEntry>,
@@ -31,11 +35,9 @@ pub struct History {
 
 impl HistoryEntry {
     pub fn new(name: impl Into<String>, mut request: Request) -> Self {
-        let body_left_out = request
-            .body
-            .as_ref()
-            .and_then(|body| body.raw.as_ref())
-            .is_some_and(|raw| raw.len() > MAX_KEPT_BODY_BYTES);
+        let body_left_out = request.body.as_ref().is_some_and(|body| {
+            serde_json::to_vec(body).map_or(true, |bytes| bytes.len() > MAX_KEPT_BODY_BYTES)
+        });
         if body_left_out {
             request.body = None;
         }
@@ -45,7 +47,21 @@ impl HistoryEntry {
             sent_at: unix_seconds(),
             status: None,
             body_left_out,
+            collection_id: None,
+            item_id: None,
         }
+    }
+
+    pub fn sent_from(self, collection_id: &str, item_id: &str) -> Self {
+        HistoryEntry {
+            collection_id: Some(collection_id.to_string()),
+            item_id: Some(item_id.to_string()),
+            ..self
+        }
+    }
+
+    pub fn source(&self) -> Option<(&str, &str)> {
+        self.collection_id.as_deref().zip(self.item_id.as_deref())
     }
 
     pub fn finished(self, status: Option<u16>) -> Self {
@@ -111,6 +127,14 @@ impl History {
 
     pub fn clear(&mut self) {
         self.entries.clear();
+    }
+}
+
+impl<'de> Deserialize<'de> for History {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut entries = Vec::<HistoryEntry>::deserialize(deserializer)?;
+        entries.truncate(HISTORY_LIMIT);
+        Ok(History { entries })
     }
 }
 

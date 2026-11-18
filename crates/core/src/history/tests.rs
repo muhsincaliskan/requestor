@@ -105,3 +105,34 @@ fn the_scheme_is_dropped_from_the_short_url() {
         "{{base}}/orders"
     );
 }
+
+#[test]
+fn a_large_form_body_is_left_out_too() {
+    let mut request = Request::new("POST", Url::Raw("https://example.com".to_string()));
+    let fields: Vec<serde_json::Value> = (0..2_000)
+        .map(|index| serde_json::json!({ "key": format!("field{index}"), "value": "x".repeat(20) }))
+        .collect();
+    request.body = Some(
+        serde_json::from_value(serde_json::json!({ "mode": "urlencoded", "urlencoded": fields }))
+            .unwrap(),
+    );
+    assert!(HistoryEntry::new("form", request).body_left_out);
+}
+
+#[test]
+fn loading_keeps_only_the_newest_entries() {
+    let stored: Vec<HistoryEntry> = (0..HISTORY_LIMIT + 3)
+        .map(|index| entry(&format!("request {index}"), "https://example.com"))
+        .collect();
+    let text = serde_json::to_string(&stored).unwrap();
+    let loaded: History = serde_json::from_str(&text).unwrap();
+    assert_eq!(loaded.len(), HISTORY_LIMIT);
+    assert_eq!(loaded.entries()[0].name, "request 0");
+}
+
+#[test]
+fn the_source_request_is_remembered() {
+    let sent = entry("list", "https://example.com").sent_from("collection", "item");
+    assert_eq!(sent.source(), Some(("collection", "item")));
+    assert_eq!(entry("scratch", "https://example.com").source(), None);
+}

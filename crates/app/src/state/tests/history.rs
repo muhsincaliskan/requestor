@@ -1,4 +1,6 @@
 use super::{edit_url, open, response, state_with_request, LATER};
+use requestor_core::collection::Variable;
+
 use crate::state::{Action, AppState, Effect, TabId};
 
 const HISTORY_FILE: &str = "history.json";
@@ -98,4 +100,52 @@ fn clearing_empties_the_history_and_saves_it() {
     state.apply(Action::ClearHistory, LATER);
     assert!(state.workspace.history.is_empty());
     assert!(writes_history(&state.tick(LATER * 2.0)));
+}
+
+fn open_entry_from_collection_with_variable(state: &mut AppState) -> TabId {
+    let collection_id = state.workspace.collections[0].id().to_string();
+    let collection = state.workspace.collection_mut(&collection_id).unwrap();
+    collection.variable = Some(vec![Variable::text("base", "https://example.test")]);
+    let item_id = state.workspace.collections[0].item[0].id.clone().unwrap();
+    let tab = open(state, &collection_id, &item_id);
+    let job = start_send(state, tab);
+    finish(state, tab, job, Ok(b"{}"));
+    let entry = state.workspace.history.entries()[0].clone();
+    state.apply(Action::OpenHistoryEntry(Box::new(entry)), 0.0);
+    state.active_tab.unwrap()
+}
+
+#[test]
+fn an_opened_entry_keeps_its_collection_variables() {
+    let (mut state, _, _) = state_with_request();
+    let opened = open_entry_from_collection_with_variable(&mut state);
+    assert!(state.tab(opened).unwrap().binding.is_none());
+    assert!(state
+        .variable_scope(opened)
+        .names()
+        .contains(&"base".to_string()));
+}
+
+#[test]
+fn the_collection_context_survives_a_restart() {
+    let (mut state, _, _) = state_with_request();
+    open_entry_from_collection_with_variable(&mut state);
+    state.flush();
+    let restored = super::state_with(state.workspace.clone());
+    let reopened = restored.tabs.last().unwrap();
+    assert!(reopened.binding.is_none());
+    assert!(restored
+        .variable_scope(reopened.id)
+        .names()
+        .contains(&"base".to_string()));
+}
+
+#[test]
+fn a_replaced_send_is_recorded_once() {
+    let (mut state, collection_id, item_id) = state_with_request();
+    let tab = open(&mut state, &collection_id, &item_id);
+    start_send(&mut state, tab);
+    let job = start_send(&mut state, tab);
+    finish(&mut state, tab, job, Ok(b"{}"));
+    assert_eq!(state.workspace.history.len(), 1);
 }

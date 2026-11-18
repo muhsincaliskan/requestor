@@ -15,12 +15,13 @@ const HINT_SEPARATOR: &str = " · ";
 
 pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Vec<Action>) {
     let history = &state.workspace.history;
-    let entries: Vec<&HistoryEntry> = history
-        .entries()
-        .iter()
-        .filter(|entry| entry.matches_filter(filter))
-        .collect();
-    if entries.is_empty() {
+    let shown = |entry: &&HistoryEntry| entry.matches_filter(filter);
+    let count = if filter.is_empty() {
+        history.len()
+    } else {
+        history.entries().iter().filter(shown).count()
+    };
+    if count == 0 {
         return;
     }
     let response = branch(
@@ -28,11 +29,11 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
         Id::new(SECTION_ID),
         !filter.is_empty(),
         |ui| {
-            let title = RichText::new(format!("{TITLE} ({})", entries.len())).strong();
+            let title = RichText::new(format!("{TITLE} ({count})")).strong();
             ui.add(Label::new(title).sense(Sense::click()))
         },
         |ui| {
-            for entry in &entries {
+            for entry in history.entries().iter().filter(shown) {
                 row(ui, entry, actions);
             }
         },
@@ -48,7 +49,9 @@ fn row(ui: &mut Ui, entry: &HistoryEntry, actions: &mut Vec<Action>) {
     let outcome = outcome_text(ui, entry);
     let response = ui
         .add(list_row(ui, false, (row_label(title), outcome)))
-        .on_hover_text(hint(entry));
+        .on_hover_ui(|ui| {
+            ui.label(hint(entry));
+        });
     if response.clicked() {
         actions.push(Action::OpenHistoryEntry(Box::new(entry.clone())));
     }

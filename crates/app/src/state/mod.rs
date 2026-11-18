@@ -9,6 +9,7 @@ mod library;
 mod notice;
 mod overlay;
 mod persistence;
+mod sections;
 mod sending;
 mod tab;
 mod tab_closing;
@@ -25,7 +26,8 @@ pub use overlay::{
     SaveTabForm,
 };
 pub use persistence::SaveStatus;
-pub use tab::{EditorSection, ItemBinding, RequestTab, ResponseSection, TabId};
+pub use sections::{EditorSection, ResponseSection};
+pub use tab::{ItemBinding, RequestTab, TabId};
 
 use requestor_core::variables::VariableScope;
 use requestor_core::workspace::{InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore};
@@ -112,7 +114,7 @@ impl AppState {
     }
 
     pub fn variable_scope(&self, tab: TabId) -> VariableScope {
-        let binding = self.tab(tab).and_then(|tab| tab.binding.as_ref());
+        let binding = self.tab(tab).and_then(RequestTab::scope);
         self.workspace.scope_for(
             binding.map(|bound| bound.collection_id.as_str()),
             binding.map(|bound| bound.item_id.as_str()),
