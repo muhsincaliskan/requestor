@@ -8,6 +8,12 @@ use crate::error::CoreError;
 use crate::media_type;
 use crate::variables::VariableScope;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum FileContents {
+    Read,
+    Referenced,
+}
+
 pub(super) struct EncodedBody {
     pub content_type: Option<String>,
     pub data: Vec<u8>,
@@ -23,14 +29,18 @@ impl EncodedBody {
         }
     }
 
-    pub(super) fn from_body(body: &Body, scope: &VariableScope) -> Result<Option<Self>, CoreError> {
+    pub(super) fn from_body(
+        body: &Body,
+        scope: &VariableScope,
+        files: FileContents,
+    ) -> Result<Option<Self>, CoreError> {
         match body.mode {
             Some(BodyMode::Raw) => Ok(Some(Self::raw(body, scope))),
             Some(BodyMode::Urlencoded) => Ok(Some(Self::urlencoded(body, scope))),
             Some(BodyMode::Formdata) => {
-                multipart::encode(&body.enabled_form_params(), scope).map(Some)
+                multipart::encode(&body.enabled_form_params(), scope, files).map(Some)
             }
-            Some(BodyMode::File) => Self::file(body),
+            Some(BodyMode::File) => Self::file(body, files),
             Some(BodyMode::Graphql) => Ok(Self::graphql(body, scope)),
             None => Ok(None),
         }
@@ -65,14 +75,19 @@ impl EncodedBody {
         )
     }
 
-    fn file(body: &Body) -> Result<Option<Self>, CoreError> {
+    fn file(body: &Body, files: FileContents) -> Result<Option<Self>, CoreError> {
         let Some(path) = body.file_source() else {
             return Ok(None);
         };
-        let data = std::fs::read(path).map_err(|error| CoreError::UnreadableFile {
-            path: path.to_string(),
-            reason: error.to_string(),
-        })?;
+        let data = match files {
+            FileContents::Read => {
+                std::fs::read(path).map_err(|error| CoreError::UnreadableFile {
+                    path: path.to_string(),
+                    reason: error.to_string(),
+                })?
+            }
+            FileContents::Referenced => Vec::new(),
+        };
         Ok(Some(EncodedBody {
             source: BodySource::File(path.to_string()),
             ..EncodedBody::inline(media_type::OCTET_STREAM, data)

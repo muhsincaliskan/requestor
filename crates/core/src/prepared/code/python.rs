@@ -15,7 +15,10 @@ impl Snippet {
         let mut arguments = vec![quoted(self.method_name()), "url".to_string()];
         let headers = self.library_headers(&[]);
         if !headers.is_empty() {
-            code.push_str(&format!("headers = {{\n{}}}\n", quoted_entries(&headers)));
+            code.push_str(&format!(
+                "headers = {{\n{}}}\n",
+                quoted_entries(&headers, header_value)
+            ));
             arguments.push("headers=headers".to_string());
         }
         if let Some((definition, argument)) = self.python_body() {
@@ -68,5 +71,13 @@ impl FormField {
             quoted(&self.name),
             members.join(", ")
         )
+    }
+}
+
+fn header_value(value: &str) -> String {
+    if value.is_ascii() {
+        quoted(value)
+    } else {
+        format!("{}.encode()", quoted(value))
     }
 }

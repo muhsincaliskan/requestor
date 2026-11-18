@@ -8,7 +8,7 @@ use crate::variables::VariableScope;
 
 const JSON_BODY: &str = "{\n  \"name\": \"Rex\"\n}";
 
-fn json_post() -> PreparedRequest {
+pub(super) fn json_post() -> PreparedRequest {
     PreparedRequest {
         method: HttpMethod::Post,
         url: "https://api.test/pets?page=2".to_string(),
@@ -37,7 +37,7 @@ fn form_post() -> PreparedRequest {
     }
 }
 
-fn revealed(request: &PreparedRequest, language: CodeLanguage) -> String {
+pub(super) fn revealed(request: &PreparedRequest, language: CodeLanguage) -> String {
     request.to_code_with_secrets(language)
 }
 

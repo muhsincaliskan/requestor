@@ -62,7 +62,10 @@ impl Snippet {
         if headers.is_empty() {
             return String::new();
         }
-        format!("  headers: {{\n{}  }},\n", quoted_entries(&headers))
+        format!(
+            "  headers: {{\n{}  }},\n",
+            quoted_entries(&headers, header_value)
+        )
     }
 
     fn javascript_body(&self) -> String {
@@ -94,5 +97,16 @@ impl FormField {
                 )
             }
         }
+    }
+}
+
+fn header_value(value: &str) -> String {
+    if value.is_ascii() {
+        quoted(value)
+    } else {
+        format!(
+            "String.fromCharCode(...new TextEncoder().encode({}))",
+            quoted(value)
+        )
     }
 }

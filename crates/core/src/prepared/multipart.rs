@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-use super::body::EncodedBody;
+use super::body::{EncodedBody, FileContents};
 use super::body_source::{BodySource, FormField};
 use crate::collection::Param;
 use crate::error::CoreError;
@@ -16,13 +16,19 @@ const ESCAPED_REPLACEMENTS: [(char, &str); 3] = [('"', "%22"), ('\r', "%0D"), ('
 
 struct Writer<'a> {
     boundary: String,
+    files: FileContents,
     data: Vec<u8>,
     fields: Vec<FormField>,
     scope: &'a VariableScope,
 }
 
-pub(super) fn encode(params: &[&Param], scope: &VariableScope) -> Result<EncodedBody, CoreError> {
+pub(super) fn encode(
+    params: &[&Param],
+    scope: &VariableScope,
+    files: FileContents,
+) -> Result<EncodedBody, CoreError> {
     let mut writer = Writer {
+        files,
         boundary: format!(
             "{BOUNDARY_PREFIX}{:016x}{:016x}",
             random_u64(),
@@ -89,11 +95,6 @@ impl Writer<'_> {
             .map(|source| source.items())
             .unwrap_or_default();
         for path in paths.into_iter().filter(|path| !path.is_empty()) {
-            let unreadable = |error: io::Error| CoreError::UnreadableFile {
-                path: path.to_string(),
-                reason: error.to_string(),
-            };
-            let mut file = File::open(path).map_err(unreadable)?;
             let file_name = Path::new(path)
                 .file_name()
                 .map(|file_name| escape(&file_name.to_string_lossy()))
@@ -101,11 +102,24 @@ impl Writer<'_> {
             let disposition = format!("name=\"{name}\"; filename=\"{file_name}\"");
             let part_type = content_type.unwrap_or(media_type::OCTET_STREAM);
             self.start_part(&disposition, Some(part_type));
-            io::copy(&mut file, &mut self.data).map_err(unreadable)?;
+            self.copy_file(path)?;
             self.end_part();
             self.fields
                 .push(FormField::file(raw_name, path, content_type));
         }
+        Ok(())
+    }
+
+    fn copy_file(&mut self, path: &str) -> Result<(), CoreError> {
+        if self.files == FileContents::Referenced {
+            return Ok(());
+        }
+        let unreadable = |error: io::Error| CoreError::UnreadableFile {
+            path: path.to_string(),
+            reason: error.to_string(),
+        };
+        let mut file = File::open(path).map_err(unreadable)?;
+        io::copy(&mut file, &mut self.data).map_err(unreadable)?;
         Ok(())
     }
 
