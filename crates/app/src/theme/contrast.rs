@@ -11,6 +11,8 @@ const RED_WEIGHT: f32 = 0.2126;
 const GREEN_WEIGHT: f32 = 0.7152;
 const BLUE_WEIGHT: f32 = 0.0722;
 const FLARE: f32 = 0.05;
+#[cfg(test)]
+pub(super) const BODY_TEXT_MINIMUM: f32 = 4.5;
 
 pub fn label_on(fill: Color32) -> Color32 {
     match contrast(LIGHT_LABEL, fill) >= contrast(DARK_LABEL, fill) {
@@ -42,10 +44,8 @@ fn channel(value: u8) -> f32 {
 mod tests {
     use eframe::egui::Color32;
 
-    use super::{contrast, label_on, DARK_LABEL, LIGHT_LABEL};
+    use super::{contrast, label_on, BODY_TEXT_MINIMUM, DARK_LABEL, LIGHT_LABEL};
     use crate::theme::palette::{DAYLIGHT, MIDNIGHT, NIGHT, SEPIA};
-
-    const BODY_TEXT_MINIMUM: f32 = 4.5;
 
     #[test]
     fn black_on_white_is_the_maximum_contrast() {

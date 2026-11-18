@@ -3,6 +3,8 @@ use requestor_core::response::StatusClass;
 
 const SUCCESS_ON_DARK: Color32 = Color32::from_rgb(107, 203, 119);
 const SUCCESS_ON_LIGHT: Color32 = Color32::from_rgb(0, 112, 43);
+const REDIRECT_ON_DARK: Color32 = Color32::from_rgb(116, 174, 246);
+const REDIRECT_ON_LIGHT: Color32 = Color32::from_rgb(0, 98, 204);
 
 pub fn success_color(ui: &Ui) -> Color32 {
     if ui.visuals().dark_mode {
@@ -12,11 +14,19 @@ pub fn success_color(ui: &Ui) -> Color32 {
     }
 }
 
+fn redirect_color(ui: &Ui) -> Color32 {
+    if ui.visuals().dark_mode {
+        REDIRECT_ON_DARK
+    } else {
+        REDIRECT_ON_LIGHT
+    }
+}
+
 pub fn status_color(ui: &Ui, class: StatusClass) -> Color32 {
     match class {
         StatusClass::Success => success_color(ui),
         StatusClass::ClientError | StatusClass::ServerError => ui.visuals().error_fg_color,
-        StatusClass::Redirect => ui.visuals().hyperlink_color,
+        StatusClass::Redirect => redirect_color(ui),
         StatusClass::Informational | StatusClass::Unknown => ui.visuals().text_color(),
     }
 }

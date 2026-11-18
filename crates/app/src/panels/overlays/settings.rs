@@ -1,3 +1,4 @@
+mod accents;
 mod certificates;
 mod data_folder;
 mod interface;
