@@ -85,7 +85,9 @@ fn two_files_with_one_id_both_load_and_the_fresh_id_persists() {
         BTreeSet::from(["a.json".into(), "b.json".into()])
     );
     assert_eq!(
-        store.release_collection_path(&second_id),
+        store
+            .release_collection(&second_id)
+            .map(|write| write.unwrap().path().to_path_buf()),
         Some(directory.join("b.json"))
     );
 }
@@ -123,7 +125,12 @@ fn releasing_an_id_that_was_never_remembered_yields_nothing_and_keeps_the_file()
     let mut imported = Collection::new("Imported");
     imported.info.postman_id = Some("X".to_string());
 
-    assert_eq!(store.release_collection_path(imported.id()), None);
+    assert_eq!(
+        store
+            .release_collection(imported.id())
+            .map(|write| write.unwrap().path().to_path_buf()),
+        None
+    );
     assert_eq!(store.release_environment_path("X"), None);
     assert!(directory.join("X.json").exists());
 }
@@ -153,7 +160,10 @@ fn deleting_a_remembered_document_removes_its_original_path() {
     let mut store = root.store();
     let id = store.load().workspace.collections[0].id().to_string();
 
-    let path = store.release_collection_path(&id).unwrap();
+    let path = store
+        .release_collection(&id)
+        .map(|write| write.unwrap().path().to_path_buf())
+        .unwrap();
     assert_eq!(path, original);
     std::fs::remove_file(path).unwrap();
     assert!(listing(&directory).is_empty());

@@ -1,4 +1,4 @@
-use eframe::egui::{pos2, vec2, Direction, Layout, Rect, Response, ScrollArea, Ui};
+use eframe::egui::{vec2, Direction, Layout, Response, ScrollArea, Sense, Ui, UiBuilder};
 
 use crate::state::{Action, AppState, RequestTab};
 use crate::widgets::{icon_button, request_title, ICON_BUTTON_SIZE, UNSAVED_DOT};
@@ -69,29 +69,20 @@ fn tab_button(
 }
 
 fn close_slot(ui: &mut Ui, button: &Response, unsaved: bool, active: bool) -> bool {
-    let size = vec2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE);
-    let slot = Rect::from_min_size(
-        pos2(
-            button.rect.right() + ui.spacing().item_spacing.x,
-            button.rect.center().y - ICON_BUTTON_SIZE / 2.0,
-        ),
-        size,
-    );
+    let (slot, _) =
+        ui.allocate_exact_size(vec2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE), Sense::hover());
     let hovered = ui.rect_contains_pointer(button.rect.union(slot));
     let shows_close = hovered || (active && !unsaved);
-    ui.allocate_ui_with_layout(
-        size,
-        Layout::centered_and_justified(Direction::LeftToRight),
-        |ui| {
-            ui.set_min_size(size);
-            if shows_close {
-                return icon_button(ui, CLOSE_LABEL, CLOSE_HINT).clicked();
-            }
-            if unsaved {
-                ui.weak(UNSAVED_DOT).on_hover_text(UNSAVED_HINT);
-            }
-            false
-        },
-    )
-    .inner
+    let mut slot_ui = ui.new_child(
+        UiBuilder::new()
+            .max_rect(slot)
+            .layout(Layout::centered_and_justified(Direction::LeftToRight)),
+    );
+    if shows_close {
+        return icon_button(&mut slot_ui, CLOSE_LABEL, CLOSE_HINT).clicked();
+    }
+    if unsaved {
+        slot_ui.weak(UNSAVED_DOT).on_hover_text(UNSAVED_HINT);
+    }
+    false
 }

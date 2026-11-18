@@ -47,6 +47,25 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 - With autosave off, requests with unsaved edits are marked in the tree and listed in an Unsaved group at the top of the sidebar.
 - A standalone `requestor` command-line binary runs collections, sends single cURL or raw HTTP requests, and converts imports to Postman format.
 
+## Keeping a collection in git
+
+Right-click a collection and choose **Save to folder…** to keep it in a folder you pick, for example inside your project's repository. Every request becomes its own small JSON file, so changes show up as clear diffs and merge cleanly:
+
+```
+api/
+  collection.json        name, variables, auth and the order of the items
+  health.json            one file per request
+  orders/
+    folder.json          the folder's settings and the order of its requests
+    list-orders.json
+```
+
+- File names come from the request names. Requests a teammate adds as new files are picked up on the next start.
+- Files Requestor did not write, such as a README, are never touched.
+- **Open collection folder…** in the import window opens a folder someone else saved.
+- **Stop saving to folder** keeps the files and moves the collection back into the app's own storage. Deleting the collection in the app also leaves the folder alone.
+- `requestor run api/` runs a saved folder just like a collection file.
+
 ## Keyboard shortcuts
 
 `Cmd` is `Ctrl` and `Option` is `Alt` on Linux and Windows.
@@ -70,6 +89,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 
 ```
 requestor run collection.json --env dev.json --folder Pets
+requestor run api/ --env dev.json
 requestor send "curl -X POST https://example.test/pets -d '{\"name\":\"Rex\"}'"
 requestor import openapi.json --to postman
 ```

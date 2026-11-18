@@ -5,7 +5,7 @@ use super::documents::{collections_directory, listing, NO_ID_COLLECTION};
 use super::TemporaryRoot;
 use crate::collection::Collection;
 use crate::environment::Environment;
-use crate::workspace::{PendingDelete, PendingWrite};
+use crate::workspace::{PendingDelete, StoreWrite};
 
 const ENVIRONMENT_JSON: &str = r#"{"id":"shared","name":"Env","values":[]}"#;
 
@@ -21,7 +21,7 @@ fn named(id: &str) -> Collection {
     collection
 }
 
-fn lowercase_name(write: &PendingWrite) -> String {
+fn lowercase_name(write: &StoreWrite) -> String {
     write
         .path()
         .file_name()

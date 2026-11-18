@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use eframe::egui::collapsing_header::CollapsingState;
 use eframe::egui::{Align, Button, Id, Label, Response, RichText, Sense, Ui, WidgetText};
 use requestor_core::collection::{Collection, Item};
@@ -10,9 +12,11 @@ use crate::widgets::{aligned_request_title, list_row, row_label, UNSAVED_MARK};
 pub(super) const COLLECTION_NODE_ID: &str = "sidebar-collection";
 pub(super) const FOLDER_NODE_ID: &str = "sidebar-folder";
 const NO_MATCH_TEXT: &str = "No requests match the filter.";
+const SAVED_IN_TEXT: &str = "Saved in";
 
 struct TreeView<'a> {
     collection: &'a Collection,
+    folder: Option<&'a Path>,
     active: Option<&'a ItemBinding>,
     awaiting_save: &'a [&'a ItemBinding],
     filter: &'a str,
@@ -33,6 +37,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
             shown_any = true;
             let mut view = TreeView {
                 collection,
+                folder: state.linked_folder(collection.id()),
                 active,
                 awaiting_save: &awaiting_save,
                 filter,
@@ -73,6 +78,7 @@ pub(super) fn branch(
 
 fn collection_node(ui: &mut Ui, view: &mut TreeView) {
     let collection = view.collection;
+    let folder = view.folder;
     let id = Id::new((COLLECTION_NODE_ID, collection.id()));
     let response = branch(
         ui,
@@ -80,11 +86,17 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView) {
         !view.filter.is_empty(),
         |ui| {
             let name = RichText::new(&collection.info.name).strong();
-            ui.add(Label::new(name).sense(Sense::click()))
+            let label = ui.add(Label::new(name).sense(Sense::click()));
+            match folder {
+                Some(folder) => {
+                    label.on_hover_text(format!("{SAVED_IN_TEXT} {}", folder.display()))
+                }
+                None => label,
+            }
         },
         |ui| items(ui, view, &collection.item),
     );
-    menus::collection(&response, collection, view.actions);
+    menus::collection(&response, collection, folder, view.actions);
     drag::accept(
         ui,
         &response,

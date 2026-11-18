@@ -162,11 +162,11 @@ impl AppState {
             LibraryTarget::Collection { collection_id } => {
                 if self.workspace.remove_collection(collection_id).is_some() {
                     self.unsaved.forget_collection(collection_id);
-                    effects.extend(
-                        self.store
-                            .release_collection_path(collection_id)
-                            .map(Effect::DeleteFile),
-                    );
+                    match self.store.release_collection(collection_id) {
+                        Some(Ok(write)) => effects.push(Effect::Persist(write)),
+                        Some(Err(error)) => self.report_error(format!("Could not save {error}")),
+                        None => {}
+                    }
                 }
             }
             LibraryTarget::Item {

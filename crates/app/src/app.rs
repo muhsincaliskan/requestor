@@ -71,6 +71,10 @@ impl RequestorApp {
                     file_picker::export_location(&suggested)
                         .map(|file_path| Action::Export { target, file_path }),
                 ),
+                Effect::PickFolder(purpose) => follow_ups.extend(
+                    file_picker::folder(&purpose)
+                        .map(|path| Action::FolderPicked { purpose, path }),
+                ),
                 storage => {
                     if let Err(reason) = self.saver.submit(storage) {
                         self.state.report_error(format!("Could not save: {reason}"));

@@ -2,6 +2,7 @@ mod action;
 mod autosave;
 mod effect;
 mod environments;
+mod folders;
 mod library;
 mod notice;
 mod overlay;
@@ -14,6 +15,7 @@ mod transfer;
 
 pub use action::Action;
 pub use effect::Effect;
+pub use folders::FolderPurpose;
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
     DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, PaletteForm, RenameForm,
