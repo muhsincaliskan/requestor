@@ -1,5 +1,6 @@
 use requestor_core::history::HistoryEntry;
 
+use super::socket::SocketSession;
 use super::stream::{LiveStream, StreamUpdate};
 use crate::response::{ComparisonBase, ResponseView};
 
@@ -13,6 +14,7 @@ pub enum Exchange {
     },
     Completed(Box<ResponseView>),
     Failed(String),
+    Socket(Box<SocketSession>),
 }
 
 impl Exchange {
@@ -20,6 +22,7 @@ impl Exchange {
         let (replaced, previous) = match std::mem::replace(self, Exchange::Idle) {
             Exchange::Completed(view) => (None, view.into_comparison_base()),
             Exchange::Sending { job, previous, .. } => (Some(job), previous),
+            Exchange::Socket(session) => (session.live_job(), None),
             Exchange::Idle | Exchange::Failed(_) => (None, None),
         };
         *self = Exchange::Sending {
@@ -29,6 +32,35 @@ impl Exchange {
             live: None,
         };
         replaced
+    }
+
+    pub fn start_socket(&mut self, session: SocketSession) -> Option<u64> {
+        match std::mem::replace(self, Exchange::Socket(Box::new(session))) {
+            Exchange::Sending { job, .. } => Some(job),
+            Exchange::Socket(previous) => previous.live_job(),
+            Exchange::Idle | Exchange::Completed(_) | Exchange::Failed(_) => None,
+        }
+    }
+
+    pub fn socket_mut(&mut self, job: u64) -> Option<&mut SocketSession> {
+        match self {
+            Exchange::Socket(session) if session.job() == job => Some(session),
+            _ => None,
+        }
+    }
+
+    pub fn live_socket(&mut self) -> Option<&mut SocketSession> {
+        match self {
+            Exchange::Socket(session) if session.is_live() => Some(session),
+            _ => None,
+        }
+    }
+
+    pub fn open_socket(&self) -> Option<&SocketSession> {
+        match self {
+            Exchange::Socket(session) if session.is_open() => Some(session),
+            _ => None,
+        }
     }
 
     pub fn take_previous(&mut self) -> Option<ComparisonBase> {

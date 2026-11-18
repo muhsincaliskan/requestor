@@ -65,6 +65,13 @@ impl RequestorApp {
                     request,
                     settings,
                 } => self.runner.send(tab, job, *request, &settings, ctx),
+                Effect::OpenSocket {
+                    tab,
+                    job,
+                    request,
+                    settings,
+                } => self.runner.open_socket(tab, job, *request, &settings, ctx),
+                Effect::SocketSend { job, text } => self.runner.socket_send(job, text),
                 Effect::CopyText(text) => ctx.copy_text(text),
                 Effect::OpenUrl(url) => {
                     if let Err(error) = browser::open(&url) {
@@ -105,7 +112,7 @@ impl RequestorApp {
 
 impl eframe::App for RequestorApp {
     fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        let mut pending: Vec<Action> = self.runner.finished().collect();
+        let mut pending = self.runner.finished();
         if std::mem::take(&mut self.sends_active_tab_on_start) {
             pending.extend(self.state.active_tab.map(Action::Send));
         }

@@ -436,6 +436,7 @@ mod changes;
 mod folders;
 mod history;
 mod rules;
+mod sockets;
 mod streaming;
 mod transfer;
 mod unsaved;

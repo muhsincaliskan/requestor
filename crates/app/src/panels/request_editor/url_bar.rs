@@ -9,6 +9,8 @@ const NAME_HINT: &str = "Request name";
 const URL_HINT: &str = "Enter a URL or paste a cURL command";
 const SEND_LABEL: &str = "Send";
 const CANCEL_LABEL: &str = "Cancel";
+const CONNECT_LABEL: &str = "Connect";
+const DISCONNECT_LABEL: &str = "Disconnect";
 const SAVE_LABEL: &str = "Save";
 const MORE_LABEL: &str = "…";
 const COPY_CURL_LABEL: &str = "Copy as cURL";
@@ -91,7 +93,7 @@ fn url_field(
         .id(ui.id().with(URL_SALT))
         .show(ui);
     let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
-    if submitted && !open.is_sending() {
+    if submitted && !open.is_sending() && !open.is_connected() {
         actions.push(Action::Send(open.id));
     }
     if response.changed() && !(pasted(ui) && open.draft.adopt_pasted_curl()) {
@@ -114,17 +116,34 @@ fn buttons(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
     if ui.button(SAVE_LABEL).clicked() {
         actions.push(Action::SaveTab(open.id));
     }
-    let clicked = if open.is_sending() {
-        action_button::destructive(ui, CANCEL_LABEL).clicked()
+    let stops = open.is_sending() || open.is_connected();
+    let clicked = if stops {
+        action_button::destructive(ui, stop_label(open)).clicked()
     } else {
-        action_button::primary(ui, SEND_LABEL).clicked()
+        action_button::primary(ui, start_label(open)).clicked()
     };
     if clicked {
-        actions.push(if open.is_sending() {
+        actions.push(if stops {
             Action::CancelSend(open.id)
         } else {
             Action::Send(open.id)
         });
+    }
+}
+
+fn start_label(open: &RequestTab) -> &'static str {
+    if open.draft.is_websocket() {
+        CONNECT_LABEL
+    } else {
+        SEND_LABEL
+    }
+}
+
+fn stop_label(open: &RequestTab) -> &'static str {
+    if open.is_connected() {
+        DISCONNECT_LABEL
+    } else {
+        CANCEL_LABEL
     }
 }
 

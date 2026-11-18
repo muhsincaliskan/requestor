@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::history::HistoryEntry;
 use requestor_core::response::HttpResponse;
+use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
 
 use super::folders::FolderPurpose;
@@ -46,6 +47,17 @@ pub enum Action {
         job: u64,
         update: StreamUpdate,
     },
+    SocketEvent {
+        tab: TabId,
+        job: u64,
+        event: SocketEvent,
+    },
+    SocketEnded {
+        tab: TabId,
+        job: u64,
+        result: Result<(), String>,
+    },
+    SendSocketMessage(TabId),
     CopyAsCurl {
         tab: TabId,
         include_secrets: bool,

@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt;
 
+mod socket;
+
 const TLS_MARKERS: [&str; 2] = ["certificate", "tls"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
