@@ -17,6 +17,7 @@ pub mod secret;
 pub mod settings;
 pub mod soap;
 pub mod text;
+pub mod text_diff;
 pub mod transport;
 pub mod variables;
 pub mod workspace;

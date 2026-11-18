@@ -338,3 +338,21 @@ fn empty_bearer_token_sends_no_authorization_header() {
     }));
     assert!(prepared.header("Authorization").is_none());
 }
+
+#[test]
+fn a_url_without_a_scheme_is_sent_over_http() {
+    let prepared = prepare(json!({"method": "GET", "url": "localhost:8080/pets"}));
+    assert_eq!(prepared.url, "http://localhost:8080/pets");
+    let secure = prepare(json!({"method": "GET", "url": "https://x.test/a"}));
+    assert_eq!(secure.url, "https://x.test/a");
+}
+
+#[test]
+fn urls_without_a_host_or_with_an_unresolved_host_are_left_alone() {
+    for url in ["/api/users", "{{undefinedHost}}/pets"] {
+        let prepared = prepare(json!({"method": "GET", "url": url}));
+        assert_eq!(prepared.url, url);
+    }
+    let callback = prepare(json!({"method": "GET", "url": "localhost:8080/cb?next=http://x"}));
+    assert_eq!(callback.url, "http://localhost:8080/cb?next=http://x");
+}

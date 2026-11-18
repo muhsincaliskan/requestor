@@ -1,4 +1,5 @@
 mod body;
+mod changes;
 mod checks;
 mod cookie;
 mod lists;
@@ -74,7 +75,7 @@ fn completed(
     actions: &mut Vec<Action>,
 ) {
     status::show(ui, view);
-    if view.report.is_none() && *section == ResponseSection::Tests {
+    if section_label(*section, view).is_none() {
         *section = ResponseSection::Body;
     }
     ui.horizontal(|ui| {
@@ -90,6 +91,7 @@ fn completed(
         ResponseSection::Headers => lists::headers(ui, view, actions),
         ResponseSection::Cookies => lists::cookies(ui, view, actions),
         ResponseSection::Tests => checks::show(ui, view),
+        ResponseSection::Changes => changes::show(ui, view),
     }
 }
 
@@ -116,5 +118,6 @@ fn section_label(section: ResponseSection, view: &ResponseView) -> Option<String
                 report.checks.len()
             )
         }),
+        ResponseSection::Changes => view.has_previous().then(|| label.to_string()),
     }
 }

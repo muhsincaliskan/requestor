@@ -5,7 +5,8 @@ use requestor_core::response::HttpResponse;
 use requestor_core::secret::Redactor;
 use requestor_core::variables::VariableScope;
 
-use super::tab::{Exchange, TabId};
+use super::exchange::Exchange;
+use super::tab::TabId;
 use super::{Action, AppState, Effect};
 use crate::response::ResponseView;
 
@@ -64,12 +65,12 @@ impl AppState {
                 unresolved.join(", ")
             ));
         }
-        self.abandon_send(id);
         self.next_job += 1;
         let job = self.next_job;
-        if let Some(tab) = self.tab_mut(id) {
-            tab.exchange = Exchange::Sending { job };
-        }
+        let replaced = self
+            .tab_mut(id)
+            .and_then(|tab| tab.exchange.start_send(job));
+        self.abandoned_jobs.extend(replaced);
         effects.push(Effect::Send {
             tab: id,
             job,
@@ -92,13 +93,18 @@ impl AppState {
             .binding
             .as_ref()
             .map(|bound| bound.collection_id.clone());
+        let previous = self
+            .tab_mut(id)
+            .and_then(|tab| tab.exchange.take_previous());
         let exchange = match result {
             Ok(response) => {
                 let report = (!rules.is_empty()).then(|| rules.evaluate(&response));
                 if let Some(report) = &report {
                     self.store_extracted(report, collection_id.as_deref());
                 }
-                let view = ResponseView::from_response(response, detect_format).with_report(report);
+                let view = ResponseView::from_response(response, detect_format)
+                    .with_report(report)
+                    .with_previous(previous);
                 Exchange::Completed(Box::new(view))
             }
             Err(reason) => Exchange::Failed(reason),

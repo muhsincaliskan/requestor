@@ -2,7 +2,7 @@ use requestor_core::collection::{Item, Request};
 use requestor_core::draft::{RequestDraft, RulesDraft};
 use requestor_core::workspace::{SessionTab, Workspace};
 
-use crate::response::ResponseView;
+use super::exchange::Exchange;
 
 pub const UNTITLED_REQUEST: &str = "Untitled request";
 const RESTORED_AT: f64 = 0.0;
@@ -33,13 +33,7 @@ pub enum ResponseSection {
     Headers,
     Cookies,
     Tests,
-}
-
-pub enum Exchange {
-    Idle,
-    Sending { job: u64 },
-    Completed(Box<ResponseView>),
-    Failed(String),
+    Changes,
 }
 
 pub struct RequestTab {
@@ -74,11 +68,12 @@ impl EditorSection {
 }
 
 impl ResponseSection {
-    pub const ALL: [ResponseSection; 4] = [
+    pub const ALL: [ResponseSection; 5] = [
         ResponseSection::Body,
         ResponseSection::Headers,
         ResponseSection::Cookies,
         ResponseSection::Tests,
+        ResponseSection::Changes,
     ];
 
     pub fn label(self) -> &'static str {
@@ -87,6 +82,7 @@ impl ResponseSection {
             ResponseSection::Headers => "Headers",
             ResponseSection::Cookies => "Cookies",
             ResponseSection::Tests => "Tests",
+            ResponseSection::Changes => "Changes",
         }
     }
 }
@@ -205,7 +201,7 @@ impl RequestTab {
     }
 
     pub fn abandon_send(&mut self) -> Option<u64> {
-        let Exchange::Sending { job } = self.exchange else {
+        let Exchange::Sending { job, .. } = self.exchange else {
             return None;
         };
         self.exchange = Exchange::Idle;

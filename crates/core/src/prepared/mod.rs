@@ -54,7 +54,7 @@ impl PreparedRequest {
             .ok_or(CoreError::MissingUrl)?;
         let mut prepared = PreparedRequest {
             method: request.http_method(),
-            url: scope.resolve(&url).text,
+            url: Url::with_default_scheme(scope.resolve(&url).text),
             headers: request
                 .enabled_headers()
                 .into_iter()

@@ -14,6 +14,7 @@ use crate::environment::Environment;
 use expansion::{sorted_unique, Expansion};
 
 pub use expansion::placeholder_names;
+pub(crate) use expansion::OPEN_MARK;
 pub use layer::VariableLayer;
 pub use preview::VariablePreview;
 pub use segments::{TextSegment, TextSegments};

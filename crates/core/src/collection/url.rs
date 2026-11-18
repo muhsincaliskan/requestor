@@ -4,9 +4,12 @@ use serde_json::{Map, Value};
 use super::param::Param;
 use super::variable::Variable;
 use crate::text::StringOrList;
+use crate::variables::OPEN_MARK;
 
 const SCHEME_EXTRA: &str = "+-.";
 pub const SCHEME_SEPARATOR: &str = "://";
+const DEFAULT_SCHEME: &str = "http";
+const IPV6_OPEN: char = '[';
 const HOST_SEPARATOR: &str = ".";
 const PORT_SEPARATOR: &str = ":";
 const PATH_SEPARATOR: &str = "/";
@@ -51,6 +54,22 @@ impl Url {
                 character.is_ascii_alphanumeric() || SCHEME_EXTRA.contains(character)
             });
         valid.then_some((scheme, rest))
+    }
+
+    pub fn with_default_scheme(resolved: String) -> String {
+        if Url::split_scheme(&resolved).is_some() {
+            return resolved;
+        }
+        let trimmed = resolved.trim_start();
+        let host = trimmed.split(PATH_SEPARATOR).next().unwrap_or_default();
+        let named = trimmed
+            .chars()
+            .next()
+            .is_some_and(|first| first.is_alphanumeric() || first == IPV6_OPEN);
+        if !named || host.contains(OPEN_MARK) {
+            return resolved;
+        }
+        format!("{DEFAULT_SCHEME}{SCHEME_SEPARATOR}{trimmed}")
     }
 
     pub fn to_text(&self) -> String {
