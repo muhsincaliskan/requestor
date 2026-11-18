@@ -1,7 +1,7 @@
 use requestor_core::collection::{Collection, Item, Request, Url};
 use requestor_core::method::HttpMethod;
 
-use super::overlay::{LibraryTarget, Overlay, RenameForm};
+use super::overlay::{LibraryTarget, Overlay, RenameForm, SaveTabForm};
 use super::tab::UNTITLED_REQUEST;
 use super::{Action, AppState, Effect};
 
@@ -12,6 +12,7 @@ impl AppState {
     pub(super) fn dispatch_library_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
         match action {
             Action::NewCollection => self.new_collection(),
+            Action::NewCollectionForSave(form) => self.new_collection_for_save(form),
             Action::AddFolder {
                 collection_id,
                 parent_id,
@@ -38,14 +39,24 @@ impl AppState {
     }
 
     fn new_collection(&mut self) {
-        let id = self
-            .workspace
-            .add_collection(Collection::new(NEW_COLLECTION_NAME));
-        self.unsaved.touch_collection(&id, self.now);
+        let id = self.add_new_collection();
         self.overlay = Some(Overlay::Rename(RenameForm {
             target: LibraryTarget::Collection { collection_id: id },
             name: NEW_COLLECTION_NAME.to_string(),
         }));
+    }
+
+    fn new_collection_for_save(&mut self, form: SaveTabForm) {
+        let id = self.add_new_collection();
+        self.overlay = Some(Overlay::SaveTab(form.into_collection(id)));
+    }
+
+    fn add_new_collection(&mut self) -> String {
+        let id = self
+            .workspace
+            .add_collection(Collection::new(NEW_COLLECTION_NAME));
+        self.unsaved.touch_collection(&id, self.now);
+        id
     }
 
     fn add_folder(&mut self, collection_id: &str, parent_id: Option<&str>) {

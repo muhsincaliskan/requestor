@@ -211,6 +211,14 @@ impl PaletteForm {
 }
 
 impl SaveTabForm {
+    pub fn into_collection(self, collection_id: String) -> Self {
+        SaveTabForm {
+            collection_id: Some(collection_id),
+            folder_id: None,
+            ..self
+        }
+    }
+
     pub fn submission(&self) -> Option<Action> {
         let name = self.name.trim();
         if name.is_empty() {
