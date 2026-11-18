@@ -25,6 +25,14 @@ impl Default for EntryNames {
 }
 
 impl EntryNames {
+    pub(super) fn reserving(foreign: Vec<String>) -> Self {
+        let mut names = EntryNames::default();
+        names
+            .taken
+            .extend(foreign.into_iter().map(|name| name.to_lowercase()));
+        names
+    }
+
     pub(super) fn claim(&mut self, name: Option<&str>, is_folder: bool) -> String {
         let stem = stem_of(name.unwrap_or_default());
         let extension = if is_folder { "" } else { REQUEST_EXTENSION };

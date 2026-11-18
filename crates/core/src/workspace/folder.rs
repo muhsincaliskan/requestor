@@ -1,8 +1,9 @@
+mod identity;
 mod names;
 mod read;
+mod surroundings;
 mod write;
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -12,6 +13,7 @@ use crate::collection::{Collection, Item};
 use names::EntryNames;
 
 pub use read::read_folder;
+pub use surroundings::FolderSurroundings;
 pub use write::FolderWrite;
 
 pub(super) const COLLECTION_FILE: &str = "collection.json";
@@ -28,8 +30,15 @@ pub struct FolderLayout {
 
 impl FolderLayout {
     pub fn of(collection: &Collection) -> Result<Self, serde_json::Error> {
+        FolderLayout::around(collection, &FolderSurroundings::default())
+    }
+
+    pub fn around(
+        collection: &Collection,
+        surroundings: &FolderSurroundings,
+    ) -> Result<Self, serde_json::Error> {
         let mut layout = FolderLayout::default();
-        let order = layout.add_children(Path::new(""), &collection.item)?;
+        let order = layout.add_children(Path::new(""), &collection.item, surroundings)?;
         layout.add_file(PathBuf::from(COLLECTION_FILE), collection, order)?;
         Ok(layout)
     }
@@ -38,24 +47,20 @@ impl FolderLayout {
         self.files.iter().map(|(path, _)| path.as_path())
     }
 
-    pub fn occupies_files_in(&self, root: &Path) -> bool {
-        self.paths()
-            .any(|path| fs::symlink_metadata(root.join(path)).is_ok())
-    }
-
     fn add_children(
         &mut self,
         directory: &Path,
         items: &[Item],
+        surroundings: &FolderSurroundings,
     ) -> Result<Vec<String>, serde_json::Error> {
-        let mut names = EntryNames::default();
+        let mut names = EntryNames::reserving(surroundings.foreign_names_in(directory));
         let mut order = Vec::with_capacity(items.len());
         for item in items {
             let entry = names.claim(item.name.as_deref(), item.item.is_some());
             let path = directory.join(&entry);
             match &item.item {
                 Some(children) => {
-                    let child_order = self.add_children(&path, children)?;
+                    let child_order = self.add_children(&path, children, surroundings)?;
                     self.add_file(path.join(FOLDER_FILE), item, child_order)?;
                 }
                 None => self.add_file(path, item, Vec::new())?,

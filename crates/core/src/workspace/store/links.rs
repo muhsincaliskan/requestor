@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::linked_folder::LinkedFolder;
 use super::{pending, read_document, WorkspaceStore};
 use crate::collection::Collection;
-use crate::workspace::folder::{read_folder, FolderLayout};
+use crate::workspace::folder::{read_folder, COLLECTION_FILE};
 use crate::workspace::{PendingDelete, StoreError, StoreWrite};
 
-const LINKS_FILE: &str = "linked-folders.json";
-const OCCUPIED: &str =
-    "the folder already holds files with the same names; choose another folder or open it";
+pub(super) const LINKS_FILE: &str = "linked-folders.json";
+const HOLDS_A_COLLECTION: &str = "this folder already holds a collection; open it instead";
 const NOT_A_FOLDER: &str = "this is a file, not a folder";
 const ALREADY_OPEN: &str = "this folder is already open";
 
@@ -58,14 +58,18 @@ impl WorkspaceStore {
         root: PathBuf,
     ) -> Result<StoreWrite, StoreError> {
         self.linked.ensure_not_open(&root)?;
-        let layout = FolderLayout::of(collection).map_err(|error| StoreError::at(&root, error))?;
-        ensure_free(&root, &layout)?;
+        ensure_free(&root)?;
         let mut folder = LinkedFolder::new(root, Vec::new());
-        let mut writes = vec![StoreWrite::Folder(folder.next_write(layout))];
+        let write = folder
+            .next_write(collection)
+            .map_err(|error| StoreError::at(folder.root(), error))?;
+        let mut writes = vec![StoreWrite::Folder(write)];
         self.linked.insert(collection.id(), folder);
         writes.push(self.links_write()?);
-        let released = self.collections.release(collection.id());
-        writes.extend(released.map(|path| StoreWrite::Delete(PendingDelete::new(path))));
+        let internal = self.collections.path_of(collection.id());
+        writes.extend(
+            internal.map(|path| StoreWrite::Delete(PendingDelete::new(path.to_path_buf()))),
+        );
         Ok(StoreWrite::Batch(writes))
     }
 
@@ -98,8 +102,9 @@ impl WorkspaceStore {
         collection: &Collection,
     ) -> Option<Result<StoreWrite, StoreError>> {
         let folder = self.linked.folders.get_mut(collection.id())?;
-        let write = FolderLayout::of(collection)
-            .map(|layout| StoreWrite::Folder(folder.next_write(layout)))
+        let write = folder
+            .next_write(collection)
+            .map(StoreWrite::Folder)
             .map_err(|error| StoreError::at(folder.root(), error));
         Some(write)
     }
@@ -158,12 +163,12 @@ impl WorkspaceStore {
     }
 }
 
-fn ensure_free(root: &Path, layout: &FolderLayout) -> Result<(), StoreError> {
+fn ensure_free(root: &Path) -> Result<(), StoreError> {
     if root.is_file() {
         return Err(StoreError::at(root, NOT_A_FOLDER));
     }
-    if layout.occupies_files_in(root) {
-        return Err(StoreError::at(root, OCCUPIED));
+    if fs::symlink_metadata(root.join(COLLECTION_FILE)).is_ok() {
+        return Err(StoreError::at(root, HOLDS_A_COLLECTION));
     }
     Ok(())
 }

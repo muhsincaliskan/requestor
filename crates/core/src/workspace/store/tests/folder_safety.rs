@@ -3,11 +3,19 @@ use std::fs;
 use super::documents::listing;
 use super::links::{folder_in, link, shop};
 use super::TemporaryRoot;
-use crate::collection::Collection;
+use crate::collection::{Collection, Item, Request, Url};
+use crate::workspace::store::links::LINKS_FILE;
 
-const LINKS_FILE: &str = "linked-folders.json";
+pub(super) fn with_request(mut collection: Collection, name: &str) -> Collection {
+    let request = Request::new("GET", Url::Raw("https://x.test/r".to_string()));
+    collection
+        .item
+        .push(Item::for_request(name.to_string(), request));
+    collection.ensure_ids();
+    collection
+}
 
-fn item_names(collection: &Collection) -> Vec<&str> {
+pub(super) fn item_names(collection: &Collection) -> Vec<&str> {
     collection
         .item
         .iter()
@@ -25,7 +33,7 @@ fn collection_names(root: &TemporaryRoot) -> Vec<String> {
         .collect()
 }
 
-fn save(root: &TemporaryRoot, collection: &Collection) {
+pub(super) fn save(root: &TemporaryRoot, collection: &Collection) {
     let mut store = root.store();
     store.load();
     store
@@ -123,34 +131,41 @@ fn a_hand_named_request_keeps_its_content_when_renamed_by_case() {
 }
 
 #[test]
-fn json_files_that_are_not_requests_are_never_read_or_removed() {
+fn a_link_that_fails_to_write_leaves_the_saved_collection_where_it_was() {
     let root = TemporaryRoot::new();
-    let folder = folder_in(&root);
-    link(&mut root.store(), &shop(), &folder);
-    fs::write(folder.join("renovate.json"), r#"{"extends":["base"]}"#).unwrap();
-    let loaded = root.store().load().workspace.collections;
-    assert_eq!(item_names(&loaded[0]), ["Health", "Orders"]);
-    save(&root, &loaded[0]);
-    assert!(folder.join("renovate.json").exists());
+    let mut store = root.store();
+    let collection = shop();
+    let internal = store.collection_write(&collection).unwrap();
+    let internal_path = internal.path().to_path_buf();
+    internal.commit().unwrap();
+    fs::write(root.0.join("blocker"), "file").unwrap();
+    let write = store
+        .link_collection(&collection, root.0.join("blocker").join("shop"))
+        .unwrap();
+    assert!(write.commit().is_err());
+    store
+        .release_collection(collection.id())
+        .unwrap()
+        .unwrap()
+        .commit()
+        .unwrap();
+    let rewritten = store.collection_write(&collection).unwrap();
+    assert_eq!(rewritten.path(), internal_path);
 }
 
-#[cfg(unix)]
 #[test]
-fn linked_directories_inside_the_folder_are_never_followed() {
+fn saves_planned_before_earlier_ones_finish_leave_no_extra_files() {
     let root = TemporaryRoot::new();
+    let mut store = root.store();
     let folder = folder_in(&root);
-    link(&mut root.store(), &shop(), &folder);
-    let outside = root.0.join("outside");
-    fs::create_dir_all(&outside).unwrap();
-    fs::write(outside.join("folder.json"), r#"{"name":"Shared"}"#).unwrap();
-    fs::write(
-        outside.join("ping.json"),
-        r#"{"name":"Ping","request":{"url":"/p"}}"#,
-    )
-    .unwrap();
-    std::os::unix::fs::symlink(&outside, folder.join("shared")).unwrap();
+    let collection = shop();
+    link(&mut store, &collection, &folder);
+    let mut renamed = with_request(collection.clone(), "");
+    let first = store.collection_write(&renamed).unwrap();
+    renamed.item[2].name = Some("Login".to_string());
+    let second = store.collection_write(&renamed).unwrap();
+    first.commit().unwrap();
+    second.commit().unwrap();
     let loaded = root.store().load().workspace.collections;
-    assert_eq!(item_names(&loaded[0]), ["Health", "Orders"]);
-    save(&root, &loaded[0]);
-    assert!(outside.join("ping.json").exists());
+    assert_eq!(item_names(&loaded[0]), ["Health", "Orders", "Login"]);
 }

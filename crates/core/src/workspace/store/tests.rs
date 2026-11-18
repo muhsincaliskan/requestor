@@ -9,6 +9,7 @@ use crate::workspace::{AppSettings, Session, SessionTab, Workspace};
 
 mod documents;
 mod folder_safety;
+mod foreign_files;
 mod lifecycle;
 mod links;
 

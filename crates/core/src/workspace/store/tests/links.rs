@@ -106,15 +106,15 @@ fn deleting_a_linked_collection_only_forgets_the_folder() {
 }
 
 #[test]
-fn files_with_the_same_names_block_linking_and_open_folders_cannot_be_opened_twice() {
+fn folders_holding_a_collection_cannot_be_linked_and_open_ones_cannot_be_opened_twice() {
     let root = TemporaryRoot::new();
     let mut store = root.store();
     let folder = folder_in(&root);
     fs::create_dir_all(&folder).unwrap();
     fs::write(folder.join("package.json"), "{}").unwrap();
-    fs::write(folder.join("health.json"), "{}").unwrap();
+    fs::write(folder.join("collection.json"), "{}").unwrap();
     assert!(store.link_collection(&shop(), folder.clone()).is_err());
-    fs::remove_file(folder.join("health.json")).unwrap();
+    fs::remove_file(folder.join("collection.json")).unwrap();
     let collection = shop();
     link(&mut store, &collection, &folder);
     assert!(store.open_folder(&folder).is_err());

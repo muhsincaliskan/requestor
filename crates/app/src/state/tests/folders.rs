@@ -106,10 +106,10 @@ fn a_saved_folder_opens_as_a_collection_only_once() {
 }
 
 #[test]
-fn a_folder_holding_files_with_the_same_names_is_never_taken_over() {
+fn a_folder_holding_another_collection_is_never_taken_over() {
     let folder = TemporaryFolder::new();
     fs::create_dir_all(&folder.0).unwrap();
-    fs::write(folder.0.join("list.json"), "{}").unwrap();
+    fs::write(folder.0.join("collection.json"), "{}").unwrap();
     let (mut state, collection_id, _) = state_with_request();
     let purpose = FolderPurpose::SaveCollection(collection_id.clone());
     let effects = pick(&mut state, purpose, &folder.0, 0.0);

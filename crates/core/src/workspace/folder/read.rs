@@ -9,6 +9,7 @@ use crate::workspace::store::JSON_EXTENSION;
 use crate::workspace::StoreError;
 
 const HIDDEN_MARK: char = '.';
+const REQUEST_MARKER: &str = "\"request\"";
 
 #[derive(Debug, Default)]
 struct FolderReader {
@@ -34,7 +35,7 @@ impl FolderReader {
             let path = directory.join(&entry);
             if path.is_dir() {
                 items.push(self.directory(&path, FOLDER_FILE)?);
-            } else if let Some(request) = self.request(path)? {
+            } else if let Some(request) = self.request(path, order.contains(&entry))? {
                 items.push(request);
             }
         }
@@ -44,19 +45,28 @@ impl FolderReader {
         Ok(document)
     }
 
-    fn request(&mut self, path: PathBuf) -> Result<Option<Value>, StoreError> {
-        let document = read_document(&path)?;
-        if !is_request(&document) {
+    fn request(&mut self, path: PathBuf, listed: bool) -> Result<Option<Value>, StoreError> {
+        let text = read_text(&path)?;
+        if !listed && !text.contains(REQUEST_MARKER) {
             return Ok(None);
         }
+        let document = match serde_json::from_str::<Value>(&text) {
+            Ok(document) if is_request(&document) => document,
+            Ok(_) => return Ok(None),
+            Err(_) if !listed => return Ok(None),
+            Err(error) => return Err(StoreError::at(&path, error)),
+        };
         self.owned.push(path);
         Ok(Some(document))
     }
 }
 
+fn read_text(path: &Path) -> Result<String, StoreError> {
+    fs::read_to_string(path).map_err(|error| StoreError::at(path, error))
+}
+
 fn read_document(path: &Path) -> Result<Value, StoreError> {
-    let text = fs::read_to_string(path).map_err(|error| StoreError::at(path, error))?;
-    serde_json::from_str(&text).map_err(|error| StoreError::at(path, error))
+    serde_json::from_str(&read_text(path)?).map_err(|error| StoreError::at(path, error))
 }
 
 fn is_request(document: &Value) -> bool {

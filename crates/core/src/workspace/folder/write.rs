@@ -2,7 +2,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::{folded, FolderLayout};
+use super::identity::FileIdentity;
+use super::FolderLayout;
 use crate::workspace::{PendingDelete, PendingWrite, StoreError};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,32 +27,24 @@ impl FolderWrite {
     }
 
     pub fn commit(self) -> Result<(), StoreError> {
-        let written: HashSet<String> = self
-            .layout
-            .paths()
-            .map(|path| folded(&self.root.join(path)))
-            .collect();
-        let (renamed, stale): (Vec<PathBuf>, Vec<PathBuf>) = self
-            .stale
-            .into_iter()
-            .partition(|path| written.contains(&folded(path)));
-        remove_files(renamed, &self.root)?;
+        let mut written = HashSet::new();
         for (path, contents) in self.layout.files {
-            PendingWrite::new(self.root.join(path), contents).commit()?;
+            let path = self.root.join(path);
+            PendingWrite::new(path.clone(), contents).commit()?;
+            written.extend(FileIdentity::of(&path));
         }
-        remove_files(stale, &self.root)
-    }
-}
-
-fn remove_files(paths: Vec<PathBuf>, root: &Path) -> Result<(), StoreError> {
-    for path in paths {
-        let parent = path.parent().map(Path::to_path_buf);
-        PendingDelete::new(path).commit()?;
-        if let Some(parent) = parent {
-            remove_empty_directories(&parent, root);
+        for path in self.stale {
+            if FileIdentity::of(&path).is_some_and(|identity| written.contains(&identity)) {
+                continue;
+            }
+            let parent = path.parent().map(Path::to_path_buf);
+            PendingDelete::new(path).commit()?;
+            if let Some(parent) = parent {
+                remove_empty_directories(&parent, &self.root);
+            }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 fn remove_empty_directories(directory: &Path, root: &Path) {

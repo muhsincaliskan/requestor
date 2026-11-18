@@ -2,7 +2,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::workspace::folder::{folded, FolderLayout, FolderWrite};
+use crate::collection::Collection;
+use crate::workspace::folder::{FolderLayout, FolderSurroundings, FolderWrite};
 
 #[derive(Debug)]
 pub(super) struct LinkedFolder {
@@ -23,24 +24,28 @@ impl LinkedFolder {
         same_folder(&self.root, root)
     }
 
-    pub(super) fn next_write(&mut self, layout: FolderLayout) -> FolderWrite {
+    pub(super) fn next_write(
+        &mut self,
+        collection: &Collection,
+    ) -> Result<FolderWrite, serde_json::Error> {
+        let surroundings = FolderSurroundings::of(&self.root, &self.owned);
+        let layout = FolderLayout::around(collection, &surroundings)?;
         let owned: Vec<PathBuf> = layout.paths().map(|path| self.root.join(path)).collect();
         let kept: HashSet<&PathBuf> = owned.iter().collect();
         let stale: Vec<PathBuf> = self
             .owned
             .iter()
-            .filter(|path| !kept.contains(path) && fs::symlink_metadata(path).is_ok())
+            .filter(|path| !kept.contains(path))
             .cloned()
             .collect();
-        let rewritten: HashSet<String> = owned.iter().map(|path| folded(path)).collect();
         let retried: Vec<PathBuf> = stale
             .iter()
-            .filter(|path| !rewritten.contains(&folded(path)))
+            .filter(|path| fs::symlink_metadata(path).is_ok())
             .cloned()
             .collect();
         self.owned = owned;
         self.owned.extend(retried);
-        FolderWrite::new(self.root.clone(), layout, stale)
+        Ok(FolderWrite::new(self.root.clone(), layout, stale))
     }
 }
 
