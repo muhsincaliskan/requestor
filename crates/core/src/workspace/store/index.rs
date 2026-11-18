@@ -26,6 +26,10 @@ impl DocumentIndex {
         path
     }
 
+    pub(super) fn path_of(&self, id: &str) -> Option<&Path> {
+        self.paths.get(id).map(PathBuf::as_path)
+    }
+
     pub(super) fn release(&mut self, id: &str) -> Option<PathBuf> {
         self.paths.remove(id)
     }

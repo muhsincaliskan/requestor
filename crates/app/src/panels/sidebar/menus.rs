@@ -1,8 +1,12 @@
+use std::path::Path;
+
 use eframe::egui::{Response, Ui};
 use requestor_core::collection::{Collection, Item};
 use requestor_core::environment::Environment;
 
-use crate::state::{Action, DeleteConfirmation, ExportForm, LibraryTarget, Overlay, RenameForm};
+use crate::state::{
+    Action, DeleteConfirmation, ExportForm, FolderPurpose, LibraryTarget, Overlay, RenameForm,
+};
 
 const OPEN_LABEL: &str = "Open";
 const ADD_REQUEST_LABEL: &str = "Add request";
@@ -12,8 +16,15 @@ const RENAME_LABEL: &str = "Rename";
 const DUPLICATE_LABEL: &str = "Duplicate";
 const EXPORT_LABEL: &str = "Export";
 const DELETE_LABEL: &str = "Delete";
+const SAVE_TO_FOLDER_LABEL: &str = "Save to folder…";
+const STOP_FOLDER_LABEL: &str = "Stop saving to folder";
 
-pub(super) fn collection(response: &Response, collection: &Collection, actions: &mut Vec<Action>) {
+pub(super) fn collection(
+    response: &Response,
+    collection: &Collection,
+    folder: Option<&Path>,
+    actions: &mut Vec<Action>,
+) {
     response.context_menu(|ui| {
         let collection_id = collection.id();
         entry(ui, ADD_REQUEST_LABEL, actions, || Action::AddRequest {
@@ -29,11 +40,28 @@ pub(super) fn collection(response: &Response, collection: &Collection, actions: 
                 collection_id: collection_id.to_string(),
             })
         });
+        folder_entry(ui, collection_id, folder, actions);
         let target = LibraryTarget::Collection {
             collection_id: collection_id.to_string(),
         };
         library_entries(ui, &target, &collection.info.name, actions);
     });
+}
+
+fn folder_entry(
+    ui: &mut Ui,
+    collection_id: &str,
+    folder: Option<&Path>,
+    actions: &mut Vec<Action>,
+) {
+    match folder {
+        Some(_) => entry(ui, STOP_FOLDER_LABEL, actions, || {
+            Action::StopSavingToFolder(collection_id.to_string())
+        }),
+        None => entry(ui, SAVE_TO_FOLDER_LABEL, actions, || {
+            Action::ChooseFolder(FolderPurpose::SaveCollection(collection_id.to_string()))
+        }),
+    }
 }
 
 pub(super) fn item(

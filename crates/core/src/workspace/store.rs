@@ -6,9 +6,10 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use self::index::DocumentIndex;
-use super::pending_write::{PendingWrite, StoreError};
+use self::links::LinkedFolders;
+use super::pending_write::{PendingDelete, PendingWrite, StoreError};
 use super::settings::AppSettings;
-use super::{Session, Workspace};
+use super::{Session, StoreWrite, Workspace};
 use crate::collection::Collection;
 use crate::environment::Environment;
 
@@ -26,6 +27,7 @@ pub struct WorkspaceStore {
     root: PathBuf,
     collections: DocumentIndex,
     environments: DocumentIndex,
+    linked: LinkedFolders,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -40,6 +42,7 @@ impl WorkspaceStore {
             root: root.into(),
             collections: DocumentIndex::default(),
             environments: DocumentIndex::default(),
+            linked: LinkedFolders::default(),
         }
     }
 
@@ -71,6 +74,12 @@ impl WorkspaceStore {
         );
         self.collections = collection_index;
         self.environments = environment_index;
+        let mut taken: HashSet<String> = collections
+            .iter()
+            .map(|collection| collection.id().to_string())
+            .collect();
+        let mut collections = collections;
+        collections.extend(self.load_linked(&mut taken, &mut warnings));
         let mut workspace = Workspace {
             collections,
             environments,
@@ -84,13 +93,13 @@ impl WorkspaceStore {
         }
     }
 
-    pub fn collection_write(
-        &mut self,
-        collection: &Collection,
-    ) -> Result<PendingWrite, StoreError> {
+    pub fn collection_write(&mut self, collection: &Collection) -> Result<StoreWrite, StoreError> {
+        if let Some(write) = self.folder_write(collection) {
+            return write;
+        }
         let directory = self.root.join(COLLECTIONS_DIRECTORY);
         let path = self.collections.path_for(&directory, collection.id());
-        pending(path, collection)
+        pending(path, collection).map(StoreWrite::from)
     }
 
     pub fn environment_write(
@@ -111,8 +120,12 @@ impl WorkspaceStore {
         pending(self.root.join(SESSION_FILE), session)
     }
 
-    pub fn release_collection_path(&mut self, id: &str) -> Option<PathBuf> {
-        self.collections.release(id)
+    pub fn release_collection(&mut self, id: &str) -> Option<Result<StoreWrite, StoreError>> {
+        if let Some(unlinked) = self.unlink_collection(id) {
+            return Some(unlinked);
+        }
+        let path = self.collections.release(id)?;
+        Some(Ok(StoreWrite::Delete(PendingDelete::new(path))))
     }
 
     pub fn release_environment_path(&mut self, id: &str) -> Option<PathBuf> {
@@ -223,5 +236,7 @@ pub(super) fn safe_file_stem(id: &str) -> String {
 }
 
 mod index;
+mod linked_folder;
+mod links;
 #[cfg(test)]
 mod tests;

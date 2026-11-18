@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use requestor_core::collection::{Collection, Item, Request, Url};
 use requestor_core::response::HttpResponse;
-use requestor_core::workspace::{LoadedWorkspace, Workspace, WorkspaceStore};
+use requestor_core::workspace::{LoadedWorkspace, StoreWrite, Workspace, WorkspaceStore};
 
 use super::autosave::QUIET_SECONDS;
 use super::{Action, AppState, Effect, Exchange, LibraryTarget, Overlay, TabId};
@@ -317,7 +317,8 @@ fn deleting_a_saved_collection_removes_its_file_and_never_rewrites_it() {
     );
     assert!(matches!(
         effects.as_slice(),
-        [Effect::DeleteFile(path)] if path.ends_with(format!("{collection_id}.json"))
+        [Effect::Persist(StoreWrite::Delete(delete))]
+            if delete.path().ends_with(format!("{collection_id}.json"))
     ));
     assert_eq!(persisted_count(&state.tick(LATER * 3.0)), 1);
 }
@@ -329,9 +330,10 @@ fn deleting_before_the_first_save_deletes_no_file() {
         Action::Delete(LibraryTarget::Collection { collection_id }),
         0.0,
     );
-    assert!(!effects
-        .iter()
-        .any(|effect| matches!(effect, Effect::DeleteFile(_))));
+    assert!(!effects.iter().any(|effect| matches!(
+        effect,
+        Effect::DeleteFile(_) | Effect::Persist(StoreWrite::Delete(_))
+    )));
 }
 
 #[test]
@@ -430,6 +432,7 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
     );
 }
 
+mod folders;
 mod rules;
 mod transfer;
 mod unsaved;

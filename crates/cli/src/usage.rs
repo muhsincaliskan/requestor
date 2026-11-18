@@ -2,7 +2,7 @@ pub const HELP: &str = "\
 Requestor command-line HTTP client
 
 USAGE:
-    requestor run <collection.json> [OPTIONS]
+    requestor run <collection.json or folder> [OPTIONS]
     requestor send [OPTIONS] <curl command | raw http file>
     requestor import <file> --to postman
     requestor --help | --version

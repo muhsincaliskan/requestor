@@ -1,13 +1,14 @@
-use eframe::egui::{ScrollArea, Ui};
+use eframe::egui::{vec2, Direction, Layout, Response, ScrollArea, Sense, Ui, UiBuilder};
 
 use crate::state::{Action, AppState, RequestTab};
-use crate::widgets::{icon_button, request_title, UNSAVED_MARK};
+use crate::widgets::{icon_button, request_title, ICON_BUTTON_SIZE, UNSAVED_DOT};
 
 const STRIP_SCROLL_ID: &str = "tab-strip-scroll";
 const NEW_TAB_LABEL: &str = "+";
 const NEW_TAB_HINT: &str = "New tab";
 const CLOSE_LABEL: &str = "×";
 const CLOSE_HINT: &str = "Close tab";
+const UNSAVED_HINT: &str = "Unsaved changes";
 const SAVE_ITEM: &str = "Save";
 const DUPLICATE_ITEM: &str = "Duplicate";
 const CLOSE_ITEM: &str = "Close";
@@ -43,14 +44,12 @@ fn tab_button(
     with_method: bool,
     actions: &mut Vec<Action>,
 ) {
-    let mark = if tab.unsaved { UNSAVED_MARK } else { "" };
-    let name = format!("{}{mark}", tab.draft.name);
     let method = with_method.then_some(tab.draft.method.as_str());
-    let button = ui.selectable_label(active, request_title(ui, method, &name));
+    let button = ui.selectable_label(active, request_title(ui, method, &tab.draft.name));
     if button.clicked() {
         actions.push(Action::ActivateTab(tab.id));
     }
-    if button.middle_clicked() || icon_button(ui, CLOSE_LABEL, CLOSE_HINT).clicked() {
+    if button.middle_clicked() || close_slot(ui, &button, tab.unsaved, active) {
         actions.push(Action::CloseTab(tab.id));
     }
     button.context_menu(|ui| {
@@ -67,4 +66,23 @@ fn tab_button(
             }
         }
     });
+}
+
+fn close_slot(ui: &mut Ui, button: &Response, unsaved: bool, active: bool) -> bool {
+    let (slot, _) =
+        ui.allocate_exact_size(vec2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE), Sense::hover());
+    let hovered = ui.rect_contains_pointer(button.rect.union(slot));
+    let shows_close = hovered || (active && !unsaved);
+    let mut slot_ui = ui.new_child(
+        UiBuilder::new()
+            .max_rect(slot)
+            .layout(Layout::centered_and_justified(Direction::LeftToRight)),
+    );
+    if shows_close {
+        return icon_button(&mut slot_ui, CLOSE_LABEL, CLOSE_HINT).clicked();
+    }
+    if unsaved {
+        slot_ui.weak(UNSAVED_DOT).on_hover_text(UNSAVED_HINT);
+    }
+    false
 }

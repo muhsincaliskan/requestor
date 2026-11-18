@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
-use requestor_core::workspace::{PendingDelete, PendingWrite};
+use requestor_core::workspace::{PendingDelete, PendingWrite, StoreWrite};
 
+use super::folders::FolderPurpose;
 use super::overlay::LibraryTarget;
 use super::tab::TabId;
 
@@ -15,7 +16,7 @@ pub enum Effect {
         request: Box<PreparedRequest>,
         settings: Box<RequestSettings>,
     },
-    Persist(PendingWrite),
+    Persist(StoreWrite),
     DeleteFile(PathBuf),
     WriteFile {
         path: PathBuf,
@@ -28,6 +29,7 @@ pub enum Effect {
         target: LibraryTarget,
         suggested: PathBuf,
     },
+    PickFolder(FolderPurpose),
 }
 
 impl Effect {
@@ -44,7 +46,8 @@ impl Effect {
             | Effect::CopyText(_)
             | Effect::AbortSend(_)
             | Effect::PickImportFile
-            | Effect::PickExportLocation { .. } => Ok(()),
+            | Effect::PickExportLocation { .. }
+            | Effect::PickFolder(_) => Ok(()),
         }
     }
 }

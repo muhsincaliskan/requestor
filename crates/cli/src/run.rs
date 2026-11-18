@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use requestor_core::collection::{Collection, RunnableRequest, Variable};
+use requestor_core::collection::{RunnableRequest, Variable};
 use requestor_core::environment::Environment;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::secret::Redactor;
@@ -10,7 +10,7 @@ use requestor_core::variables::VariableScope;
 
 use crate::args::RunOptions;
 use crate::error::CliError;
-use crate::input::read_text;
+use crate::input::{load_collection, read_text};
 use crate::report::{RequestLine, RequestReport};
 
 struct Session<'a> {
@@ -21,8 +21,7 @@ struct Session<'a> {
 }
 
 pub fn execute(options: &RunOptions, out: &mut impl Write) -> Result<bool, CliError> {
-    let collection = Collection::from_json(&read_text(&options.collection)?)
-        .map_err(|error| CliError::input(format!("{}: {error}", options.collection.display())))?;
+    let collection = load_collection(&options.collection)?;
     let planned = options.selection.pick(&collection)?;
     let mut session = Session {
         environment: load_environment(options)?,

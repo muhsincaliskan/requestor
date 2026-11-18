@@ -8,7 +8,10 @@ use crate::identity::random_uuid;
 use crate::workspace::{AppSettings, Session, SessionTab, Workspace};
 
 mod documents;
+mod folder_safety;
+mod foreign_files;
 mod lifecycle;
+mod links;
 
 pub(super) struct TemporaryRoot(pub PathBuf);
 
@@ -58,9 +61,12 @@ fn everything_written_is_read_back() {
     };
     let writes = [
         store.collection_write(&workspace.collections[0]).unwrap(),
-        store.environment_write(&workspace.environments[0]).unwrap(),
-        store.settings_write(&workspace.settings).unwrap(),
-        store.session_write(&workspace.session).unwrap(),
+        store
+            .environment_write(&workspace.environments[0])
+            .unwrap()
+            .into(),
+        store.settings_write(&workspace.settings).unwrap().into(),
+        store.session_write(&workspace.session).unwrap().into(),
     ];
     for write in writes {
         write.commit().unwrap();
@@ -68,7 +74,12 @@ fn everything_written_is_read_back() {
     let loaded = store.load();
     assert!(loaded.warnings.is_empty());
     assert_eq!(loaded.workspace, workspace);
-    std::fs::remove_file(store.release_collection_path(&collection_id).unwrap()).unwrap();
+    store
+        .release_collection(&collection_id)
+        .unwrap()
+        .unwrap()
+        .commit()
+        .unwrap();
     std::fs::remove_file(store.release_environment_path(&environment_id).unwrap()).unwrap();
     let emptied = store.load().workspace;
     assert!(emptied.collections.is_empty());

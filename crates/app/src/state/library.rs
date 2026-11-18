@@ -162,11 +162,9 @@ impl AppState {
             LibraryTarget::Collection { collection_id } => {
                 if self.workspace.remove_collection(collection_id).is_some() {
                     self.unsaved.forget_collection(collection_id);
-                    effects.extend(
-                        self.store
-                            .release_collection_path(collection_id)
-                            .map(Effect::DeleteFile),
-                    );
+                    if let Some(released) = self.store.release_collection(collection_id) {
+                        self.persist_or_report(released, effects);
+                    }
                 }
             }
             LibraryTarget::Item {

@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
+use requestor_core::collection::Collection;
 use requestor_core::curl_command::shell_quote;
+use requestor_core::workspace::read_folder;
 
 use crate::error::CliError;
 
@@ -10,6 +12,16 @@ const PLAIN_CHARACTERS: &str = "-_./:=@%+,";
 pub fn read_text(path: &Path) -> Result<String, CliError> {
     fs::read_to_string(path)
         .map_err(|error| CliError::input(format!("cannot read {}: {error}", path.display())))
+}
+
+pub fn load_collection(path: &Path) -> Result<Collection, CliError> {
+    if path.is_dir() {
+        return read_folder(path)
+            .map(|(collection, _)| collection)
+            .map_err(|error| CliError::input(error.to_string()));
+    }
+    Collection::from_json(&read_text(path)?)
+        .map_err(|error| CliError::input(format!("{}: {error}", path.display())))
 }
 
 pub struct CommandLine(String);
@@ -68,6 +80,30 @@ mod tests {
     fn multiple_arguments_are_quoted_individually() {
         let line = CommandLine::from(&words(&["curl", "-d", "it's here", "http://h"]));
         assert_eq!(line.into_text(), "curl -d 'it'\\''s here' http://h");
+    }
+
+    #[test]
+    fn a_collection_folder_loads_like_a_collection_file() {
+        let root = std::env::temp_dir().join(format!(
+            "requestor-cli-folder-{}",
+            requestor_core::identity::random_uuid()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("collection.json"),
+            r#"{"info":{"name":"Shop"},"order":["health.json"]}"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("health.json"),
+            r#"{"name":"Health","request":{"url":"/h"}}"#,
+        )
+        .unwrap();
+        let collection = load_collection(&root);
+        fs::remove_dir_all(&root).unwrap();
+        let collection = collection.unwrap();
+        assert_eq!(collection.info.name, "Shop");
+        assert_eq!(collection.item[0].name.as_deref(), Some("Health"));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use eframe::egui::{Context, ScrollArea, TextEdit, Ui};
 
 use super::{button_row, dialog};
-use crate::state::{Action, ImportForm};
+use crate::state::{Action, FolderPurpose, ImportForm};
 use crate::widgets::action_button;
 
 const DIALOG_ID: &str = "import";
@@ -9,6 +9,7 @@ const TITLE: &str = "Import";
 const PASTE_ID: &str = "import-paste";
 const SUPPORTED_TEXT: &str = "Postman collection v2.1, Postman environment, OpenAPI 3 JSON, cURL command or raw HTTP request.";
 const CHOOSE_FILE_LABEL: &str = "Choose file…";
+const OPEN_FOLDER_LABEL: &str = "Open collection folder…";
 const DROP_HINT: &str = "or drop a file anywhere on the window";
 const PASTE_HINT: &str = "Paste a collection, environment, cURL command or raw HTTP request";
 const IMPORT_TEXT_LABEL: &str = "Import";
@@ -62,6 +63,9 @@ fn file_row(ui: &mut Ui, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         if ui.button(CHOOSE_FILE_LABEL).clicked() {
             actions.push(Action::ChooseImportFile);
+        }
+        if ui.button(OPEN_FOLDER_LABEL).clicked() {
+            actions.push(Action::ChooseFolder(FolderPurpose::OpenCollection));
         }
         ui.weak(DROP_HINT);
     });

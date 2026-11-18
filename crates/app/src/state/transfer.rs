@@ -20,7 +20,7 @@ impl AppState {
             Action::ChooseExportLocation { target, suggested } => {
                 effects.push(Effect::PickExportLocation { target, suggested })
             }
-            _ => {}
+            other => self.dispatch_folder_action(other, effects),
         }
     }
 

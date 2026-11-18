@@ -1,4 +1,4 @@
-use requestor_core::workspace::{PendingWrite, Session, StoreError};
+use requestor_core::workspace::{Session, StoreError, StoreWrite};
 
 use super::autosave::QUIET_SECONDS;
 use super::tab::{RequestTab, TabId};
@@ -84,7 +84,7 @@ impl AppState {
 
     fn pending_writes(&mut self) -> Vec<Effect> {
         let changes = self.unsaved.take();
-        let mut writes: Vec<Result<PendingWrite, StoreError>> = Vec::new();
+        let mut writes: Vec<Result<StoreWrite, StoreError>> = Vec::new();
         writes.extend(
             changes
                 .collections
@@ -97,21 +97,30 @@ impl AppState {
                 .environments
                 .iter()
                 .filter_map(|id| self.workspace.environment(id))
-                .map(|environment| self.store.environment_write(environment)),
+                .map(|environment| {
+                    self.store
+                        .environment_write(environment)
+                        .map(StoreWrite::from)
+                }),
         );
         if changes.settings {
-            writes.push(self.store.settings_write(&self.workspace.settings));
+            writes.push(
+                self.store
+                    .settings_write(&self.workspace.settings)
+                    .map(StoreWrite::from),
+            );
         }
         if changes.session {
             self.workspace.session = self.session_snapshot();
-            writes.push(self.store.session_write(&self.workspace.session));
+            writes.push(
+                self.store
+                    .session_write(&self.workspace.session)
+                    .map(StoreWrite::from),
+            );
         }
         let mut effects = Vec::with_capacity(writes.len());
         for write in writes {
-            match write {
-                Ok(pending) => effects.push(Effect::Persist(pending)),
-                Err(error) => self.report_error(format!("Could not save {error}")),
-            }
+            self.persist_or_report(write, &mut effects);
         }
         effects
     }

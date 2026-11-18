@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use requestor_core::response::HttpResponse;
 
+use super::folders::FolderPurpose;
 use super::overlay::{LibraryTarget, Overlay};
 use super::tab::TabId;
 
@@ -81,6 +82,12 @@ pub enum Action {
         target: LibraryTarget,
         file_path: PathBuf,
     },
+    ChooseFolder(FolderPurpose),
+    FolderPicked {
+        purpose: FolderPurpose,
+        path: PathBuf,
+    },
+    StopSavingToFolder(String),
     SettingsEdited,
     Show(Overlay),
     DismissNotice,
