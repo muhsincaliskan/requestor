@@ -40,6 +40,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - Save a JSON value or a header into an environment or collection variable for the next requests.
   - Stored as Postman test scripts, so the same collection runs in Postman. Custom scripts are kept as they are.
 - Secret values are masked in the UI and never logged.
+- Secret environment values and the proxy password are kept in the system keychain (macOS Keychain, Windows Credential Manager, the Secret Service on Linux), one entry per environment. The workspace files and every export leave them empty, so a command-line run that reads a workspace environment file sees them empty too. When no keychain is available, or it refuses a value, the values stay in the workspace files and Requestor says so. Secret collection and folder variables are left empty in exports.
 - Large responses scroll smoothly:
   - The body view is virtualized and syntax highlighted.
   - It has Pretty and Raw modes for JSON and XML, and a find box.

@@ -144,6 +144,8 @@ impl Environment {
     }
 }
 
+mod secrets;
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;

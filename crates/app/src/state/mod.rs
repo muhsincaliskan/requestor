@@ -77,6 +77,7 @@ impl AppState {
         for warning in &loaded.warnings {
             state.warn(format!("Could not load {warning}"));
         }
+        state.secure_loaded_secrets(&loaded.unsecured);
         state.restore_tabs();
         state
     }

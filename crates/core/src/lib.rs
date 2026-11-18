@@ -23,6 +23,7 @@ pub mod text_diff;
 pub mod transport;
 pub mod update;
 pub mod variables;
+pub mod vault;
 pub mod websocket;
 pub mod workspace;
 pub mod xml_layout;

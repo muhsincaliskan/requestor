@@ -184,6 +184,11 @@ impl AppState {
                     self.unsaved.forget_environment(environment_id);
                     effects.extend(
                         self.store
+                            .forget_environment_secrets(environment_id)
+                            .map(Effect::Persist),
+                    );
+                    effects.extend(
+                        self.store
                             .release_environment_path(environment_id)
                             .map(Effect::DeleteFile),
                     );

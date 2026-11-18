@@ -1,4 +1,4 @@
-use requestor_core::workspace::{Session, StoreError, StoreWrite};
+use requestor_core::workspace::{Session, StoreError, StoreWrite, UnsecuredSecrets};
 
 use super::autosave::QUIET_SECONDS;
 use super::tab::{RequestTab, TabId};
@@ -67,6 +67,15 @@ impl AppState {
             .map(|tab| tab.id);
     }
 
+    pub(super) fn secure_loaded_secrets(&mut self, unsecured: &UnsecuredSecrets) {
+        for id in &unsecured.environments {
+            self.unsaved.touch_environment(id, self.now);
+        }
+        if unsecured.settings {
+            self.unsaved.touch_settings(self.now);
+        }
+    }
+
     fn autosave_tabs(&mut self, is_due: impl Fn(&RequestTab) -> bool) {
         if !self.interface().autosave {
             return;
@@ -97,18 +106,10 @@ impl AppState {
                 .environments
                 .iter()
                 .filter_map(|id| self.workspace.environment(id))
-                .map(|environment| {
-                    self.store
-                        .environment_write(environment)
-                        .map(StoreWrite::from)
-                }),
+                .map(|environment| self.store.environment_write(environment)),
         );
         if changes.settings {
-            writes.push(
-                self.store
-                    .settings_write(&self.workspace.settings)
-                    .map(StoreWrite::from),
-            );
+            writes.push(self.store.settings_write(&self.workspace.settings));
         }
         if changes.session {
             self.workspace.session = self.session_snapshot();

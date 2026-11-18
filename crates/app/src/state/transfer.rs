@@ -87,7 +87,7 @@ impl AppState {
             LibraryTarget::Collection { collection_id } => self
                 .workspace
                 .collection(collection_id)
-                .map(Collection::to_json_pretty),
+                .map(Collection::to_export_json),
             LibraryTarget::Item {
                 collection_id,
                 item_id,
@@ -95,11 +95,11 @@ impl AppState {
                 .workspace
                 .collection(collection_id)
                 .and_then(|collection| collection.find_item(item_id))
-                .map(|item| Collection::containing(item.clone()).to_json_pretty()),
+                .map(|item| Collection::containing(item.clone()).to_export_json()),
             LibraryTarget::Environment { environment_id } => self
                 .workspace
                 .environment(environment_id)
-                .map(Environment::to_json_pretty),
+                .map(Environment::to_export_json),
         };
         match document {
             Some(Ok(contents)) => {

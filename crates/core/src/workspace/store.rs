@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -10,10 +11,11 @@ use self::links::LinkedFolders;
 use self::location::platform_root;
 use super::pending_write::{PendingDelete, PendingWrite, StoreError};
 use super::settings::AppSettings;
-use super::{Session, StoreWrite, Workspace};
+use super::{Session, StoreWrite, UnsecuredSecrets, Workspace};
 use crate::collection::Collection;
 use crate::environment::Environment;
 use crate::history::History;
+use crate::vault::VaultStore;
 
 const HOME_OVERRIDE_VARIABLE: &str = "REQUESTOR_HOME";
 const COLLECTIONS_DIRECTORY: &str = "collections";
@@ -31,12 +33,15 @@ pub struct WorkspaceStore {
     collections: DocumentIndex,
     environments: DocumentIndex,
     linked: LinkedFolders,
+    vault: Option<Arc<dyn VaultStore>>,
+    secured: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LoadedWorkspace {
     pub workspace: Workspace,
     pub warnings: Vec<StoreError>,
+    pub unsecured: UnsecuredSecrets,
 }
 
 impl WorkspaceStore {
@@ -46,6 +51,8 @@ impl WorkspaceStore {
             collections: DocumentIndex::default(),
             environments: DocumentIndex::default(),
             linked: LinkedFolders::default(),
+            vault: None,
+            secured: false,
         }
     }
 
@@ -91,9 +98,11 @@ impl WorkspaceStore {
             history: self.load_file(HISTORY_FILE, &mut warnings),
         };
         workspace.normalize();
+        let unsecured = self.open_vault(&mut workspace, &mut warnings);
         LoadedWorkspace {
             workspace,
             warnings,
+            unsecured,
         }
     }
 
@@ -109,15 +118,16 @@ impl WorkspaceStore {
     pub fn environment_write(
         &mut self,
         environment: &Environment,
-    ) -> Result<PendingWrite, StoreError> {
+    ) -> Result<StoreWrite, StoreError> {
         let directory = self.root.join(ENVIRONMENTS_DIRECTORY);
         let id = environment.id.as_deref().unwrap_or_default();
         let path = self.environments.path_for(&directory, id);
-        pending(path, environment)
+        self.secure_environment(pending(path, environment)?, environment)
     }
 
-    pub fn settings_write(&self, settings: &AppSettings) -> Result<PendingWrite, StoreError> {
-        pending(self.root.join(SETTINGS_FILE), settings)
+    pub fn settings_write(&self, settings: &AppSettings) -> Result<StoreWrite, StoreError> {
+        let whole = pending(self.root.join(SETTINGS_FILE), settings)?;
+        self.secure_settings(whole, settings)
     }
 
     pub fn session_write(&self, session: &Session) -> Result<PendingWrite, StoreError> {
@@ -228,5 +238,6 @@ mod index;
 mod linked_folder;
 mod links;
 mod location;
+mod secrets;
 #[cfg(test)]
 mod tests;

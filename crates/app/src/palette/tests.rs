@@ -24,7 +24,7 @@ fn state() -> (AppState, String, String) {
     workspace.add_environment(Environment::new("Staging"));
     let loaded = LoadedWorkspace {
         workspace,
-        warnings: Vec::new(),
+        ..LoadedWorkspace::default()
     };
     let state = AppState::new(loaded, WorkspaceStore::new(STORE_ROOT));
     (state, collection_id, item_id)

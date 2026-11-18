@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::secret::Secret;
 use crate::settings::RequestSettings;
+use crate::vault::SecretOrigin;
 
 const DEFAULT_INTERFACE_SCALE: f32 = 1.0;
 const MIN_INTERFACE_SCALE: f32 = 0.75;
@@ -96,6 +98,35 @@ impl InterfaceSettings {
         } else {
             DEFAULT_INTERFACE_SCALE
         }
+    }
+}
+
+impl AppSettings {
+    pub fn proxy_password(&self) -> Option<&Secret> {
+        self.request.proxy.as_ref()?.password.as_ref()
+    }
+
+    pub fn uses_proxy(&self) -> bool {
+        self.request.proxy.is_some()
+    }
+
+    pub fn without_secrets(&self) -> AppSettings {
+        let mut stripped = self.clone();
+        if let Some(proxy) = stripped.request.proxy.as_mut() {
+            proxy.password = None;
+        }
+        stripped
+    }
+
+    pub fn restore_from_vault(&mut self, saved: Option<&Secret>) -> SecretOrigin {
+        let Some(proxy) = self.request.proxy.as_mut() else {
+            return SecretOrigin::Vault;
+        };
+        if proxy.password.is_some() {
+            return SecretOrigin::Files;
+        }
+        proxy.password = saved.cloned();
+        SecretOrigin::Vault
     }
 }
 

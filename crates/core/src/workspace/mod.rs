@@ -1,18 +1,24 @@
 mod extracted;
 mod folder;
 mod pending_write;
+mod secrets;
+mod secured_write;
 mod session;
 mod settings;
 mod store;
 mod store_write;
+mod vault_write;
 
 pub use extracted::ChangedStores;
 pub use folder::{read_folder, FolderLayout, FolderWrite};
 pub use pending_write::{PendingDelete, PendingWrite, StoreError};
+pub use secrets::{SecretRestore, UnsecuredSecrets};
+pub use secured_write::SecuredWrite;
 pub use session::{Session, SessionTab};
 pub use settings::{AppSettings, InterfaceSettings, ThemeName};
 pub use store::{LoadedWorkspace, WorkspaceStore};
 pub use store_write::StoreWrite;
+pub use vault_write::VaultWrite;
 
 use crate::collection::{Collection, Request, Variable};
 use crate::environment::Environment;
