@@ -438,3 +438,4 @@ mod history;
 mod rules;
 mod transfer;
 mod unsaved;
+mod updates;

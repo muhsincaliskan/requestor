@@ -6,7 +6,7 @@ use super::row::{row, toggles, Toggle};
 const SCALE_ID: &str = "settings-interface-scale";
 const SCALE_STEP: f64 = 0.05;
 
-const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 10] = [
+const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 11] = [
     Toggle {
         label: "Autosave",
         description: "Save changes automatically.",
@@ -56,6 +56,11 @@ const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 10] = [
         label: "Swap left and right sidebars",
         description: "Move the sidebar to the other side.",
         field: |settings| &mut settings.sidebars_swapped,
+    },
+    Toggle {
+        label: "Check for updates",
+        description: "Look for a newer version on GitHub when the app starts.",
+        field: |settings| &mut settings.check_for_updates,
     },
 ];
 

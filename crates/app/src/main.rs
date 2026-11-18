@@ -1,4 +1,5 @@
 mod app;
+mod browser;
 mod file_picker;
 mod palette;
 mod panels;

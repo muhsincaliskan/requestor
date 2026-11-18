@@ -15,6 +15,7 @@ mod tab;
 mod tab_closing;
 mod tabs;
 mod transfer;
+mod updates;
 
 pub use action::Action;
 pub use effect::Effect;
@@ -29,6 +30,7 @@ pub use persistence::SaveStatus;
 pub use sections::{EditorSection, ResponseSection};
 pub use tab::{ItemBinding, RequestTab, TabId};
 
+use requestor_core::update::Release;
 use requestor_core::variables::VariableScope;
 use requestor_core::workspace::{InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore};
 
@@ -40,6 +42,7 @@ pub struct AppState {
     pub tabs: Vec<RequestTab>,
     pub active_tab: Option<TabId>,
     pub overlay: Option<Overlay>,
+    pub available_update: Option<Release>,
     notices: Notices,
     store: WorkspaceStore,
     unsaved: UnsavedChanges,
@@ -56,6 +59,7 @@ impl AppState {
             tabs: Vec::new(),
             active_tab: None,
             overlay: None,
+            available_update: None,
             notices: Notices::default(),
             store,
             unsaved: UnsavedChanges::default(),
@@ -147,6 +151,8 @@ impl AppState {
             Action::DismissNotice => self.notices.dismiss(),
             Action::CopyText(text) => effects.push(Effect::CopyText(text)),
             Action::SettingsEdited => self.unsaved.touch_settings(self.now),
+            Action::UpdateAvailable(release) => self.available_update = Some(release),
+            Action::OpenReleasePage => effects.extend(self.release_page()),
             other => self.dispatch_tab_action(other, effects),
         }
     }

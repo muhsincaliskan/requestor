@@ -34,6 +34,7 @@ pub struct InterfaceSettings {
     pub show_workbench: bool,
     pub show_sidebar: bool,
     pub sidebars_swapped: bool,
+    pub check_for_updates: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -79,6 +80,7 @@ impl Default for InterfaceSettings {
             show_workbench: true,
             show_sidebar: true,
             sidebars_swapped: false,
+            check_for_updates: true,
         }
     }
 }

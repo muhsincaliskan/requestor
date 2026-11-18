@@ -20,6 +20,7 @@ pub mod soap;
 pub mod text;
 pub mod text_diff;
 pub mod transport;
+pub mod update;
 pub mod variables;
 pub mod workspace;
 pub mod xml_layout;

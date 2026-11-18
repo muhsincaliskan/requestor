@@ -7,10 +7,12 @@ use eframe::egui::Context;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
 use requestor_core::transport::{Cancellation, ReqwestTransport};
+use requestor_core::update::{newer_release, GithubReleaseClient, Version, LATEST_RELEASE_URL};
 
 use crate::state::{Action, TabId};
 
 const WORKER_NAME: &str = "requestor-send";
+const UPDATE_WORKER_NAME: &str = "requestor-update-check";
 
 struct SharedTransport {
     settings: RequestSettings,
@@ -66,6 +68,26 @@ impl Runner {
         if let Err(error) = spawned {
             self.report_failure(tab, job, error.to_string());
         }
+    }
+
+    pub fn check_for_update(&self, settings: &RequestSettings, wake: &Context) {
+        let settings = settings.for_update_check();
+        let report = self.report.clone();
+        let wake = wake.clone();
+        thread::Builder::new()
+            .name(UPDATE_WORKER_NAME.to_string())
+            .spawn(move || {
+                let Ok(transport) = ReqwestTransport::new(&settings) else {
+                    return;
+                };
+                let client = GithubReleaseClient::new(transport, LATEST_RELEASE_URL);
+                if let Ok(Some(release)) = newer_release(&client, &Version::current()) {
+                    if report.send(Action::UpdateAvailable(release)).is_ok() {
+                        wake.request_repaint();
+                    }
+                }
+            })
+            .ok();
     }
 
     pub fn abort(&mut self, job: u64) {

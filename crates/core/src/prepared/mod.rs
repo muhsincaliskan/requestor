@@ -73,6 +73,16 @@ impl PreparedRequest {
         Ok(prepared)
     }
 
+    pub fn get(url: impl Into<String>, headers: Vec<Header>) -> Self {
+        PreparedRequest {
+            method: HttpMethod::Get,
+            url: url.into(),
+            headers,
+            body: None,
+            body_source: BodySource::Inline,
+        }
+    }
+
     pub fn header(&self, name: &str) -> Option<&str> {
         find_header(&self.headers, name).map(|header| header.value.as_str())
     }

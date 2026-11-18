@@ -3,6 +3,7 @@ use crate::secret::{is_secret_name, REDACTED};
 use crate::variables::VariableScope;
 
 pub const CONTENT_TYPE: &str = "Content-Type";
+pub const ACCEPT: &str = "Accept";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header {

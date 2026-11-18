@@ -3,6 +3,7 @@ use std::time::Instant;
 use eframe::egui::{Context, Ui};
 use requestor_core::workspace::WorkspaceStore;
 
+use crate::browser;
 use crate::file_picker;
 use crate::panels;
 use crate::runner::Runner;
@@ -18,6 +19,7 @@ pub struct RequestorApp {
     started: Instant,
     look: Option<Look>,
     sends_active_tab_on_start: bool,
+    update_check_pending: bool,
 }
 
 impl RequestorApp {
@@ -31,6 +33,7 @@ impl RequestorApp {
             started: Instant::now(),
             look: None,
             sends_active_tab_on_start: false,
+            update_check_pending: true,
         }
     }
 
@@ -63,6 +66,12 @@ impl RequestorApp {
                     settings,
                 } => self.runner.send(tab, job, *request, &settings, ctx),
                 Effect::CopyText(text) => ctx.copy_text(text),
+                Effect::OpenUrl(url) => {
+                    if let Err(error) = browser::open(&url) {
+                        self.state
+                            .report_error(format!("Could not open the browser: {error}"));
+                    }
+                }
                 Effect::AbortSend(job) => self.runner.abort(job),
                 Effect::PickImportFile => {
                     follow_ups.extend(file_picker::import_file().map(Action::ImportFile));
@@ -99,6 +108,12 @@ impl eframe::App for RequestorApp {
         let mut pending: Vec<Action> = self.runner.finished().collect();
         if std::mem::take(&mut self.sends_active_tab_on_start) {
             pending.extend(self.state.active_tab.map(Action::Send));
+        }
+        if std::mem::take(&mut self.update_check_pending)
+            && self.state.interface().check_for_updates
+        {
+            self.runner
+                .check_for_update(&self.state.workspace.settings.request, ctx);
         }
         self.apply(pending, ctx);
         let failures: Vec<String> = self.saver.failures().collect();
