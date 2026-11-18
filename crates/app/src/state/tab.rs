@@ -1,6 +1,7 @@
 use requestor_core::collection::{Item, Request};
 use requestor_core::draft::{RequestDraft, RulesDraft};
 use requestor_core::history::HistoryEntry;
+use requestor_core::settings::RequestOverrides;
 use requestor_core::workspace::{SessionTab, Workspace};
 
 use super::exchange::Exchange;
@@ -58,7 +59,8 @@ impl RequestTab {
     pub fn for_item(id: TabId, binding: ItemBinding, item: &Item) -> Option<Self> {
         let request = item.full_request()?;
         let draft = RequestDraft::from_request(item.display_name(), &request)
-            .with_saved_rules(RulesDraft::from_events(item.event.as_ref()));
+            .with_saved_rules(RulesDraft::from_events(item.event.as_ref()))
+            .with_saved_overrides(RequestOverrides::from_extra(&item.extra));
         Some(RequestTab::with_draft(id, Some(binding), draft, false))
     }
 
@@ -80,14 +82,21 @@ impl RequestTab {
         });
         let stored = stored_item.and_then(Item::full_request);
         let saved_rules = RulesDraft::from_events(stored_item.and_then(|item| item.event.as_ref()));
+        let saved_overrides = stored_item
+            .map(|item| RequestOverrides::from_extra(&item.extra))
+            .unwrap_or_default();
         let unsaved = saved.unsaved_request.is_some() || stored.is_none();
         let mut draft = match saved.unsaved_request.as_ref().or(stored.as_ref()) {
             Some(request) => RequestDraft::from_request(saved.name.as_str(), request),
             None => RequestDraft::blank(saved.name.as_str()),
         }
-        .with_saved_rules(saved_rules);
+        .with_saved_rules(saved_rules)
+        .with_saved_overrides(saved_overrides);
         if let Some(lines) = &saved.unsaved_tests {
             draft.rules = RulesDraft::from_script(lines);
+        }
+        if let Some(overrides) = saved.unsaved_overrides() {
+            draft.overrides = overrides;
         }
         let mut tab = RequestTab::with_draft(id, binding, draft, unsaved);
         tab.edited_at = unsaved.then_some(RESTORED_AT);
@@ -114,7 +123,9 @@ impl RequestTab {
                 .flatten(),
             source_collection_id: self.source.as_ref().map(|from| from.collection_id.clone()),
             source_item_id: self.source.as_ref().map(|from| from.item_id.clone()),
+            ..SessionTab::default()
         }
+        .with_unsaved_overrides(self.unsaved.then_some(&self.draft.overrides))
     }
 
     pub fn scope(&self) -> Option<&ItemBinding> {

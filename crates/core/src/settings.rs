@@ -5,8 +5,12 @@ use serde::{Deserialize, Serialize};
 use crate::secret::Secret;
 
 mod certificate;
+mod overrides;
+mod proxy_choice;
 
 pub use certificate::ClientCertificate;
+pub use overrides::RequestOverrides;
+pub use proxy_choice::ProxyChoice;
 
 const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 30_000;
@@ -47,6 +51,10 @@ impl HttpVersion {
             HttpVersion::Http1 => "HTTP/1.1",
             HttpVersion::Http2 => "HTTP/2",
         }
+    }
+
+    pub fn to_value(self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
     }
 }
 
@@ -129,6 +137,13 @@ impl Default for RequestSettings {
 }
 
 impl RequestSettings {
+    pub fn without_request_timeout(&self) -> RequestSettings {
+        RequestSettings {
+            request_timeout_ms: 0,
+            ..self.clone()
+        }
+    }
+
     pub fn request_timeout(&self) -> Option<Duration> {
         Self::optional_duration(self.request_timeout_ms)
     }

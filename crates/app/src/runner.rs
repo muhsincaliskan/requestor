@@ -18,6 +18,7 @@ use sockets::SocketWorkers;
 
 const WORKER_NAME: &str = "requestor-send";
 const UPDATE_WORKER_NAME: &str = "requestor-update-check";
+const CACHED_TRANSPORTS: usize = 4;
 
 struct SharedTransport {
     settings: RequestSettings,
@@ -27,7 +28,7 @@ struct SharedTransport {
 pub struct Runner {
     finished: Receiver<Action>,
     report: Sender<Action>,
-    shared: Option<SharedTransport>,
+    shared: Vec<SharedTransport>,
     running: HashMap<u64, Cancellation>,
     sockets: SocketWorkers,
 }
@@ -38,7 +39,7 @@ impl Runner {
         Runner {
             finished,
             report,
-            shared: None,
+            shared: Vec::new(),
             running: HashMap::new(),
             sockets: SocketWorkers::default(),
         }
@@ -52,7 +53,8 @@ impl Runner {
         settings: &RequestSettings,
         wake: &Context,
     ) {
-        let transport = match self.transport_for(settings) {
+        let timeout = settings.request_timeout();
+        let transport = match self.transport_for(&settings.without_request_timeout()) {
             Ok(transport) => transport,
             Err(reason) => return self.report_failure(tab, job, reason),
         };
@@ -67,7 +69,7 @@ impl Runner {
                 let progress_report = report.clone();
                 let progress_wake = wake.clone();
                 let result = transport
-                    .send_cancellable(request, &cancellation, &mut |progress| {
+                    .send_within(request, timeout, &cancellation, &mut |progress| {
                         let update = StreamUpdate::from(progress);
                         let action = Action::StreamProgress { tab, job, update };
                         if progress_report.send(action).is_ok() {
@@ -142,19 +144,22 @@ impl Runner {
         &mut self,
         settings: &RequestSettings,
     ) -> Result<Arc<ReqwestTransport>, String> {
-        if let Some(shared) = self
+        let cached = self
             .shared
-            .as_ref()
-            .filter(|shared| shared.settings == *settings)
-        {
-            return Ok(Arc::clone(&shared.transport));
-        }
-        let transport =
-            Arc::new(ReqwestTransport::new(settings).map_err(|error| error.to_string())?);
-        self.shared = Some(SharedTransport {
-            settings: settings.clone(),
-            transport: Arc::clone(&transport),
-        });
+            .iter()
+            .position(|shared| shared.settings == *settings);
+        let entry = match cached {
+            Some(position) => self.shared.remove(position),
+            None => SharedTransport {
+                settings: settings.clone(),
+                transport: Arc::new(
+                    ReqwestTransport::new(settings).map_err(|error| error.to_string())?,
+                ),
+            },
+        };
+        let transport = Arc::clone(&entry.transport);
+        self.shared.insert(0, entry);
+        self.shared.truncate(CACHED_TRANSPORTS);
         Ok(transport)
     }
 

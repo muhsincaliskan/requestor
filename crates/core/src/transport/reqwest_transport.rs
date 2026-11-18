@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use reqwest::blocking::{Client, ClientBuilder};
 use reqwest::redirect::Policy;
@@ -64,6 +64,17 @@ impl ReqwestTransport {
         cancellation: &Cancellation,
         on_stream: &mut dyn FnMut(StreamProgress<'_>),
     ) -> Result<HttpResponse, TransportError> {
+        let timeout = self.settings.request_timeout();
+        self.send_within(request, timeout, cancellation, on_stream)
+    }
+
+    pub fn send_within(
+        &self,
+        request: PreparedRequest,
+        timeout: Option<Duration>,
+        cancellation: &Cancellation,
+        on_stream: &mut dyn FnMut(StreamProgress<'_>),
+    ) -> Result<HttpResponse, TransportError> {
         let method = Method::from_bytes(request.method.as_str().as_bytes())
             .map_err(|error| TransportError::InvalidRequest(error.to_string()))?;
         let mut builder = self.client_for(&request.url)?.request(method, &request.url);
@@ -73,13 +84,13 @@ impl ReqwestTransport {
         if let Some(body) = request.body {
             builder = builder.body(body);
         }
+        if let Some(timeout) = timeout {
+            builder = builder.timeout(timeout);
+        }
         let started = Instant::now();
         let response = builder.send().map_err(TransportError::from_reqwest)?;
         let watch = ReadWatch {
-            deadline: self
-                .settings
-                .request_timeout()
-                .map(|timeout| started + timeout),
+            deadline: timeout.map(|timeout| started + timeout),
             cancellation,
         };
         read_response(response, &self.settings, started, watch, on_stream)

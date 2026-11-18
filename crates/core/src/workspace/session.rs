@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 use crate::collection::Request;
+use crate::settings::RequestOverrides;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -18,6 +20,8 @@ pub struct SessionTab {
     pub source_collection_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_item_id: Option<String>,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -31,6 +35,18 @@ pub struct Session {
 }
 
 impl SessionTab {
+    pub fn unsaved_overrides(&self) -> Option<RequestOverrides> {
+        self.unsaved_request.as_ref()?;
+        RequestOverrides::stored_in(&self.extra)
+    }
+
+    pub fn with_unsaved_overrides(mut self, overrides: Option<&RequestOverrides>) -> Self {
+        if let Some(overrides) = overrides {
+            overrides.store_in(&mut self.extra);
+        }
+        self
+    }
+
     pub fn is_bound(&self) -> bool {
         self.collection_id.is_some() && self.item_id.is_some()
     }
