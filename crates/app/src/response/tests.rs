@@ -108,3 +108,16 @@ fn a_body_that_is_not_json_has_no_tree_or_filter_results() {
     assert!(view.json_tree().is_none());
     assert_eq!(view.display().text(), "{\n  oops");
 }
+
+#[test]
+fn typing_an_unfinished_filter_keeps_the_last_result() {
+    let mut view = ResponseView::from_response(response("application/json", ITEMS), true);
+    view.set_filter("$.total".to_string());
+    assert_eq!(view.display().text(), "[\n  2\n]");
+    view.set_filter("$.total[".to_string());
+    assert!(view.inspection().error().is_some());
+    assert!(view.holds_display());
+    assert_eq!(view.display().text(), "[\n  2\n]");
+    view.set_filter(" $.total ".to_string());
+    assert!(view.holds_display());
+}

@@ -43,15 +43,18 @@ impl Selector {
         start.map(Selector::Index).ok_or_else(|| cursor.invalid())
     }
 
-    pub(super) fn apply<'a>(&self, node: &'a JsonNode, found: &mut Vec<&'a JsonNode>) {
+    pub(super) fn positions(&self, node: &JsonNode, found: &mut Vec<usize>) {
         match self {
-            Selector::Name(name) => found.extend(node.member(name)),
-            Selector::Index(index) => found.extend(node.element(*index)),
-            Selector::Slice(slice) => slice.apply(node, found),
-            Selector::Wildcard => found.extend(node.children()),
-            Selector::Filter(filter) => {
-                found.extend(node.children().filter(|child| filter.matches(child)))
-            }
+            Selector::Name(name) => found.extend(node.member_position(name)),
+            Selector::Index(index) => found.extend(node.element_position(*index)),
+            Selector::Slice(slice) => slice.positions(node, found),
+            Selector::Wildcard => found.extend(0..node.child_count()),
+            Selector::Filter(filter) => found.extend(
+                node.children()
+                    .enumerate()
+                    .filter(|(_, child)| filter.matches(child))
+                    .map(|(position, _)| position),
+            ),
         }
     }
 }
@@ -68,39 +71,44 @@ impl Slice {
         Ok(Slice { start, end, step })
     }
 
-    fn apply<'a>(&self, node: &'a JsonNode, found: &mut Vec<&'a JsonNode>) {
+    fn positions(&self, node: &JsonNode, found: &mut Vec<usize>) {
         let JsonNode::Array(items) = node else {
             return;
         };
-        let length = items.len() as i64;
-        let bound = |value: i64| {
-            if value < 0 {
-                (length + value).max(0)
-            } else {
-                value.min(length)
-            }
+        let length = i64::try_from(items.len()).unwrap_or(i64::MAX);
+        let Ok(stride) = usize::try_from(self.step.unsigned_abs()) else {
+            return;
         };
-        let indices: Vec<i64> = match self.step {
-            0 => Vec::new(),
-            step if step > 0 => {
-                let start = bound(self.start.unwrap_or(0));
-                let end = bound(self.end.unwrap_or(length));
-                (start..end).step_by(step as usize).collect()
-            }
-            step => {
-                let start = self
-                    .start
-                    .map_or(length - 1, |value| bound(value).min(length - 1));
-                let end = self.end.map_or(-1, bound);
-                let mut downward: Vec<i64> = ((end + 1)..=start).rev().collect();
-                downward.retain(|index| (start - index) % step.abs() == 0);
-                downward
-            }
-        };
-        found.extend(
-            indices
-                .into_iter()
-                .filter_map(|index| items.get(index as usize)),
-        );
+        if self.step > 0 {
+            let start = forward_bound(self.start.unwrap_or(0), length);
+            let end = forward_bound(self.end.unwrap_or(length), length);
+            found.extend((start..end).step_by(stride).map(as_position));
+        } else if self.step < 0 {
+            let start = self
+                .start
+                .map_or(length - 1, |value| backward_bound(value, length));
+            let end = self.end.map_or(-1, |value| backward_bound(value, length));
+            found.extend(((end + 1)..=start).rev().step_by(stride).map(as_position));
+        }
     }
+}
+
+fn forward_bound(value: i64, length: i64) -> i64 {
+    if value < 0 {
+        length.saturating_add(value).max(0)
+    } else {
+        value.min(length)
+    }
+}
+
+fn backward_bound(value: i64, length: i64) -> i64 {
+    if value < 0 {
+        length.saturating_add(value).max(-1)
+    } else {
+        value.min(length - 1)
+    }
+}
+
+fn as_position(index: i64) -> usize {
+    usize::try_from(index).unwrap_or_default()
 }

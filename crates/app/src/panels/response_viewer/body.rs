@@ -26,7 +26,8 @@ const ROWS_ABOVE_MATCH: f32 = 3.0;
 const FIND_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::F);
 
 pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
-    toolbar(ui, view, actions);
+    let tree = shows_tree(view) && view.json_tree().is_some();
+    toolbar(ui, view, tree, actions);
     if view.is_inspectable() {
         json_filter::show(ui, view);
     }
@@ -39,9 +40,9 @@ pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
         ui.add(Label::new(notice).selectable(true));
         return;
     }
-    if shows_tree(view) {
+    if tree {
         if let Some(root) = view.json_tree() {
-            tree::show(ui, root);
+            tree::show(ui, &root);
             return;
         }
     }
@@ -66,11 +67,11 @@ fn layout_choice(ui: &mut Ui, view: &mut ResponseView) {
     view.set_layout(layout);
 }
 
-fn toolbar(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
+fn toolbar(ui: &mut Ui, view: &mut ResponseView, tree: bool, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         layout_choice(ui, view);
         let size = ByteSize(view.size_bytes());
-        if shows_tree(view) {
+        if tree {
             if ui.button(COPY_LABEL).clicked() {
                 actions.push(Action::CopyText(view.display().text().to_string()));
             }

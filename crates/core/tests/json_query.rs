@@ -107,3 +107,60 @@ fn trees_keep_member_order_and_describe_their_children() {
     );
     assert!(JsonNode::parse("{not json").is_none());
 }
+
+fn select_in(document: &str, query: &str) -> String {
+    let document = JsonNode::parse(document).unwrap();
+    let found = JsonQuery::parse(query).unwrap().select(&document);
+    JsonNode::list_text(&found, false)
+}
+
+#[test]
+fn negative_steps_clamp_to_the_ends_of_the_array() {
+    assert_eq!(select_in("[0,1,2]", "$[2:-10:-1]"), "[2,1,0]");
+    assert_eq!(select_in("[0,1,2]", "$[-10::-1]"), "[]");
+    assert_eq!(select_in("[0,1,2]", "$[::-9223372036854775808]"), "[2]");
+    assert_eq!(select_in("[0,1,2]", "$[::0]"), "[]");
+}
+
+#[test]
+fn filters_work_without_spaces_around_operators() {
+    assert_eq!(
+        select("$.store.book[?(@.price<9)].title"),
+        r#"["Sayings","Moby"]"#
+    );
+    assert_eq!(select("$.store.book[?@.title=='Rings'].price"), "[22.99]");
+    assert_eq!(
+        select("$.store.book[?(@.price>=22.99)].title"),
+        r#"["Rings"]"#
+    );
+}
+
+#[test]
+fn quoted_names_decode_escapes_and_keywords_need_a_boundary() {
+    assert_eq!(select_in(r#"{"a\nb": 1, "é": 2}"#, r#"$["a\nb"]"#), "[1]");
+    assert_eq!(select_in(r#"{"a\nb": 1, "é": 2}"#, r#"$['é']"#), "[2]");
+    assert!(JsonQuery::parse("$[?(@.a == truex)]").is_err());
+}
+
+#[test]
+fn error_positions_count_leading_spaces() {
+    assert_eq!(JsonQuery::parse("   $x").unwrap_err().position, 5);
+}
+
+#[test]
+fn selected_paths_lead_back_to_the_values() {
+    let document = JsonNode::parse(STORE).unwrap();
+    let paths = JsonQuery::parse("$..isbn").unwrap().select_paths(&document);
+    assert_eq!(paths, [vec![0, 0, 1, 2], vec![0, 0, 2, 2]]);
+    assert_eq!(
+        document.at_path(&paths[1]).and_then(JsonNode::as_text),
+        Some("0-395")
+    );
+}
+
+#[test]
+fn long_values_are_shortened_in_summaries() {
+    let long = JsonNode::String("x".repeat(500));
+    assert!(long.summary().chars().count() < 200);
+    assert!(long.summary().ends_with('…'));
+}

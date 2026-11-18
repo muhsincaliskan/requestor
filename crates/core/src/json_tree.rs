@@ -1,7 +1,15 @@
 mod read;
+pub(crate) mod walk;
 mod write;
 
+use std::fmt;
+
 use serde_json::Number;
+
+pub use walk::NodePath;
+
+const MAX_SUMMARY_CHARS: usize = 120;
+const ELLIPSIS: &str = "…";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonNode {
@@ -27,6 +35,15 @@ pub enum JsonKind {
     String,
     Array,
     Object,
+}
+
+impl fmt::Display for JsonKey<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            JsonKey::Name(name) => formatter.write_str(name),
+            JsonKey::Index(index) => write!(formatter, "{index}"),
+        }
+    }
 }
 
 impl JsonNode {
@@ -74,25 +91,34 @@ impl JsonNode {
     }
 
     pub fn member(&self, name: &str) -> Option<&JsonNode> {
+        self.child(self.member_position(name)?)
+            .map(|(_, node)| node)
+    }
+
+    pub fn element(&self, index: i64) -> Option<&JsonNode> {
+        self.child(self.element_position(index)?)
+            .map(|(_, node)| node)
+    }
+
+    pub fn member_position(&self, name: &str) -> Option<usize> {
         match self {
-            JsonNode::Object(entries) => entries
-                .iter()
-                .find(|(key, _)| key == name)
-                .map(|(_, value)| value),
+            JsonNode::Object(entries) => entries.iter().position(|(key, _)| key == name),
             _ => None,
         }
     }
 
-    pub fn element(&self, index: i64) -> Option<&JsonNode> {
+    pub fn element_position(&self, index: i64) -> Option<usize> {
         let JsonNode::Array(items) = self else {
             return None;
         };
         let position = if index < 0 {
-            items.len().checked_sub(index.unsigned_abs() as usize)?
+            items
+                .len()
+                .checked_sub(usize::try_from(index.unsigned_abs()).ok()?)?
         } else {
             usize::try_from(index).ok()?
         };
-        items.get(position)
+        (position < items.len()).then_some(position)
     }
 
     pub fn as_number(&self) -> Option<f64> {
@@ -111,9 +137,20 @@ impl JsonNode {
 
     pub fn summary(&self) -> String {
         match self {
-            JsonNode::Array(items) => format!("[{}]", items.len()),
+            JsonNode::Array(items) => JsonNode::list_summary(items.len()),
             JsonNode::Object(entries) => format!("{{{}}}", entries.len()),
-            scalar => scalar.to_text(false),
+            scalar => shortened(scalar.to_text(false)),
         }
+    }
+
+    pub fn list_summary(count: usize) -> String {
+        format!("[{count}]")
+    }
+}
+
+fn shortened(text: String) -> String {
+    match text.char_indices().nth(MAX_SUMMARY_CHARS) {
+        Some((cut, _)) => format!("{}{ELLIPSIS}", &text[..cut]),
+        None => text,
     }
 }

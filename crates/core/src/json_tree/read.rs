@@ -63,6 +63,7 @@ impl<'de> Visitor<'de> for NodeVisitor {
         while let Some(item) = access.next_element()? {
             items.push(item);
         }
+        items.shrink_to_fit();
         Ok(JsonNode::Array(items))
     }
 
@@ -71,6 +72,7 @@ impl<'de> Visitor<'de> for NodeVisitor {
         while let Some(entry) = access.next_entry()? {
             entries.push(entry);
         }
+        entries.shrink_to_fit();
         Ok(JsonNode::Object(entries))
     }
 }

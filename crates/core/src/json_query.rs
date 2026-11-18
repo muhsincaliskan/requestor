@@ -7,7 +7,8 @@ use std::fmt;
 use cursor::Cursor;
 use selector::Selector;
 
-use crate::json_tree::JsonNode;
+use crate::json_tree::walk::extended;
+use crate::json_tree::{JsonNode, NodePath};
 
 const ROOT: &str = "$";
 const DESCENDANTS: &str = "..";
@@ -45,7 +46,13 @@ impl fmt::Display for InvalidQuery {
 
 impl JsonQuery {
     pub fn parse(text: &str) -> Result<JsonQuery, InvalidQuery> {
-        let text = text.trim();
+        let leading = text.chars().count() - text.trim_start().chars().count();
+        JsonQuery::parse_trimmed(text.trim()).map_err(|error| InvalidQuery {
+            position: error.position + leading,
+        })
+    }
+
+    fn parse_trimmed(text: &str) -> Result<JsonQuery, InvalidQuery> {
         let mut cursor = Cursor::new(text);
         let explicit =
             cursor.eat(ROOT) || text.starts_with(MEMBER) || text.starts_with(BRACKET_OPEN);
@@ -61,9 +68,20 @@ impl JsonQuery {
     }
 
     pub fn select<'a>(&self, root: &'a JsonNode) -> Vec<&'a JsonNode> {
+        self.select_paths(root)
+            .iter()
+            .filter_map(|path| root.at_path(path))
+            .collect()
+    }
+
+    pub fn select_paths(&self, root: &JsonNode) -> Vec<NodePath> {
+        let start = vec![(NodePath::new(), root)];
         self.segments
             .iter()
-            .fold(vec![root], |nodes, segment| segment.apply(&nodes))
+            .fold(start, |nodes, segment| segment.apply(&nodes))
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect()
     }
 }
 
@@ -115,34 +133,35 @@ impl Segment {
         }
     }
 
-    fn apply<'a>(&self, nodes: &[&'a JsonNode]) -> Vec<&'a JsonNode> {
+    fn apply<'a>(&self, nodes: &[(NodePath, &'a JsonNode)]) -> Vec<(NodePath, &'a JsonNode)> {
         let mut found = Vec::new();
-        for node in nodes {
+        for (path, node) in nodes {
             if self.descendants {
-                for visited in self_and_descendants(node) {
-                    self.select_from(visited, &mut found);
+                for (relative, visited) in node.descendants() {
+                    let mut full = path.clone();
+                    full.extend(relative);
+                    self.select_from(&full, visited, &mut found);
                 }
             } else {
-                self.select_from(node, &mut found);
+                self.select_from(path, node, &mut found);
             }
         }
         found
     }
 
-    fn select_from<'a>(&self, node: &'a JsonNode, found: &mut Vec<&'a JsonNode>) {
+    fn select_from<'a>(
+        &self,
+        path: &[usize],
+        node: &'a JsonNode,
+        found: &mut Vec<(NodePath, &'a JsonNode)>,
+    ) {
+        let mut positions = Vec::new();
         for selector in &self.selectors {
-            selector.apply(node, found);
+            selector.positions(node, &mut positions);
         }
+        found.extend(positions.into_iter().filter_map(|position| {
+            let (_, child) = node.child(position)?;
+            Some((extended(path, position), child))
+        }));
     }
-}
-
-fn self_and_descendants(node: &JsonNode) -> Vec<&JsonNode> {
-    let mut visited = Vec::new();
-    let mut pending = vec![node];
-    while let Some(current) = pending.pop() {
-        visited.push(current);
-        let children: Vec<&JsonNode> = current.children().collect();
-        pending.extend(children.into_iter().rev());
-    }
-    visited
 }

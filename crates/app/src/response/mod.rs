@@ -5,7 +5,7 @@ mod search;
 
 pub use buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
 pub use comparison::{ChangesUnavailable, ComparisonBase};
-pub use inspection::{BodyLayout, JsonInspection};
+pub use inspection::{BodyLayout, JsonInspection, JsonTreeView};
 
 pub use search::BodySearch;
 
@@ -14,7 +14,6 @@ use std::time::Duration;
 use requestor_core::checks::RulesReport;
 use requestor_core::event_stream::EventLog;
 use requestor_core::header::Header;
-use requestor_core::json_tree::JsonNode;
 use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
 use requestor_core::text_diff::LineDiff;
 
@@ -145,7 +144,7 @@ impl ResponseView {
         self.inspection.result_count(&self.body)
     }
 
-    pub fn json_tree(&mut self) -> Option<&JsonNode> {
+    pub fn json_tree(&mut self) -> Option<JsonTreeView<'_>> {
         self.inspection.tree(&self.body)
     }
 

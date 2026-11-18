@@ -74,7 +74,7 @@ impl Filter {
 
 impl Comparison {
     fn holds(self, found: &JsonNode, literal: &JsonNode) -> bool {
-        let ordering = order(found, literal);
+        let ordering = found.compare(literal);
         match self {
             Comparison::Equal => ordering == Some(Ordering::Equal),
             Comparison::NotEqual => ordering != Some(Ordering::Equal),
@@ -84,16 +84,6 @@ impl Comparison {
             Comparison::AtLeast => matches!(ordering, Some(Ordering::Greater | Ordering::Equal)),
         }
     }
-}
-
-fn order(found: &JsonNode, literal: &JsonNode) -> Option<Ordering> {
-    if let (Some(left), Some(right)) = (found.as_number(), literal.as_number()) {
-        return left.partial_cmp(&right);
-    }
-    if let (Some(left), Some(right)) = (found.as_text(), literal.as_text()) {
-        return Some(left.cmp(right));
-    }
-    (found == literal).then_some(Ordering::Equal)
 }
 
 fn steps(cursor: &mut Cursor) -> Result<Vec<Step>, InvalidQuery> {
