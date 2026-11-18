@@ -3,6 +3,8 @@ name = "requestor-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "system-proxy", "http2", "blocking", "cookies", "gzip", "deflate", "brotli", "socks"] }
