@@ -2,10 +2,12 @@ mod code;
 mod collection_editor;
 mod dialogs;
 mod environment_editor;
+mod folder_editor;
 mod import;
 mod palette;
 mod protected_send;
 mod settings;
+mod shared_fields;
 mod table;
 
 use eframe::egui::{vec2, Align, Context, Frame, Id, Layout, Margin, Modal, Ui};
@@ -29,6 +31,10 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         Overlay::CollectionEditor { collection_id } => {
             collection_editor::show(ctx, state, collection_id, actions)
         }
+        Overlay::FolderEditor {
+            collection_id,
+            folder_id,
+        } => folder_editor::show(ctx, state, (collection_id, folder_id), actions),
         Overlay::ConfirmCloseTab(tab) => dialogs::confirm_close_tab(ctx, state, *tab, actions),
         Overlay::ConfirmProtectedSend(tab) => protected_send::show(ctx, state, *tab, actions),
         Overlay::ConfirmDelete(confirmation) => dialogs::confirm_delete(ctx, confirmation, actions),

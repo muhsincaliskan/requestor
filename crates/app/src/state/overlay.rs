@@ -99,8 +99,16 @@ pub struct CodeForm {
 pub enum Overlay {
     Settings,
     Import(ImportForm),
-    EnvironmentEditor { environment_id: String },
-    CollectionEditor { collection_id: String },
+    EnvironmentEditor {
+        environment_id: String,
+    },
+    CollectionEditor {
+        collection_id: String,
+    },
+    FolderEditor {
+        collection_id: String,
+        folder_id: String,
+    },
     ConfirmCloseTab(TabId),
     ConfirmProtectedSend(TabId),
     ConfirmDelete(DeleteConfirmation),

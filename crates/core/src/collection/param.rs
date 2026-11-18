@@ -35,6 +35,10 @@ impl Param {
         !self.disabled.unwrap_or(false)
     }
 
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.disabled = (!enabled).then_some(true);
+    }
+
     pub fn is_file(&self) -> bool {
         self.kind.as_deref() == Some(FILE_KIND)
     }
