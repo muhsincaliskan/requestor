@@ -30,7 +30,9 @@ pub(crate) use param::{FILE_KIND, STRING_KIND, TEXT_KIND};
 pub use path_variables::path_variable_names;
 pub use request::{Request, RequestSpec};
 pub use run::RunnableRequest;
-pub use runner::{RunPacing, RunSession, RunStepResult, MAX_DELAY_MS, MAX_ITERATIONS};
+pub use runner::{
+    RunPacing, RunSession, RunStepOutcome, RunStepResult, MAX_DELAY_MS, MAX_ITERATIONS,
+};
 pub use shared_headers::InheritedHeader;
 pub use url::{Url, UrlParts, SCHEME_SEPARATOR};
 pub use variable::Variable;

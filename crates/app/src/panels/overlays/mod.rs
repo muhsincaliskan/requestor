@@ -52,7 +52,10 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         Overlay::Code(form) => code::show(ctx, form, actions),
         Overlay::CollectionRunner(form) => collection_runner::show(ctx, state, form, actions),
     };
-    if stays_open {
+    if !stays_open && matches!(overlay, Overlay::CollectionRunner(_)) {
+        actions.insert(0, Action::CloseRunner);
+        state.overlay = Some(overlay);
+    } else if stays_open {
         state.overlay = Some(overlay);
     }
 }

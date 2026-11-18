@@ -109,7 +109,14 @@ impl AppState {
         self.now = now;
         let mut effects = Vec::new();
         let refreshes_code = action.may_change_request_code();
+        let running = match action {
+            Action::StopRun(_) | Action::RunFinished { .. } => None,
+            _ => self.running_collection_job(),
+        };
         self.dispatch(action, &mut effects);
+        let current = self.running_collection_job();
+        self.abandoned_jobs
+            .extend(running.filter(|job| Some(*job) != current));
         if refreshes_code {
             self.refresh_code_panel();
         }

@@ -1,17 +1,16 @@
-use eframe::egui::{Align, Context, Grid, Layout, RichText, ScrollArea, TextEdit, Ui};
-use requestor_core::collection::RunStepResult;
-use requestor_core::response::StatusClass;
+mod results;
+
+use eframe::egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
 
 use super::{button_row, dialog, SECTION_GAP};
 use crate::state::{Action, AppState, RunnerForm};
-use crate::widgets::{action_button, icon_button, method_color, status_color};
+use crate::widgets::{action_button, icon_button, method_color};
 
 const DIALOG_ID: &str = "collection-runner";
 const TITLE_PREFIX: &str = "Run";
 const ITERATIONS_LABEL: &str = "Iterations";
 const DELAY_LABEL: &str = "Delay between requests (ms)";
 const REQUESTS_LABEL: &str = "Requests";
-const RESULTS_LABEL: &str = "Results";
 const RUN_LABEL: &str = "Run";
 const RUN_ANYWAY_LABEL: &str = "Run anyway";
 const CONFIRM_PROTECTED: &str =
@@ -25,14 +24,9 @@ const LATER_HINT: &str = "Run later";
 const PROTECTED_WARNING: &str =
     "The active environment is protected. These requests may change real data.";
 const NO_REQUESTS_TEXT: &str = "This collection has no requests yet.";
-const FAILED_TEXT: &str = "Failed";
-const RESULT_COLUMNS: [&str; 5] = ["#", "Request", "Status", "Time", "Tests"];
-const RESULTS_GRID_ID: &str = "collection-runner-results";
 const NUMBER_WIDTH: f32 = 56.0;
 const LIST_HEIGHT: f32 = 220.0;
 const DIALOG_WIDTH: f32 = 560.0;
-const MILLISECONDS_SUFFIX: &str = "ms";
-const NO_TIME_TEXT: &str = "–";
 
 pub fn show(
     ctx: &Context,
@@ -42,7 +36,7 @@ pub fn show(
 ) -> bool {
     let title = format!("{TITLE_PREFIX} {}", form.collection_name);
     let protected = state.sends_to_protected_environment();
-    let stays_open = dialog(ctx, DIALOG_ID, &title, |ui| {
+    dialog(ctx, DIALOG_ID, &title, |ui| {
         ui.set_width(DIALOG_WIDTH);
         if protected {
             ui.label(RichText::new(PROTECTED_WARNING).color(ui.visuals().warn_fg_color));
@@ -56,16 +50,12 @@ pub fn show(
         pacing(ui, form);
         ui.add_space(SECTION_GAP);
         steps(ui, form);
-        if !form.results.is_empty() || form.is_running() {
+        if !form.results().is_empty() || form.is_running() {
             ui.add_space(SECTION_GAP);
-            results(ui, form);
+            results::show(ui, form);
         }
         buttons(ui, form, protected, actions)
-    });
-    if !stays_open {
-        actions.extend(form.running_job().map(Action::StopRun));
-    }
-    stays_open
+    })
 }
 
 fn pacing(ui: &mut Ui, form: &mut RunnerForm) {
@@ -131,68 +121,6 @@ fn order_buttons(ui: &mut Ui, index: usize, last: usize) -> Option<(usize, bool)
     } else {
         earlier.clicked().then_some((index, true))
     }
-}
-
-fn results(ui: &mut Ui, form: &RunnerForm) {
-    let (done, total) = form.progress();
-    let failed = form.failed_count();
-    ui.horizontal(|ui| {
-        ui.strong(RESULTS_LABEL);
-        ui.weak(format!(
-            "{done}/{total} · {} passed · {failed} failed",
-            form.passed_count()
-        ));
-    });
-    ScrollArea::vertical()
-        .id_salt(RESULTS_LABEL)
-        .max_height(LIST_HEIGHT)
-        .stick_to_bottom(true)
-        .show(ui, |ui| {
-            Grid::new(RESULTS_GRID_ID).striped(true).show(ui, |ui| {
-                for column in RESULT_COLUMNS {
-                    ui.weak(column);
-                }
-                ui.end_row();
-                for result in &form.results {
-                    result_row(ui, result);
-                }
-            });
-        });
-}
-
-fn result_row(ui: &mut Ui, result: &RunStepResult) {
-    ui.label(result.iteration.to_string());
-    ui.horizontal(|ui| {
-        ui.label(
-            RichText::new(&result.method)
-                .color(method_color(ui, &result.method))
-                .small(),
-        );
-        ui.label(&result.name);
-    });
-    match (result.status, &result.error) {
-        (Some(status), _) => ui.label(
-            RichText::new(status.to_string()).color(status_color(ui, StatusClass::of(status))),
-        ),
-        (None, error) => ui
-            .label(RichText::new(FAILED_TEXT).color(ui.visuals().error_fg_color))
-            .on_hover_text(error.as_deref().unwrap_or_default()),
-    };
-    if result.error.is_some() {
-        ui.weak(NO_TIME_TEXT);
-    } else {
-        ui.label(format!(
-            "{} {MILLISECONDS_SUFFIX}",
-            result.elapsed.as_millis()
-        ));
-    }
-    let tests = format!("{}/{}", result.checks_passed, result.checks_total);
-    if result.checks_passed < result.checks_total {
-        ui.label(RichText::new(tests).color(ui.visuals().error_fg_color));
-    } else {
-        ui.weak(tests);
-    }
-    ui.end_row();
 }
 
 fn buttons(ui: &mut Ui, form: &RunnerForm, protected: bool, actions: &mut Vec<Action>) -> bool {

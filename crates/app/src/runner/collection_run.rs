@@ -47,7 +47,9 @@ impl Runner {
             });
         if let Err(error) = spawned {
             let error = Some(error.to_string());
-            self.report.send(Action::RunFinished { job, error }).ok();
+            if self.report.send(Action::RunFinished { job, error }).is_ok() {
+                wake.request_repaint();
+            }
         }
     }
 }
@@ -61,6 +63,16 @@ fn execute(
         transport: ReqwestTransport::new(&run.settings).map_err(|error| error.to_string())?,
         cancellation,
     };
+    run_steps(run, cancellation, reporter, &transport);
+    Ok(())
+}
+
+fn run_steps(
+    run: &CollectionRunJob,
+    cancellation: &Cancellation,
+    reporter: &RunReporter,
+    transport: &dyn HttpTransport,
+) {
     let mut session = RunSession::new(
         run.collection_variables.clone(),
         run.environment.clone(),
@@ -70,12 +82,15 @@ fn execute(
     for iteration in 1..=run.pacing.iterations() {
         for request in &run.requests {
             if cancellation.is_cancelled() {
-                return Ok(());
+                return;
             }
-            let result = session.run_one(iteration, request, &transport);
+            let outcome = session.run_one(iteration, request, transport);
+            if cancellation.is_cancelled() {
+                return;
+            }
             reporter.deliver(Action::RunStepFinished {
                 job: run.job,
-                result: Box::new(result),
+                outcome: Box::new(outcome),
             });
             completed += 1;
             if run.pacing.pauses_after(completed, run.requests.len()) {
@@ -83,7 +98,6 @@ fn execute(
             }
         }
     }
-    Ok(())
 }
 
 impl HttpTransport for StoppableTransport<'_> {
@@ -111,3 +125,6 @@ impl RunReporter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

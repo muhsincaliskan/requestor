@@ -63,7 +63,7 @@ fn a_run_carries_extracted_variables_to_later_requests_and_reports_each_step() {
     let shop = FakeShop::default();
     let results: Vec<_> = runnable
         .iter()
-        .map(|request| session.run_one(1, request, &shop))
+        .map(|request| session.run_one(1, request, &shop).result)
         .collect();
     assert_eq!(shop.requested.borrow()[1], "http://shop.test/orders/s-42");
     assert!(results[0].is_success());
