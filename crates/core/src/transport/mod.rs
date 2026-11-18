@@ -1,4 +1,5 @@
 mod cancellation;
+mod certified;
 mod document;
 mod error;
 mod reading;

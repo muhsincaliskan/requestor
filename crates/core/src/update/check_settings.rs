@@ -10,6 +10,7 @@ impl RequestSettings {
             follow_redirects: true,
             request_timeout_ms: CHECK_TIMEOUT_MS,
             connect_timeout_ms: CHECK_CONNECT_TIMEOUT_MS,
+            client_certificates: Vec::new(),
             ..self.clone()
         }
     }

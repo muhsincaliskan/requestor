@@ -98,6 +98,10 @@ impl RequestorApp {
                     file_picker::export_location(&suggested)
                         .map(|file_path| Action::Export { target, file_path }),
                 ),
+                Effect::PickCertificateFile(file) => follow_ups.extend(
+                    file_picker::certificate_file()
+                        .map(|path| Action::CertificateFilePicked { file, path }),
+                ),
                 Effect::PickFolder(purpose) => follow_ups.extend(
                     file_picker::folder(&purpose)
                         .map(|path| Action::FolderPicked { purpose, path }),

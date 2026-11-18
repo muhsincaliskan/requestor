@@ -18,6 +18,8 @@ SHARED OPTIONS (run, send):
     --timeout-ms <n>        Request timeout in milliseconds, 0 disables it
     --insecure              Skip TLS certificate verification
     --no-follow-redirects   Do not follow redirects
+    --cert <file>           Client certificate (PEM) for mutual TLS
+    --key <file>            Private key (PEM) for --cert, when not in the same file
 
 EXIT CODES:
     0  every request succeeded (2xx or 3xx)

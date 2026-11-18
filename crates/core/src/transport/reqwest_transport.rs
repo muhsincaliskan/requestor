@@ -4,6 +4,7 @@ use reqwest::blocking::{Client, ClientBuilder};
 use reqwest::redirect::Policy;
 use reqwest::{Method, NoProxy, Proxy};
 
+use super::certified::CertifiedClients;
 use super::reading::{read_response, ReadWatch};
 use super::{Cancellation, HttpTransport, StreamProgress, TransportError};
 use crate::prepared::PreparedRequest;
@@ -17,6 +18,7 @@ const SECURE_SCHEME_PREFIX: &str = "https://";
 pub struct ReqwestTransport {
     client: Client,
     secure_client: Option<Client>,
+    certified_clients: CertifiedClients,
     settings: RequestSettings,
 }
 
@@ -33,15 +35,19 @@ impl ReqwestTransport {
         Ok(ReqwestTransport {
             client,
             secure_client,
+            certified_clients: CertifiedClients::new(settings),
             settings: settings.clone(),
         })
     }
 
-    fn client_for(&self, url: &str) -> &Client {
-        match &self.secure_client {
+    fn client_for(&self, url: &str) -> Result<&Client, TransportError> {
+        if let Some(certified) = self.certified_clients.client_for(url) {
+            return certified;
+        }
+        Ok(match &self.secure_client {
             Some(secure) if url.starts_with(SECURE_SCHEME_PREFIX) => secure,
             _ => &self.client,
-        }
+        })
     }
 }
 
@@ -60,7 +66,7 @@ impl ReqwestTransport {
     ) -> Result<HttpResponse, TransportError> {
         let method = Method::from_bytes(request.method.as_str().as_bytes())
             .map_err(|error| TransportError::InvalidRequest(error.to_string()))?;
-        let mut builder = self.client_for(&request.url).request(method, &request.url);
+        let mut builder = self.client_for(&request.url)?.request(method, &request.url);
         for header in &request.headers {
             builder = builder.header(&header.name, &header.value);
         }
@@ -84,12 +90,16 @@ fn build(
     settings: &RequestSettings,
     version: impl FnOnce(ClientBuilder) -> ClientBuilder,
 ) -> Result<Client, TransportError> {
-    version(configure(Client::builder(), settings)?)
+    finish(version(configure(Client::builder(), settings)?))
+}
+
+pub(super) fn finish(builder: ClientBuilder) -> Result<Client, TransportError> {
+    builder
         .build()
         .map_err(|error| TransportError::InvalidSettings(error.without_url().to_string()))
 }
 
-fn configure(
+pub(super) fn configure(
     builder: ClientBuilder,
     settings: &RequestSettings,
 ) -> Result<ClientBuilder, TransportError> {

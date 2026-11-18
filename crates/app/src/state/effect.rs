@@ -4,6 +4,7 @@ use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
 use requestor_core::workspace::{PendingDelete, PendingWrite, StoreWrite};
 
+use super::certificates::CertificateFile;
 use super::folders::FolderPurpose;
 use super::overlay::LibraryTarget;
 use super::tab::TabId;
@@ -52,6 +53,7 @@ pub enum Effect {
         suggested: PathBuf,
     },
     PickFolder(FolderPurpose),
+    PickCertificateFile(CertificateFile),
 }
 
 impl Effect {
@@ -74,7 +76,8 @@ impl Effect {
             | Effect::PickImportFile
             | Effect::DownloadImport { .. }
             | Effect::PickExportLocation { .. }
-            | Effect::PickFolder(_) => Ok(()),
+            | Effect::PickFolder(_)
+            | Effect::PickCertificateFile(_) => Ok(()),
         }
     }
 }

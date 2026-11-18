@@ -1,3 +1,4 @@
+mod certificates;
 mod interface;
 mod proxy;
 mod request;
@@ -5,10 +6,10 @@ mod row;
 mod shortcuts;
 mod themes;
 
-use eframe::egui::{vec2, Align, Context, Id, Layout, Modal, ScrollArea, Sense, Ui, UiBuilder};
+use eframe::egui::{vec2, Align, Context, Id, Layout, ScrollArea, Sense, Ui, UiBuilder};
 use requestor_core::workspace::AppSettings;
 
-use super::{button_row, TITLE_GAP};
+use super::{button_row, modal, TITLE_GAP};
 use crate::state::{Action, AppState};
 use crate::widgets::action_button;
 
@@ -31,16 +32,18 @@ enum Category {
     Themes,
     Shortcuts,
     Proxy,
+    Certificates,
     About,
 }
 
 impl Category {
-    const ALL: [Category; 6] = [
+    const ALL: [Category; 7] = [
         Category::Request,
         Category::Interface,
         Category::Themes,
         Category::Shortcuts,
         Category::Proxy,
+        Category::Certificates,
         Category::About,
     ];
 
@@ -51,17 +54,19 @@ impl Category {
             Category::Themes => "Themes",
             Category::Shortcuts => "Shortcuts",
             Category::Proxy => "Proxy",
+            Category::Certificates => "Certificates",
             Category::About => "About",
         }
     }
 
-    fn show(self, ui: &mut Ui, settings: &mut AppSettings) -> bool {
+    fn show(self, ui: &mut Ui, settings: &mut AppSettings, actions: &mut Vec<Action>) -> bool {
         match self {
             Category::Request => request::show(ui, settings),
             Category::Interface => interface::show(ui, &mut settings.interface),
             Category::Themes => themes::show(ui, &mut settings.interface),
             Category::Shortcuts => unchanged(ui, shortcuts::show),
             Category::Proxy => proxy::show(ui, &mut settings.request),
+            Category::Certificates => certificates::show(ui, &mut settings.request, actions),
             Category::About => unchanged(ui, about),
         }
     }
@@ -74,17 +79,17 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> b
         .unwrap_or(Category::Request);
     let mut edited = false;
     let mut done = false;
-    let shown = Modal::new(Id::new(MODAL_ID)).show(ctx, |ui| {
-        ui.set_width(SIDEBAR_WIDTH + CONTENT_WIDTH + PANE_GAP * 2.0);
+    let shown = modal(ctx, MODAL_ID).show(ctx, |ui| {
+        ui.set_width(SIDEBAR_WIDTH + PANE_GAP + CONTENT_WIDTH);
         ui.heading(TITLE);
-        ui.add_space(TITLE_GAP);
+        ui.add_space(TITLE_GAP * 2.0);
         ui.horizontal_top(|ui| {
             pane(ui, SIDEBAR_WIDTH, |ui| {
                 category = category_list(ui, category);
             });
             ui.add_space(PANE_GAP);
             pane(ui, CONTENT_WIDTH, |ui| {
-                edited = content(ui, category, &mut state.workspace.settings);
+                edited = content(ui, category, &mut state.workspace.settings, actions);
             });
         });
         done = button_row(ui, |ui| action_button::primary(ui, DONE_LABEL).clicked());
@@ -119,12 +124,17 @@ fn category_list(ui: &mut Ui, current: Category) -> Category {
     selected
 }
 
-fn content(ui: &mut Ui, category: Category, settings: &mut AppSettings) -> bool {
+fn content(
+    ui: &mut Ui,
+    category: Category,
+    settings: &mut AppSettings,
+    actions: &mut Vec<Action>,
+) -> bool {
     ScrollArea::vertical()
         .id_salt(CATEGORY_KEY)
         .auto_shrink(false)
         .max_height(CONTENT_HEIGHT)
-        .show(ui, |ui| category.show(ui, settings))
+        .show(ui, |ui| category.show(ui, settings, actions))
         .inner
 }
 

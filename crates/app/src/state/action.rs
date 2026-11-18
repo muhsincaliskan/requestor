@@ -8,6 +8,7 @@ use requestor_core::response::HttpResponse;
 use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
 
+use super::certificates::CertificateFile;
 use super::folders::FolderPurpose;
 use super::overlay::{LibraryTarget, Overlay, SaveTabForm};
 use super::stream::StreamUpdate;
@@ -117,6 +118,11 @@ pub enum Action {
         imported: Box<Result<Imported, ImportError>>,
     },
     ChooseImportFile,
+    ChooseCertificateFile(CertificateFile),
+    CertificateFilePicked {
+        file: CertificateFile,
+        path: PathBuf,
+    },
     ChooseExportLocation {
         target: LibraryTarget,
         suggested: PathBuf,

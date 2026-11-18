@@ -1,5 +1,6 @@
 mod action;
 mod autosave;
+mod certificates;
 mod code;
 mod effect;
 mod environments;
@@ -25,6 +26,7 @@ mod transfer;
 mod updates;
 
 pub use action::Action;
+pub use certificates::{CertificateFile, CertificatePart};
 pub use effect::Effect;
 pub use exchange::Exchange;
 pub use folders::FolderPurpose;
