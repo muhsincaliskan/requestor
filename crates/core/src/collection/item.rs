@@ -32,6 +32,17 @@ pub struct Item {
 }
 
 impl Item {
+    pub fn clear_secret_values(&mut self) {
+        self.variable
+            .iter_mut()
+            .flatten()
+            .for_each(Variable::clear_secret_value);
+        self.item
+            .iter_mut()
+            .flatten()
+            .for_each(Item::clear_secret_values);
+    }
+
     pub fn named(name: String) -> Self {
         Item {
             id: None,

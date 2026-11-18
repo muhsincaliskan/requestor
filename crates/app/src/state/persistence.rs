@@ -1,6 +1,6 @@
-use requestor_core::workspace::{Session, StoreError, StoreWrite};
+use requestor_core::workspace::{Session, StoreError, StoreWrite, UnsecuredSecrets};
 
-use super::autosave::{UnsavedChanges, QUIET_SECONDS};
+use super::autosave::QUIET_SECONDS;
 use super::tab::{RequestTab, TabId};
 use super::{AppState, Effect};
 
@@ -67,6 +67,15 @@ impl AppState {
             .map(|tab| tab.id);
     }
 
+    pub(super) fn secure_loaded_secrets(&mut self, unsecured: &UnsecuredSecrets) {
+        for id in &unsecured.environments {
+            self.unsaved.touch_environment(id, self.now);
+        }
+        if unsecured.settings {
+            self.unsaved.touch_settings(self.now);
+        }
+    }
+
     fn autosave_tabs(&mut self, is_due: impl Fn(&RequestTab) -> bool) {
         if !self.interface().autosave {
             return;
@@ -82,31 +91,26 @@ impl AppState {
         }
     }
 
-    pub(super) fn secure_loaded_secrets(&mut self) {
-        let holding: Vec<String> = self
-            .workspace
-            .environments
-            .iter()
-            .filter(|environment| environment.holds_secrets())
-            .filter_map(|environment| environment.id.clone())
-            .collect();
-        for id in &holding {
-            self.unsaved.touch_environment(id, self.now);
-        }
-        if self.workspace.settings.proxy_password().is_some() {
-            self.unsaved.touch_settings(self.now);
-        }
-    }
-
     fn pending_writes(&mut self) -> Vec<Effect> {
         let changes = self.unsaved.take();
-        let mut writes: Vec<Result<StoreWrite, StoreError>> = changes
-            .collections
-            .iter()
-            .filter_map(|id| self.workspace.collection(id))
-            .map(|collection| self.store.collection_write(collection))
-            .collect();
-        writes.extend(self.secret_bearing_writes(&changes));
+        let mut writes: Vec<Result<StoreWrite, StoreError>> = Vec::new();
+        writes.extend(
+            changes
+                .collections
+                .iter()
+                .filter_map(|id| self.workspace.collection(id))
+                .map(|collection| self.store.collection_write(collection)),
+        );
+        writes.extend(
+            changes
+                .environments
+                .iter()
+                .filter_map(|id| self.workspace.environment(id))
+                .map(|environment| self.store.environment_write(environment)),
+        );
+        if changes.settings {
+            writes.push(self.store.settings_write(&self.workspace.settings));
+        }
         if changes.session {
             self.workspace.session = self.session_snapshot();
             writes.push(
@@ -127,37 +131,6 @@ impl AppState {
             self.persist_or_report(write, &mut effects);
         }
         effects
-    }
-
-    fn secret_bearing_writes(
-        &mut self,
-        changes: &UnsavedChanges,
-    ) -> Vec<Result<StoreWrite, StoreError>> {
-        let mut writes: Vec<Result<StoreWrite, StoreError>> = changes
-            .environments
-            .iter()
-            .filter_map(|id| self.workspace.environment(id))
-            .map(|environment| {
-                self.store
-                    .environment_write(environment)
-                    .map(StoreWrite::from)
-            })
-            .collect();
-        if changes.settings {
-            writes.push(
-                self.store
-                    .settings_write(&self.workspace.settings)
-                    .map(StoreWrite::from),
-            );
-        }
-        let vault = changes
-            .touches_secrets()
-            .then(|| self.store.vault_write(&self.workspace))
-            .flatten();
-        match vault {
-            Some(vault) => vec![vault.followed_by(writes)],
-            None => writes,
-        }
     }
 
     fn session_snapshot(&self) -> Session {

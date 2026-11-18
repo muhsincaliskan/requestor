@@ -61,7 +61,7 @@ impl Variable {
     }
 
     pub fn clear_secret_value(&mut self) {
-        if self.is_secret() {
+        if self.is_secret() && self.value.is_some() {
             self.value = Some(Value::String(String::new()));
         }
     }

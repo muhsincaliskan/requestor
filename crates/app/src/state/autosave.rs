@@ -9,7 +9,6 @@ pub struct UnsavedChanges {
     pub settings: bool,
     pub session: bool,
     pub history: bool,
-    pub secrets: bool,
     changed_at: Option<f64>,
 }
 
@@ -34,11 +33,6 @@ impl UnsavedChanges {
         self.changed_at = Some(now);
     }
 
-    pub fn touch_secrets(&mut self, now: f64) {
-        self.secrets = true;
-        self.changed_at = Some(now);
-    }
-
     pub fn touch_history(&mut self, now: f64) {
         self.history = true;
         self.changed_at = Some(now);
@@ -58,11 +52,6 @@ impl UnsavedChanges {
             && !self.settings
             && !self.session
             && !self.history
-            && !self.secrets
-    }
-
-    pub fn touches_secrets(&self) -> bool {
-        self.secrets || self.settings || !self.environments.is_empty()
     }
 
     pub fn is_due(&self, now: f64) -> bool {

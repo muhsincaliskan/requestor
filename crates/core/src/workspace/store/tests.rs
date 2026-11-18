@@ -67,11 +67,8 @@ fn everything_written_is_read_back() {
         .record(HistoryEntry::new("ping", request).finished(Some(200)));
     let writes = [
         store.collection_write(&workspace.collections[0]).unwrap(),
-        store
-            .environment_write(&workspace.environments[0])
-            .unwrap()
-            .into(),
-        store.settings_write(&workspace.settings).unwrap().into(),
+        store.environment_write(&workspace.environments[0]).unwrap(),
+        store.settings_write(&workspace.settings).unwrap(),
         store.session_write(&workspace.session).unwrap().into(),
         store.history_write(&workspace.history).unwrap().into(),
     ];

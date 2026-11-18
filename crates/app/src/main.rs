@@ -1,6 +1,7 @@
 mod app;
 mod browser;
 mod file_picker;
+mod keychain;
 mod palette;
 mod panels;
 mod response;
@@ -15,7 +16,7 @@ use std::sync::Arc;
 
 use app::RequestorApp;
 use eframe::egui::ViewportBuilder;
-use requestor_core::vault::KeychainVaultStore;
+use keychain::KeychainVaultStore;
 use requestor_core::workspace::WorkspaceStore;
 
 const APP_NAME: &str = "Requestor";

@@ -3138,6 +3138,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "embed-resource",
+ "keyring",
  "requestor-core",
  "rfd",
  "serde_json",
@@ -3154,7 +3155,6 @@ dependencies = [
 name = "requestor-core"
 version = "0.1.0"
 dependencies = [
- "keyring",
  "reqwest",
  "serde",
  "serde_json",

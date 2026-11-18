@@ -69,9 +69,12 @@ impl Collection {
 
     pub fn to_export_json(&self) -> Result<String, CoreError> {
         let mut stripped = self.clone();
-        for variable in stripped.variable.iter_mut().flatten() {
-            variable.clear_secret_value();
-        }
+        stripped
+            .variable
+            .iter_mut()
+            .flatten()
+            .for_each(Variable::clear_secret_value);
+        stripped.item.iter_mut().for_each(Item::clear_secret_values);
         stripped.to_json_pretty()
     }
 

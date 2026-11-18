@@ -3,11 +3,12 @@ use std::sync::Arc;
 use super::TemporaryRoot;
 use crate::environment::Environment;
 use crate::settings::ProxySettings;
-use crate::vault::{MemoryVaultStore, SecretVault};
+use crate::vault::{MemoryVaultStore, VaultSlot};
 use crate::workspace::{StoreWrite, Workspace, WorkspaceStore};
 
 const TOKEN: &str = "token";
 const TOKEN_VALUE: &str = "s3cr3t";
+const PROXY_URL: &str = "http://proxy.local:8080";
 const PROXY_PASSWORD: &str = "proxy-pass";
 
 fn workspace_with_secrets() -> Workspace {
@@ -17,7 +18,7 @@ fn workspace_with_secrets() -> Workspace {
     environment.values[0].set_secret(true);
     workspace.add_environment(environment);
     let mut proxy = ProxySettings {
-        url: "http://proxy.local:8080".to_string(),
+        url: PROXY_URL.to_string(),
         ..ProxySettings::default()
     };
     proxy.set_password_text(PROXY_PASSWORD);
@@ -25,22 +26,27 @@ fn workspace_with_secrets() -> Workspace {
     workspace
 }
 
-fn save(store: &mut WorkspaceStore, workspace: &Workspace) {
-    let mut writes: Vec<StoreWrite> = store.vault_write(workspace).into_iter().collect();
-    writes.push(
-        store
-            .environment_write(&workspace.environments[0])
-            .unwrap()
-            .into(),
-    );
-    writes.push(store.settings_write(&workspace.settings).unwrap().into());
-    StoreWrite::Batch(writes).commit().unwrap();
+fn save(store: &mut WorkspaceStore, workspace: &Workspace) -> Vec<StoreWrite> {
+    let mut writes: Vec<StoreWrite> = workspace
+        .environments
+        .iter()
+        .map(|environment| store.environment_write(environment).unwrap())
+        .collect();
+    writes.push(store.settings_write(&workspace.settings).unwrap());
+    writes
 }
 
-fn files_text(root: &TemporaryRoot) -> String {
-    let environments = root.0.join("environments");
-    let mut text = std::fs::read_to_string(root.0.join("settings.json")).unwrap();
-    for entry in std::fs::read_dir(environments).unwrap() {
+fn commit_all(writes: Vec<StoreWrite>) -> usize {
+    writes
+        .into_iter()
+        .filter(|write| write.clone().commit().is_err())
+        .count()
+}
+
+fn files_text(store: &WorkspaceStore) -> String {
+    let root = store.root();
+    let mut text = std::fs::read_to_string(root.join("settings.json")).unwrap();
+    for entry in std::fs::read_dir(root.join("environments")).unwrap() {
         text.push_str(&std::fs::read_to_string(entry.unwrap().path()).unwrap());
     }
     text
@@ -55,9 +61,8 @@ fn a_store_without_a_keychain_keeps_secrets_in_its_files() {
     let root = TemporaryRoot::new();
     let mut store = root.store();
     let workspace = workspace_with_secrets();
-    assert!(store.vault_write(&workspace).is_none());
-    save(&mut store, &workspace);
-    assert!(files_text(&root).contains(TOKEN_VALUE));
+    assert_eq!(commit_all(save(&mut store, &workspace)), 0);
+    assert!(files_text(&store).contains(TOKEN_VALUE));
     assert_eq!(store.load().workspace, workspace);
 }
 
@@ -66,18 +71,16 @@ fn secrets_go_to_the_keychain_and_come_back_on_load() {
     let root = TemporaryRoot::new();
     let vault = Arc::new(MemoryVaultStore::default());
     let mut store = with_vault(&root, &vault);
-    let first = store.load();
-    assert!(store.keeps_secrets_in_vault());
-    assert!(!first.secrets_to_secure);
+    assert!(store.load().unsecured.environments.is_empty());
     let workspace = workspace_with_secrets();
-    save(&mut store, &workspace);
-    let files = files_text(&root);
+    assert_eq!(commit_all(save(&mut store, &workspace)), 0);
+    let files = files_text(&store);
     assert!(!files.contains(TOKEN_VALUE), "{files}");
     assert!(!files.contains(PROXY_PASSWORD), "{files}");
-    assert_eq!(vault.saved(), Some(SecretVault::collect(&workspace)));
+    assert!(vault.saved(&VaultSlot::proxy_password()).is_some());
     let reloaded = with_vault(&root, &vault).load();
-    assert!(reloaded.warnings.is_empty());
-    assert!(!reloaded.secrets_to_secure);
+    assert!(reloaded.warnings.is_empty(), "{:?}", reloaded.warnings);
+    assert_eq!(reloaded.unsecured, Default::default());
     assert_eq!(reloaded.workspace, workspace);
 }
 
@@ -85,31 +88,85 @@ fn secrets_go_to_the_keychain_and_come_back_on_load() {
 fn secrets_found_in_files_are_flagged_for_moving_to_the_keychain() {
     let root = TemporaryRoot::new();
     let workspace = workspace_with_secrets();
-    save(&mut root.store(), &workspace);
+    commit_all(save(&mut root.store(), &workspace));
     let vault = Arc::new(MemoryVaultStore::default());
     let mut store = with_vault(&root, &vault);
     let loaded = store.load();
-    assert!(loaded.secrets_to_secure);
+    assert_eq!(loaded.unsecured.environments.len(), 1);
+    assert!(loaded.unsecured.settings);
     assert_eq!(loaded.workspace, workspace);
-    save(&mut store, &loaded.workspace);
-    assert!(!files_text(&root).contains(TOKEN_VALUE));
+    commit_all(save(&mut store, &loaded.workspace));
+    assert!(!files_text(&store).contains(TOKEN_VALUE));
     assert_eq!(with_vault(&root, &vault).load().workspace, workspace);
+}
+
+#[test]
+fn a_damaged_environment_file_keeps_its_secrets_in_the_keychain() {
+    let root = TemporaryRoot::new();
+    let vault = Arc::new(MemoryVaultStore::default());
+    let mut store = with_vault(&root, &vault);
+    store.load();
+    let mut workspace = workspace_with_secrets();
+    let mut other = workspace.environments[0].clone();
+    other.id = None;
+    let other_id = workspace.add_environment(other);
+    commit_all(save(&mut store, &workspace));
+    let damaged = store
+        .environment_write(&workspace.environments[1])
+        .unwrap()
+        .path()
+        .to_path_buf();
+    std::fs::write(&damaged, "{ not json").unwrap();
+    let mut store = with_vault(&root, &vault);
+    let loaded = store.load();
+    assert_eq!(loaded.workspace.environments.len(), 1);
+    commit_all(save(&mut store, &loaded.workspace));
+    assert!(vault.saved(&VaultSlot::environment(&other_id)).is_some());
+}
+
+#[test]
+fn a_keychain_that_refuses_a_save_leaves_the_secret_in_the_file() {
+    let root = TemporaryRoot::new();
+    let mut store = with_vault(&root, &Arc::new(MemoryVaultStore::default()));
+    store.load();
+    let writes = save(&mut store, &workspace_with_secrets());
+    let mut refusing = with_vault(&root, &Arc::new(MemoryVaultStore::unavailable()));
+    refusing.load();
+    let refused = save(&mut refusing, &workspace_with_secrets());
+    assert_eq!(writes.len(), refused.len());
+    assert_eq!(commit_all(refused), 2);
+    assert!(files_text(&store).contains(TOKEN_VALUE));
+}
+
+#[test]
+fn deleting_an_environment_forgets_its_keychain_entry() {
+    let root = TemporaryRoot::new();
+    let vault = Arc::new(MemoryVaultStore::default());
+    let mut store = with_vault(&root, &vault);
+    store.load();
+    let workspace = workspace_with_secrets();
+    commit_all(save(&mut store, &workspace));
+    let id = workspace.environments[0].id.clone().unwrap();
+    assert!(vault.saved(&VaultSlot::environment(&id)).is_some());
+    store
+        .forget_environment_secrets(&id)
+        .unwrap()
+        .commit()
+        .unwrap();
+    assert!(vault.saved(&VaultSlot::environment(&id)).is_none());
+    assert!(root.store().forget_environment_secrets(&id).is_none());
 }
 
 #[test]
 fn an_unavailable_keychain_keeps_files_whole_and_warns_about_secrets() {
     let root = TemporaryRoot::new();
     let workspace = workspace_with_secrets();
-    save(&mut root.store(), &workspace);
-    let vault = Arc::new(MemoryVaultStore::unavailable());
-    let mut store = with_vault(&root, &vault);
+    commit_all(save(&mut root.store(), &workspace));
+    let mut store = with_vault(&root, &Arc::new(MemoryVaultStore::unavailable()));
     let loaded = store.load();
-    assert!(!store.keeps_secrets_in_vault());
-    assert!(!loaded.secrets_to_secure);
     assert_eq!(loaded.warnings.len(), 1);
-    assert!(store.vault_write(&loaded.workspace).is_none());
-    save(&mut store, &loaded.workspace);
-    assert!(files_text(&root).contains(TOKEN_VALUE));
+    assert_eq!(commit_all(save(&mut store, &loaded.workspace)), 0);
+    assert!(files_text(&store).contains(TOKEN_VALUE));
 }
 
 #[test]

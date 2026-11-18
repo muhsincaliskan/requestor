@@ -1,14 +1,17 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use super::super::pending_write::StoreError;
+use super::super::pending_write::{PendingWrite, StoreError};
 use super::super::vault_write::{VaultWrite, KEYCHAIN_LABEL};
-use super::super::{StoreWrite, Workspace};
-use super::WorkspaceStore;
+use super::super::{SecretRestore, SecuredWrite, StoreWrite, UnsecuredSecrets, Workspace};
+use super::{pending, WorkspaceStore};
 use crate::environment::Environment;
-use crate::vault::{SecretVault, VaultStore};
+use crate::vault::{VaultSlot, VaultStore};
+use crate::workspace::AppSettings;
 
 const KEPT_IN_FILES: &str = "secrets stay in the workspace files";
+const MISSING: &str = "no saved secret values for";
+const UNREADABLE: &str = "unreadable secret values for";
 
 impl WorkspaceStore {
     pub fn with_vault(mut self, vault: Arc<dyn VaultStore>) -> Self {
@@ -16,16 +19,47 @@ impl WorkspaceStore {
         self
     }
 
-    pub fn keeps_secrets_in_vault(&self) -> bool {
-        self.secured
+    pub fn forget_environment_secrets(&self, id: &str) -> Option<StoreWrite> {
+        let write = VaultWrite::new(self.secured_vault()?, VaultSlot::environment(id), None);
+        Some(StoreWrite::Vault(write))
     }
 
-    pub fn vault_write(&self, workspace: &Workspace) -> Option<StoreWrite> {
-        let vault = self.vault.as_ref().filter(|_| self.secured)?;
-        let secrets = SecretVault::collect(workspace);
-        Some(StoreWrite::Vault(VaultWrite::new(
-            Arc::clone(vault),
-            secrets,
+    pub(super) fn secure_environment(
+        &self,
+        whole: PendingWrite,
+        environment: &Environment,
+    ) -> Result<StoreWrite, StoreError> {
+        let Some(vault) = self.secured_vault() else {
+            return Ok(StoreWrite::from(whole));
+        };
+        let value = if environment.declares_secrets() {
+            Some(environment.secrets().to_secret().map_err(keychain_error)?)
+        } else {
+            None
+        };
+        let stripped = pending(
+            whole.path().to_path_buf(),
+            &environment.without_secret_values(),
+        )?;
+        let vault = VaultWrite::new(vault, environment.vault_slot(), value);
+        Ok(StoreWrite::Secured(SecuredWrite::new(
+            vault, stripped, whole,
+        )))
+    }
+
+    pub(super) fn secure_settings(
+        &self,
+        whole: PendingWrite,
+        settings: &AppSettings,
+    ) -> Result<StoreWrite, StoreError> {
+        let Some(vault) = self.secured_vault() else {
+            return Ok(StoreWrite::from(whole));
+        };
+        let stripped = pending(whole.path().to_path_buf(), &settings.without_secrets())?;
+        let password = settings.proxy_password().cloned();
+        let vault = VaultWrite::new(vault, VaultSlot::proxy_password(), password);
+        Ok(StoreWrite::Secured(SecuredWrite::new(
+            vault, stripped, whole,
         )))
     }
 
@@ -33,31 +67,45 @@ impl WorkspaceStore {
         &mut self,
         workspace: &mut Workspace,
         warnings: &mut Vec<StoreError>,
-    ) -> bool {
-        let on_disk = !SecretVault::collect(workspace).is_empty();
-        let declared = on_disk
-            || workspace
-                .environments
-                .iter()
-                .any(Environment::declares_secrets);
-        let Some(vault) = &self.vault else {
-            return false;
+    ) -> UnsecuredSecrets {
+        let Some(vault) = self.vault.clone() else {
+            return UnsecuredSecrets::default();
         };
-        match vault.load() {
+        let slots = workspace.vault_slots();
+        match vault.load_all(&slots) {
             Ok(saved) => {
-                if let Some(saved) = saved {
-                    saved.restore_into(workspace);
-                }
                 self.secured = true;
-                on_disk
+                let restore = workspace.restore_secrets(&saved);
+                warn_about(&restore, warnings);
+                restore.unsecured
             }
             Err(error) => {
-                if declared {
+                if !slots.is_empty() {
                     let reason = format!("{KEPT_IN_FILES} ({error})");
-                    warnings.push(StoreError::at(Path::new(KEYCHAIN_LABEL), reason));
+                    warnings.push(keychain_error(reason));
                 }
-                false
+                UnsecuredSecrets::default()
             }
         }
     }
+
+    fn secured_vault(&self) -> Option<Arc<dyn VaultStore>> {
+        self.vault.clone().filter(|_| self.secured)
+    }
+}
+
+fn warn_about(restore: &SecretRestore, warnings: &mut Vec<StoreError>) {
+    let missing = restore
+        .missing
+        .iter()
+        .map(|name| format!("{MISSING} {name}"));
+    let unreadable = restore
+        .unreadable
+        .iter()
+        .map(|name| format!("{UNREADABLE} {name}"));
+    warnings.extend(missing.chain(unreadable).map(keychain_error));
+}
+
+fn keychain_error(reason: impl std::fmt::Display) -> StoreError {
+    StoreError::at(Path::new(KEYCHAIN_LABEL), reason)
 }

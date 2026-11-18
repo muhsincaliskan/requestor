@@ -1,9 +1,12 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use requestor_core::environment::Environment;
 use requestor_core::identity::random_uuid;
 use requestor_core::vault::MemoryVaultStore;
-use requestor_core::workspace::{LoadedWorkspace, StoreWrite, Workspace, WorkspaceStore};
+use requestor_core::workspace::{
+    LoadedWorkspace, StoreWrite, UnsecuredSecrets, Workspace, WorkspaceStore,
+};
 
 use super::LATER;
 use crate::state::{Action, AppState, Effect, LibraryTarget};
@@ -20,62 +23,58 @@ fn workspace_with_secret() -> (Workspace, String) {
     (workspace, id)
 }
 
-fn secured_state(workspace: Workspace, secrets_to_secure: bool) -> AppState {
+fn secured_state(workspace: Workspace, unsecured: UnsecuredSecrets) -> AppState {
     let root = std::env::temp_dir().join(format!("requestor-secrets-{}", random_uuid()));
     let mut store = WorkspaceStore::new(root).with_vault(Arc::new(MemoryVaultStore::default()));
     store.load();
     let loaded = LoadedWorkspace {
         workspace,
-        secrets_to_secure,
+        unsecured,
         ..LoadedWorkspace::default()
     };
     AppState::new(loaded, store)
 }
 
-fn single_batch(effects: Vec<Effect>) -> Vec<StoreWrite> {
-    let mut batches: Vec<Vec<StoreWrite>> = effects
-        .into_iter()
-        .filter_map(|effect| match effect {
-            Effect::Persist(StoreWrite::Batch(writes)) => Some(writes),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(batches.len(), 1, "expected one batch");
-    batches.remove(0)
+fn secured_writes(effects: &[Effect]) -> usize {
+    effects
+        .iter()
+        .filter(|effect| matches!(effect, Effect::Persist(StoreWrite::Secured(_))))
+        .count()
 }
 
 #[test]
 fn secrets_found_in_files_are_rewritten_through_the_keychain_on_the_first_save() {
-    let (workspace, _) = workspace_with_secret();
-    let mut state = secured_state(workspace, true);
-    let writes = single_batch(state.tick(LATER));
-    assert!(matches!(
-        writes.as_slice(),
-        [StoreWrite::Vault(_), StoreWrite::File(_)]
-    ));
+    let (workspace, id) = workspace_with_secret();
+    let unsecured = UnsecuredSecrets {
+        environments: BTreeSet::from([id]),
+        settings: true,
+    };
+    let mut state = secured_state(workspace, unsecured);
+    assert_eq!(secured_writes(&state.tick(LATER)), 2);
 }
 
 #[test]
-fn an_edited_environment_saves_the_keychain_before_its_file() {
+fn an_edited_environment_goes_through_the_keychain() {
     let (workspace, id) = workspace_with_secret();
-    let mut state = secured_state(workspace, false);
+    let mut state = secured_state(workspace, UnsecuredSecrets::default());
     assert!(state.tick(LATER).is_empty());
     state.unsaved.touch_environment(&id, LATER);
-    let writes = single_batch(state.tick(LATER * 2.0));
-    assert!(matches!(
-        writes.as_slice(),
-        [StoreWrite::Vault(_), StoreWrite::File(_)]
-    ));
+    assert_eq!(secured_writes(&state.tick(LATER * 2.0)), 1);
 }
 
 #[test]
 fn deleting_an_environment_forgets_its_secrets() {
     let (workspace, environment_id) = workspace_with_secret();
-    let mut state = secured_state(workspace, false);
-    let target = LibraryTarget::Environment { environment_id };
-    state.apply(Action::Delete(target), 0.0);
-    let writes = single_batch(state.tick(LATER));
-    assert!(matches!(writes.as_slice(), [StoreWrite::Vault(_)]));
+    let mut state = secured_state(workspace, UnsecuredSecrets::default());
+    let target = LibraryTarget::Environment {
+        environment_id: environment_id.clone(),
+    };
+    let effects = state.apply(Action::Delete(target), 0.0);
+    let forgotten = effects.iter().any(|effect| {
+        matches!(effect, Effect::Persist(write @ StoreWrite::Vault(_))
+            if *write == state.store.forget_environment_secrets(&environment_id).unwrap())
+    });
+    assert!(forgotten, "{effects:?}");
 }
 
 #[test]

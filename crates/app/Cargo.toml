@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
+keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
 requestor-core = { version = "0.1.0", path = "../core" }
 rfd = "0.18.0"
 

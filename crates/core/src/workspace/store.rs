@@ -11,7 +11,7 @@ use self::links::LinkedFolders;
 use self::location::platform_root;
 use super::pending_write::{PendingDelete, PendingWrite, StoreError};
 use super::settings::AppSettings;
-use super::{Session, StoreWrite, Workspace};
+use super::{Session, StoreWrite, UnsecuredSecrets, Workspace};
 use crate::collection::Collection;
 use crate::environment::Environment;
 use crate::history::History;
@@ -41,7 +41,7 @@ pub struct WorkspaceStore {
 pub struct LoadedWorkspace {
     pub workspace: Workspace,
     pub warnings: Vec<StoreError>,
-    pub secrets_to_secure: bool,
+    pub unsecured: UnsecuredSecrets,
 }
 
 impl WorkspaceStore {
@@ -98,11 +98,11 @@ impl WorkspaceStore {
             history: self.load_file(HISTORY_FILE, &mut warnings),
         };
         workspace.normalize();
-        let secrets_to_secure = self.open_vault(&mut workspace, &mut warnings);
+        let unsecured = self.open_vault(&mut workspace, &mut warnings);
         LoadedWorkspace {
             workspace,
             warnings,
-            secrets_to_secure,
+            unsecured,
         }
     }
 
@@ -118,24 +118,16 @@ impl WorkspaceStore {
     pub fn environment_write(
         &mut self,
         environment: &Environment,
-    ) -> Result<PendingWrite, StoreError> {
+    ) -> Result<StoreWrite, StoreError> {
         let directory = self.root.join(ENVIRONMENTS_DIRECTORY);
         let id = environment.id.as_deref().unwrap_or_default();
         let path = self.environments.path_for(&directory, id);
-        if self.secured {
-            pending(path, &environment.without_secret_values())
-        } else {
-            pending(path, environment)
-        }
+        self.secure_environment(pending(path, environment)?, environment)
     }
 
-    pub fn settings_write(&self, settings: &AppSettings) -> Result<PendingWrite, StoreError> {
-        let path = self.root.join(SETTINGS_FILE);
-        if self.secured {
-            pending(path, &settings.without_secrets())
-        } else {
-            pending(path, settings)
-        }
+    pub fn settings_write(&self, settings: &AppSettings) -> Result<StoreWrite, StoreError> {
+        let whole = pending(self.root.join(SETTINGS_FILE), settings)?;
+        self.secure_settings(whole, settings)
     }
 
     pub fn session_write(&self, session: &Session) -> Result<PendingWrite, StoreError> {
