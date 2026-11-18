@@ -5,6 +5,7 @@ pub mod draft;
 pub mod encoding;
 pub mod environment;
 pub mod error;
+pub mod event_stream;
 pub mod header;
 pub mod history;
 pub mod identity;

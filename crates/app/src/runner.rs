@@ -9,7 +9,7 @@ use requestor_core::settings::RequestSettings;
 use requestor_core::transport::{Cancellation, ReqwestTransport};
 use requestor_core::update::{newer_release, GithubReleaseClient, Version, LATEST_RELEASE_URL};
 
-use crate::state::{Action, TabId};
+use crate::state::{Action, StreamUpdate, TabId};
 
 const WORKER_NAME: &str = "requestor-send";
 const UPDATE_WORKER_NAME: &str = "requestor-update-check";
@@ -57,8 +57,16 @@ impl Runner {
         let spawned = thread::Builder::new()
             .name(WORKER_NAME.to_string())
             .spawn(move || {
+                let progress_report = report.clone();
+                let progress_wake = wake.clone();
                 let result = transport
-                    .send_cancellable(request, &cancellation)
+                    .send_cancellable(request, &cancellation, &mut |progress| {
+                        let update = StreamUpdate::from(progress);
+                        let action = Action::StreamProgress { tab, job, update };
+                        if progress_report.send(action).is_ok() {
+                            progress_wake.request_repaint();
+                        }
+                    })
                     .map_err(|error| error.to_string());
                 let delivered = report.send(Action::SendFinished { tab, job, result });
                 if delivered.is_ok() {

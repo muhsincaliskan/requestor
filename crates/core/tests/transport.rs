@@ -8,7 +8,9 @@ use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::ResponseFormat;
 use requestor_core::secret::Secret;
 use requestor_core::settings::{ProxySettings, RequestSettings};
-use requestor_core::transport::{HttpTransport, ReqwestTransport, TransportError};
+use requestor_core::transport::{
+    Cancellation, HttpTransport, ReqwestTransport, StreamProgress, TransportError,
+};
 use support::{http_response, TestServer};
 
 fn request(method: HttpMethod, url: String) -> PreparedRequest {
@@ -212,4 +214,44 @@ fn invalid_proxy_url_is_a_settings_error() {
         ReqwestTransport::new(&settings),
         Err(TransportError::InvalidSettings(_))
     ));
+}
+
+#[test]
+fn event_streams_report_their_head_and_every_chunk() {
+    let server = TestServer::spawn(|_| {
+        http_response(
+            "200 OK",
+            &["Content-Type: text/event-stream"],
+            b"data: one\n\ndata: two\n\n",
+        )
+    });
+    let mut opened = None;
+    let mut received = Vec::new();
+    let response = transport(&RequestSettings::default())
+        .send_cancellable(
+            request(HttpMethod::Get, server.url("/events")),
+            &Cancellation::default(),
+            &mut |progress| match progress {
+                StreamProgress::Opened(head) => opened = Some(head.status),
+                StreamProgress::Received(bytes) => received.extend_from_slice(bytes),
+            },
+        )
+        .unwrap();
+    assert_eq!(opened, Some(200));
+    assert_eq!(received, b"data: one\n\ndata: two\n\n");
+    assert_eq!(response.body, received);
+}
+
+#[test]
+fn ordinary_responses_report_no_stream_progress() {
+    let server = TestServer::spawn(|_| http_response("200 OK", &[], b"plain"));
+    let mut calls = 0;
+    transport(&RequestSettings::default())
+        .send_cancellable(
+            request(HttpMethod::Get, server.url("/")),
+            &Cancellation::default(),
+            &mut |_| calls += 1,
+        )
+        .unwrap();
+    assert_eq!(calls, 0);
 }

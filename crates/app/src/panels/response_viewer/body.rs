@@ -96,7 +96,7 @@ fn find_box(ui: &mut Ui, search: &mut BodySearch) {
     }
 }
 
-fn digits(count: usize) -> usize {
+pub(super) fn digits(count: usize) -> usize {
     count.max(1).ilog10() as usize + 1
 }
 
