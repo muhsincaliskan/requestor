@@ -128,3 +128,62 @@ fn bypass_hosts_match_exact_names_and_subdomains() {
     proxy.set_bypass_hosts_text("*");
     assert!(proxy.bypasses("example.com"));
 }
+
+fn certificate_for(host: &str) -> super::ClientCertificate {
+    super::ClientCertificate {
+        host: host.to_string(),
+        certificate_path: "client.pem".into(),
+        key_path: None,
+    }
+}
+
+#[test]
+fn client_certificates_match_their_host_port_and_subdomains() {
+    let cases = [
+        ("API.example.com", "api.example.com", 443, true),
+        ("api.example.com", "example.com", 443, false),
+        ("api.example.com:8443", "api.example.com", 8443, true),
+        ("api.example.com:8443", "api.example.com", 443, false),
+        ("*.example.com", "a.b.EXAMPLE.com", 443, true),
+        ("*.example.com", "example.com", 443, false),
+        ("*.example.com", "badexample.com", 443, false),
+        ("*", "anything.test", 1, true),
+        ("[::1]:9443", "[::1]", 9443, true),
+    ];
+    for (pattern, host, port, expected) in cases {
+        assert_eq!(
+            certificate_for(pattern).matches(host, port),
+            expected,
+            "{pattern} vs {host}:{port}"
+        );
+    }
+}
+
+#[test]
+fn client_certificates_need_a_host_and_a_certificate_file() {
+    assert!(certificate_for("api.example.com").is_complete());
+    assert!(!certificate_for(" ").is_complete());
+    let without_file = super::ClientCertificate {
+        certificate_path: "".into(),
+        ..certificate_for("api.example.com")
+    };
+    assert!(!without_file.is_complete());
+}
+
+#[test]
+fn client_certificate_pem_joins_the_certificate_and_key_files() {
+    let folder = std::env::temp_dir().join(format!("requestor-pem-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let (certificate_path, key_path) = (folder.join("cert.pem"), folder.join("key.pem"));
+    std::fs::write(&certificate_path, "CERT").unwrap();
+    std::fs::write(&key_path, "KEY").unwrap();
+    let certificate =
+        super::ClientCertificate::for_every_host(certificate_path.clone(), Some(key_path));
+    assert_eq!(certificate.pem().unwrap(), b"CERT\nKEY");
+
+    let missing = super::ClientCertificate::for_every_host(folder.join("missing.pem"), None);
+    let error = missing.pem().unwrap_err();
+    assert!(error.starts_with("cannot read"), "{error}");
+    assert!(error.contains("missing.pem"), "{error}");
+    std::fs::remove_dir_all(folder).unwrap();
+}

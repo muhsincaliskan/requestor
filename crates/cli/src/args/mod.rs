@@ -92,6 +92,7 @@ impl RunOptions {
         }
         options.collection =
             collection.ok_or_else(|| CliError::usage("run needs a collection file"))?;
+        options.network = options.network.validated()?;
         Ok(options)
     }
 
@@ -122,7 +123,10 @@ impl SendOptions {
                 "send needs a curl command or a raw http file",
             ));
         }
-        Ok(SendOptions { target, network })
+        Ok(SendOptions {
+            target,
+            network: network.validated()?,
+        })
     }
 }
 

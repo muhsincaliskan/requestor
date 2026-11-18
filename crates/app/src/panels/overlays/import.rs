@@ -1,16 +1,19 @@
-use eframe::egui::{Context, ScrollArea, TextEdit, Ui};
+use eframe::egui::{Context, RichText, ScrollArea, TextEdit, Ui};
 
-use super::{button_row, dialog};
+use super::{button_row, dialog, TITLE_GAP};
 use crate::state::{Action, FolderPurpose, ImportForm};
 use crate::widgets::action_button;
 
 const DIALOG_ID: &str = "import";
 const TITLE: &str = "Import";
 const PASTE_ID: &str = "import-paste";
-const SUPPORTED_TEXT: &str = "Postman collection v2.1, Postman environment, OpenAPI 3 JSON, WSDL 1.1, cURL command or raw HTTP request.";
+const SUPPORTED_TEXT: &str =
+    "Supports Postman collections v2.1 and environments, OpenAPI 3 JSON, WSDL 1.1, cURL commands and raw HTTP requests.";
+const FILE_HEADING: &str = "From a file";
+const PASTE_HEADING: &str = "Or paste";
 const CHOOSE_FILE_LABEL: &str = "Choose file…";
 const OPEN_FOLDER_LABEL: &str = "Open collection folder…";
-const DROP_HINT: &str = "or drop a file anywhere on the window";
+const DROP_HINT: &str = "You can also drop a file anywhere on the window.";
 const PASTE_HINT: &str =
     "Paste text to import, or a WSDL address such as https://host/service?wsdl";
 const DOWNLOADING_TEXT: &str = "Downloading…";
@@ -18,14 +21,20 @@ const IMPORT_TEXT_LABEL: &str = "Import";
 const CANCEL_LABEL: &str = "Cancel";
 const PASTE_HEIGHT: f32 = 200.0;
 const PASTE_ROWS: usize = 8;
-const DIALOG_WIDTH: f32 = 520.0;
+const DIALOG_WIDTH: f32 = 560.0;
+const SECTION_GAP: f32 = 16.0;
 
 pub fn show(ctx: &Context, form: &mut ImportForm, actions: &mut Vec<Action>) -> bool {
     dialog(ctx, DIALOG_ID, TITLE, |ui| {
         ui.set_width(DIALOG_WIDTH);
-        ui.label(SUPPORTED_TEXT);
+        section_heading(ui, FILE_HEADING);
         file_row(ui, actions);
+        ui.weak(DROP_HINT);
+        ui.add_space(SECTION_GAP);
+        section_heading(ui, PASTE_HEADING);
         paste_box(ui, &mut form.text);
+        ui.add_space(TITLE_GAP);
+        ui.label(RichText::new(SUPPORTED_TEXT).weak().small());
         if form.is_downloading() {
             ui.horizontal(|ui| {
                 ui.spinner();
@@ -74,6 +83,10 @@ fn file_row(ui: &mut Ui, actions: &mut Vec<Action>) {
         if ui.button(OPEN_FOLDER_LABEL).clicked() {
             actions.push(Action::ChooseFolder(FolderPurpose::OpenCollection));
         }
-        ui.weak(DROP_HINT);
     });
+}
+
+fn section_heading(ui: &mut Ui, text: &str) {
+    ui.label(RichText::new(text).strong());
+    ui.add_space(TITLE_GAP / 2.0);
 }

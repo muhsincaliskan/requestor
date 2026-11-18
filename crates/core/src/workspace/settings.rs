@@ -77,7 +77,7 @@ impl Default for InterfaceSettings {
             variable_autocomplete: true,
             response_format_detection: true,
             retain_headers_on_links: false,
-            open_sidebar_item_in_new_tab: false,
+            open_sidebar_item_in_new_tab: true,
             ask_when_closing_unsaved_tabs: true,
             show_icons_with_tab_names: true,
             two_pane_view: false,

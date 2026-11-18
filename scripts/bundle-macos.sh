@@ -9,6 +9,7 @@ set -euo pipefail
 APP_NAME="Requestor"
 BUNDLE_IDENTIFIER="dev.requestor.app"
 APP_BINARY="requestor-app"
+BUNDLE_EXECUTABLE="Requestor"
 CLI_BINARY="requestor"
 APP_PACKAGE="requestor-app"
 CLI_PACKAGE="requestor-cli"
@@ -95,7 +96,7 @@ write_info_plist() {
   <key>CFBundleName</key><string>$APP_NAME</string>
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundleIdentifier</key><string>$BUNDLE_IDENTIFIER</string>
-  <key>CFBundleExecutable</key><string>$APP_BINARY</string>
+  <key>CFBundleExecutable</key><string>$BUNDLE_EXECUTABLE</string>
   <key>CFBundleVersion</key><string>$version</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -111,7 +112,7 @@ assemble_app() {
   local app_dir="$1" version="$2" source_dir="$3"
   rm -rf "$app_dir"
   mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
-  cp "$source_dir/$APP_BINARY" "$app_dir/Contents/MacOS/$APP_BINARY"
+  cp "$source_dir/$APP_BINARY" "$app_dir/Contents/MacOS/$BUNDLE_EXECUTABLE"
   cp "$ICON_SOURCE" "$app_dir/Contents/Resources/$ICON_FILE"
   write_info_plist "$app_dir/Contents/Info.plist" "$version"
 }

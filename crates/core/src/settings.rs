@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::secret::Secret;
 
+mod certificate;
+
+pub use certificate::ClientCertificate;
+
 const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 50 * 1024 * 1024;
@@ -101,6 +105,7 @@ pub struct RequestSettings {
     pub send_postman_token_header: bool,
     pub use_system_proxy: bool,
     pub proxy: Option<ProxySettings>,
+    pub client_certificates: Vec<ClientCertificate>,
 }
 
 impl Default for RequestSettings {
@@ -118,6 +123,7 @@ impl Default for RequestSettings {
             send_postman_token_header: true,
             use_system_proxy: true,
             proxy: None,
+            client_certificates: Vec::new(),
         }
     }
 }

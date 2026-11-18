@@ -67,5 +67,5 @@ fn with_window_icon(viewport: ViewportBuilder) -> ViewportBuilder {
 
 #[cfg(target_os = "macos")]
 fn with_window_icon(viewport: ViewportBuilder) -> ViewportBuilder {
-    viewport
+    viewport.with_icon(eframe::egui::IconData::default())
 }

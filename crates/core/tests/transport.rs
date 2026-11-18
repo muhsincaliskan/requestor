@@ -9,7 +9,7 @@ use requestor_core::method::HttpMethod;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::ResponseFormat;
 use requestor_core::secret::Secret;
-use requestor_core::settings::{ProxySettings, RequestSettings};
+use requestor_core::settings::{ClientCertificate, ProxySettings, RequestSettings};
 use requestor_core::transport::{
     Cancellation, HttpTransport, ReqwestTransport, StreamProgress, TransportError,
 };
@@ -216,6 +216,56 @@ fn invalid_proxy_url_is_a_settings_error() {
         ReqwestTransport::new(&settings),
         Err(TransportError::InvalidSettings(_))
     ));
+}
+
+fn tls_fixture(name: &str) -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/tls")
+        .join(name)
+}
+
+fn with_certificate(certificate_path: std::path::PathBuf, key: &str) -> RequestSettings {
+    RequestSettings {
+        client_certificates: vec![ClientCertificate {
+            host: "127.0.0.1".to_string(),
+            certificate_path,
+            key_path: Some(tls_fixture(key)),
+        }],
+        ..RequestSettings::default()
+    }
+}
+
+#[test]
+fn client_certificates_load_and_plain_http_still_works() {
+    let server = TestServer::spawn(|_| http_response("200 OK", &[], b"plain"));
+    let settings = with_certificate(tls_fixture("client.crt"), "client.key");
+    let response = transport(&settings)
+        .send(request(HttpMethod::Get, server.url("/")))
+        .unwrap();
+    assert_eq!(response.body, b"plain");
+}
+
+#[test]
+fn unusable_client_certificates_fail_only_matching_requests() {
+    for (certificate, key) in [
+        (tls_fixture("client.key"), "client.key"),
+        (tls_fixture("missing.crt"), "client.key"),
+    ] {
+        let server = TestServer::spawn(|_| http_response("200 OK", &[], b"plain"));
+        let transport = transport(&with_certificate(certificate, key));
+        let plain = transport.send(request(HttpMethod::Get, server.url("/")));
+        assert_eq!(plain.unwrap().body, b"plain");
+        let secure = request(HttpMethod::Get, "https://127.0.0.1:1/".to_string());
+        match transport.send(secure) {
+            Err(TransportError::InvalidSettings(reason)) => {
+                assert!(
+                    reason.starts_with("client certificate for 127.0.0.1"),
+                    "{reason}"
+                )
+            }
+            other => panic!("expected a settings error, got {other:?}"),
+        }
+    }
 }
 
 #[test]

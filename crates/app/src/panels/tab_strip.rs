@@ -1,4 +1,6 @@
-use eframe::egui::{vec2, Direction, Layout, Response, ScrollArea, Sense, Ui, UiBuilder};
+use eframe::egui::{
+    vec2, Atom, Button, Direction, Id, Layout, Rect, Response, ScrollArea, Ui, UiBuilder,
+};
 
 use crate::state::{Action, AppState, RequestTab};
 use crate::widgets::{icon_button, request_title, ICON_BUTTON_SIZE, UNSAVED_DOT};
@@ -7,6 +9,7 @@ const STRIP_SCROLL_ID: &str = "tab-strip-scroll";
 const NEW_TAB_LABEL: &str = "+";
 const NEW_TAB_HINT: &str = "New tab";
 const CLOSE_LABEL: &str = "×";
+const CLOSE_SLOT_ID: &str = "tab-close-slot";
 const CLOSE_HINT: &str = "Close tab";
 const UNSAVED_HINT: &str = "Unsaved changes";
 const SAVE_ITEM: &str = "Save";
@@ -45,11 +48,18 @@ fn tab_button(
     actions: &mut Vec<Action>,
 ) {
     let method = with_method.then_some(tab.draft.method.as_str());
-    let button = ui.selectable_label(active, request_title(ui, method, &tab.draft.name));
+    let slot_id = Id::new(CLOSE_SLOT_ID);
+    let slot = Atom::custom(slot_id, vec2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE));
+    let laid_out =
+        Button::selectable(active, (request_title(ui, method, &tab.draft.name), slot)).atom_ui(ui);
+    let button = laid_out.response.clone();
     if button.clicked() {
         actions.push(Action::ActivateTab(tab.id));
     }
-    if button.middle_clicked() || close_slot(ui, &button, tab.unsaved, active) {
+    let closed = laid_out
+        .rect(slot_id)
+        .is_some_and(|slot| close_slot(ui, &button, slot, tab.unsaved, active));
+    if button.middle_clicked() || closed {
         actions.push(Action::CloseTab(tab.id));
     }
     button.context_menu(|ui| {
@@ -68,10 +78,8 @@ fn tab_button(
     });
 }
 
-fn close_slot(ui: &mut Ui, button: &Response, unsaved: bool, active: bool) -> bool {
-    let (slot, _) =
-        ui.allocate_exact_size(vec2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE), Sense::hover());
-    let hovered = ui.rect_contains_pointer(button.rect.union(slot));
+fn close_slot(ui: &mut Ui, button: &Response, slot: Rect, unsaved: bool, active: bool) -> bool {
+    let hovered = ui.rect_contains_pointer(button.rect);
     let shows_close = hovered || (active && !unsaved);
     let mut slot_ui = ui.new_child(
         UiBuilder::new()
