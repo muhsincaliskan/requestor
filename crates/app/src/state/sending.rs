@@ -15,7 +15,8 @@ impl AppState {
         match action {
             Action::Send(tab) => self.send(tab, effects),
             Action::CancelSend(tab) => self.cancel_send(tab),
-            Action::SendFinished { tab, job, result } => self.send_finished(tab, job, result),
+            Action::StreamProgress { tab, job, update } => self.stream_progress(tab, job, update),
+            Action::SendFinished { tab, job, result } => self.finish_send(tab, job, result),
             Action::CopyAsCurl {
                 tab,
                 include_secrets,
@@ -77,11 +78,12 @@ impl AppState {
         });
     }
 
-    fn cancel_send(&mut self, id: TabId) {
-        self.abandon_send(id);
-    }
-
-    fn send_finished(&mut self, id: TabId, job: u64, result: Result<HttpResponse, String>) {
+    pub(super) fn send_finished(
+        &mut self,
+        id: TabId,
+        job: u64,
+        result: Result<HttpResponse, String>,
+    ) {
         let detect_format = self.interface().response_format_detection;
         let Some(tab) = self.tab(id).filter(|tab| tab.is_waiting_for(job)) else {
             return;

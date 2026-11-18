@@ -11,6 +11,7 @@ pub use search::BodySearch;
 use std::time::Duration;
 
 use requestor_core::checks::RulesReport;
+use requestor_core::event_stream::EventLog;
 use requestor_core::header::Header;
 use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
 use requestor_core::text_diff::LineDiff;
@@ -34,6 +35,7 @@ pub struct ResponseView {
     search: BodySearch,
     previous: Option<ComparisonBase>,
     changes: Option<Result<LineDiff, ChangesUnavailable>>,
+    events: Option<EventLog>,
 }
 
 impl ResponseView {
@@ -43,6 +45,9 @@ impl ResponseView {
         } else {
             ResponseFormat::Text
         };
+        let events = response
+            .is_event_stream()
+            .then(|| EventLog::from_body(&response.body));
         ResponseView {
             status: response.status,
             reason: response.reason,
@@ -58,6 +63,7 @@ impl ResponseView {
             search: BodySearch::default(),
             previous: None,
             changes: None,
+            events,
         }
     }
 
@@ -100,6 +106,10 @@ impl ResponseView {
 
     fn is_small_enough(&self) -> bool {
         self.body.len() <= MAX_COMPARED_BYTES
+    }
+
+    pub fn events(&self) -> Option<&EventLog> {
+        self.events.as_ref()
     }
 
     pub fn with_report(mut self, report: Option<RulesReport>) -> Self {

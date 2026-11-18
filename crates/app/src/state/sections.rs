@@ -16,6 +16,7 @@ pub enum ResponseSection {
     Cookies,
     Tests,
     Changes,
+    Events,
 }
 
 impl EditorSection {
@@ -39,7 +40,8 @@ impl EditorSection {
 }
 
 impl ResponseSection {
-    pub const ALL: [ResponseSection; 5] = [
+    pub const ALL: [ResponseSection; 6] = [
+        ResponseSection::Events,
         ResponseSection::Body,
         ResponseSection::Headers,
         ResponseSection::Cookies,
@@ -54,6 +56,7 @@ impl ResponseSection {
             ResponseSection::Cookies => "Cookies",
             ResponseSection::Tests => "Tests",
             ResponseSection::Changes => "Changes",
+            ResponseSection::Events => "Events",
         }
     }
 }

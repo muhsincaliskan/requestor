@@ -2,6 +2,7 @@ mod body;
 mod changes;
 mod checks;
 mod cookie;
+mod events;
 mod lists;
 mod readout;
 mod status;
@@ -12,11 +13,13 @@ use eframe::egui::{Id, Label, RichText, Spinner, Ui};
 
 use crate::response::ResponseView;
 use crate::shortcuts;
-use crate::state::{Action, AppState, Exchange, ResponseSection, TabId};
+use crate::state::{Action, AppState, Exchange, LiveStream, ResponseSection, TabId};
 
 const IDLE_HINT: &str = "Send the request to see a response";
 const SENDING_LABEL: &str = "Sending…";
 const CANCEL_LABEL: &str = "Cancel";
+const STOP_LABEL: &str = "Stop";
+const RECEIVING_LABEL: &str = "Events received:";
 const SEND_ELAPSED_ID: &str = "response-send-started";
 const IDLE_TOP_SHARE: f32 = 0.35;
 const SENDING_REPAINT: Duration = Duration::from_millis(100);
@@ -29,7 +32,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
     let mut chosen = section;
     match &mut open.exchange {
         Exchange::Idle => idle(ui),
-        Exchange::Sending { job, .. } => sending(ui, tab, *job, actions),
+        Exchange::Sending { job, live, .. } => sending(ui, tab, *job, live.as_deref(), actions),
         Exchange::Failed(reason) => failed(ui, reason),
         Exchange::Completed(view) => completed(ui, view, &mut chosen, actions),
     }
@@ -46,21 +49,39 @@ fn idle(ui: &mut Ui) {
     });
 }
 
-fn sending(ui: &mut Ui, tab: TabId, job: u64, actions: &mut Vec<Action>) {
+fn sending(
+    ui: &mut Ui,
+    tab: TabId,
+    job: u64,
+    live: Option<&LiveStream>,
+    actions: &mut Vec<Action>,
+) {
     let now = ui.input(|input| input.time);
     let key = Id::new((SEND_ELAPSED_ID, tab, job));
     let first_seen = ui.data_mut(|data| *data.get_temp_mut_or_insert_with(key, || now));
+    let elapsed = (now - first_seen).max(0.0);
     ui.ctx().request_repaint_after(SENDING_REPAINT);
     ui.horizontal(|ui| {
         ui.add(Spinner::new());
-        ui.label(format!(
-            "{SENDING_LABEL} {:.1} s",
-            (now - first_seen).max(0.0)
-        ));
-        if ui.button(CANCEL_LABEL).clicked() {
+        let (status, stop) = match live {
+            Some(stream) => (
+                format!(
+                    "{RECEIVING_LABEL} {} · {elapsed:.0} s",
+                    stream.log().total()
+                ),
+                STOP_LABEL,
+            ),
+            None => (format!("{SENDING_LABEL} {elapsed:.1} s"), CANCEL_LABEL),
+        };
+        ui.label(status);
+        if ui.button(stop).clicked() {
             actions.push(Action::CancelSend(tab));
         }
     });
+    if let Some(stream) = live {
+        ui.separator();
+        events::list(ui, Some(stream.log()), actions);
+    }
 }
 
 fn failed(ui: &mut Ui, reason: &str) {
@@ -92,6 +113,7 @@ fn completed(
         ResponseSection::Cookies => lists::cookies(ui, view, actions),
         ResponseSection::Tests => checks::show(ui, view),
         ResponseSection::Changes => changes::show(ui, view),
+        ResponseSection::Events => events::list(ui, view.events(), actions),
     }
 }
 
@@ -119,5 +141,8 @@ fn section_label(section: ResponseSection, view: &ResponseView) -> Option<String
             )
         }),
         ResponseSection::Changes => view.has_previous().then(|| label.to_string()),
+        ResponseSection::Events => view
+            .events()
+            .map(|log| format!("{label} ({})", log.total())),
     }
 }

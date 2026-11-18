@@ -11,6 +11,8 @@ mod overlay;
 mod persistence;
 mod sections;
 mod sending;
+mod stream;
+mod streaming;
 mod tab;
 mod tab_closing;
 mod tabs;
@@ -28,6 +30,7 @@ pub use overlay::{
 };
 pub use persistence::SaveStatus;
 pub use sections::{EditorSection, ResponseSection};
+pub use stream::{LiveStream, StreamUpdate};
 pub use tab::{ItemBinding, RequestTab, TabId};
 
 use requestor_core::update::Release;

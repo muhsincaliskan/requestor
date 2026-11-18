@@ -6,6 +6,7 @@ use requestor_core::update::Release;
 
 use super::folders::FolderPurpose;
 use super::overlay::{LibraryTarget, Overlay};
+use super::stream::StreamUpdate;
 use super::tab::TabId;
 
 #[derive(Debug)]
@@ -39,6 +40,11 @@ pub enum Action {
         tab: TabId,
         job: u64,
         result: Result<HttpResponse, String>,
+    },
+    StreamProgress {
+        tab: TabId,
+        job: u64,
+        update: StreamUpdate,
     },
     CopyAsCurl {
         tab: TabId,

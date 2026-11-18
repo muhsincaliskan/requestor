@@ -7,6 +7,7 @@ use crate::secret::Secret;
 const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 50 * 1024 * 1024;
+pub const MAX_EVENT_STREAM_BYTES: usize = 16 * 1024 * 1024;
 const DEFAULT_MAX_REDIRECTS: usize = 10;
 pub const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
 const BYPASS_HOST_SEPARATOR: char = ',';
@@ -122,6 +123,10 @@ impl RequestSettings {
         }
     }
 
+    pub fn event_stream_limit(&self) -> usize {
+        self.response_limit().min(MAX_EVENT_STREAM_BYTES)
+    }
+
     pub fn max_response_megabytes(&self) -> u64 {
         (self.max_response_bytes / BYTES_PER_MEGABYTE) as u64
     }
@@ -138,7 +143,9 @@ impl RequestSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::{HttpVersion, ProxySettings, RequestSettings};
+    use super::{
+        HttpVersion, ProxySettings, RequestSettings, BYTES_PER_MEGABYTE, MAX_EVENT_STREAM_BYTES,
+    };
 
     #[test]
     fn http_versions_have_distinct_labels() {
@@ -193,6 +200,15 @@ mod tests {
         };
         assert_eq!(settings.request_timeout(), None);
         assert!(settings.connect_timeout().is_some());
+    }
+
+    #[test]
+    fn event_streams_are_capped_even_without_a_response_limit() {
+        let mut settings = RequestSettings::default();
+        settings.set_max_response_megabytes(0);
+        assert_eq!(settings.event_stream_limit(), MAX_EVENT_STREAM_BYTES);
+        settings.set_max_response_megabytes(1);
+        assert_eq!(settings.event_stream_limit(), BYTES_PER_MEGABYTE);
     }
 
     #[test]

@@ -1,12 +1,11 @@
-use std::io::Read;
 use std::time::Instant;
 
-use reqwest::blocking::{Client, ClientBuilder, Response};
+use reqwest::blocking::{Client, ClientBuilder};
 use reqwest::redirect::Policy;
 use reqwest::{Method, NoProxy, Proxy};
 
-use super::{Cancellation, HttpTransport, TransportError};
-use crate::header::Header;
+use super::reading::{read_response, ReadWatch};
+use super::{Cancellation, HttpTransport, StreamProgress, TransportError};
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
 use crate::settings::{HttpVersion, ProxySettings, RequestSettings};
@@ -14,29 +13,6 @@ use crate::settings::{HttpVersion, ProxySettings, RequestSettings};
 const USER_AGENT: &str = concat!("Requestor/", env!("CARGO_PKG_VERSION"));
 const HOST_LIST_SEPARATOR: &str = ",";
 const SECURE_SCHEME_PREFIX: &str = "https://";
-const READ_CHUNK_BYTES: usize = 16 * 1024;
-const INITIAL_BODY_CAPACITY: usize = 64 * 1024;
-const MAX_PREALLOCATED_BODY_BYTES: usize = 16 * 1024 * 1024;
-
-struct ReadWatch<'a> {
-    deadline: Option<Instant>,
-    cancellation: &'a Cancellation,
-}
-
-impl ReadWatch<'_> {
-    fn check(&self) -> Result<(), TransportError> {
-        if self.cancellation.is_cancelled() {
-            return Err(TransportError::Cancelled);
-        }
-        if self
-            .deadline
-            .is_some_and(|deadline| Instant::now() >= deadline)
-        {
-            return Err(TransportError::Timeout);
-        }
-        Ok(())
-    }
-}
 
 pub struct ReqwestTransport {
     client: Client,
@@ -71,7 +47,7 @@ impl ReqwestTransport {
 
 impl HttpTransport for ReqwestTransport {
     fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError> {
-        self.send_cancellable(request, &Cancellation::default())
+        self.send_cancellable(request, &Cancellation::default(), &mut |_| {})
     }
 }
 
@@ -80,6 +56,7 @@ impl ReqwestTransport {
         &self,
         request: PreparedRequest,
         cancellation: &Cancellation,
+        on_stream: &mut dyn FnMut(StreamProgress<'_>),
     ) -> Result<HttpResponse, TransportError> {
         let method = Method::from_bytes(request.method.as_str().as_bytes())
             .map_err(|error| TransportError::InvalidRequest(error.to_string()))?;
@@ -99,7 +76,7 @@ impl ReqwestTransport {
                 .map(|timeout| started + timeout),
             cancellation,
         };
-        read_response(response, &self.settings, started, &watch)
+        read_response(response, &self.settings, started, watch, on_stream)
     }
 }
 
@@ -155,61 +132,4 @@ fn build_proxy(settings: &ProxySettings) -> Result<Proxy, TransportError> {
         proxy = proxy.no_proxy(NoProxy::from_string(&hosts));
     }
     Ok(proxy)
-}
-
-fn read_response(
-    response: Response,
-    settings: &RequestSettings,
-    started: Instant,
-    watch: &ReadWatch<'_>,
-) -> Result<HttpResponse, TransportError> {
-    let status = response.status();
-    let version = format!("{:?}", response.version());
-    let headers = response
-        .headers()
-        .iter()
-        .map(|(name, value)| Header::new(name.as_str(), String::from_utf8_lossy(value.as_bytes())))
-        .collect();
-    let expected = response
-        .content_length()
-        .map_or(INITIAL_BODY_CAPACITY, |length| {
-            usize::try_from(length).unwrap_or(usize::MAX)
-        });
-    let limit = settings.response_limit();
-    let capacity = expected.min(limit).min(MAX_PREALLOCATED_BODY_BYTES);
-    let (body, truncated) = read_capped(response, limit, capacity, watch)?;
-    Ok(HttpResponse {
-        status: status.as_u16(),
-        reason: status.canonical_reason().unwrap_or_default().to_string(),
-        version,
-        headers,
-        body,
-        truncated,
-        elapsed: started.elapsed(),
-    })
-}
-
-fn read_capped(
-    mut reader: impl Read,
-    limit: usize,
-    capacity: usize,
-    watch: &ReadWatch<'_>,
-) -> Result<(Vec<u8>, bool), TransportError> {
-    let mut body = Vec::with_capacity(capacity);
-    let mut chunk = vec![0u8; READ_CHUNK_BYTES];
-    loop {
-        watch.check()?;
-        let count = reader
-            .read(&mut chunk)
-            .map_err(|error| TransportError::from_io(&error))?;
-        if count == 0 {
-            return Ok((body, false));
-        }
-        let room = limit - body.len();
-        if count > room {
-            body.extend_from_slice(&chunk[..room]);
-            return Ok((body, true));
-        }
-        body.extend_from_slice(&chunk[..count]);
-    }
 }
