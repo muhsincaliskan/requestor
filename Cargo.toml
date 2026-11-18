@@ -6,6 +6,8 @@ members = ["crates/core", "crates/cli", "crates/app"]
 version = "0.2.1"
 edition = "2021"
 rust-version = "1.95"
+license = "MIT"
+repository = "https://github.com/muhsincaliskan/requestor"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

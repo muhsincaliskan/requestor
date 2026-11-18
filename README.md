@@ -1,8 +1,49 @@
 <p align="center"><img src="assets/icon/requestor-512.png" width="128" alt="Requestor icon"></p>
 
-# Requestor
+<h1 align="center">Requestor</h1>
 
-A lightweight HTTP request client written in Rust, built to keep memory use small.
+<p align="center">
+  A fast, lightweight HTTP client for your desktop and terminal.<br>
+  Postman-compatible collections in a fraction of the memory, with no account.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="macOS, Linux and Windows">
+  <img src="https://img.shields.io/badge/built%20with-Rust-orange.svg" alt="Built with Rust">
+</p>
+
+<p align="center"><img src="docs/screenshots/main-dark.png" width="860" alt="Requestor with a collection, environment and a JSON response"></p>
+
+## Why Requestor
+
+- **Light.** One native process drawn with [egui](https://github.com/emilk/egui), no browser engine. Five open tabs take about 37 MB; Postman takes about 641 MB. See [Memory](#memory).
+- **No account, everything local.** No sign-in, no cloud workspace, no telemetry. Collections, environments and history are plain JSON files on your disk. Secrets go to the system keychain.
+- **Git friendly.** Save a collection as a folder with one small JSON file per request, commit it next to your code and review changes as ordinary diffs.
+- **Postman compatible.** Collections and environments use the Postman v2.1 formats. Import yours, keep working in either app, and fields Requestor does not know survive the round trip.
+- **A real CLI.** The `requestor` binary runs collections with their checks, sends a single cURL or raw request and converts imports, which makes it easy to use in scripts and CI.
+
+## Highlights
+
+- Every HTTP method, with raw (JSON, XML, text), URL-encoded, form-data, file, GraphQL and SOAP bodies.
+- Basic, Bearer and API key auth, inherited from the collection or folder. Other Postman auth types are kept as they are.
+- `{{variables}}` from environments and collections, with autocomplete, coloring and hover previews.
+- Import from Postman, OpenAPI 3, WSDL, cURL and raw HTTP. Paste a cURL command into the URL field to fill in the whole request.
+- Tests on each request, stored as Postman test scripts, and values passed from one response to the next request.
+- WebSocket and server-sent events, response diffs, request history and code generation.
+- Proxy with username and password, client certificates, SSL verification, cookies, redirects, timeouts, response size limit and HTTP version, all in Settings.
+- Light, dark, midnight and sepia themes, a two-pane view, swappable sidebars, a command palette and keyboard shortcuts for everything.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/main-light.png" alt="Light theme"></td>
+    <td><img src="docs/screenshots/settings.png" alt="Settings"></td>
+  </tr>
+  <tr>
+    <td align="center">Light theme</td>
+    <td align="center">Settings</td>
+  </tr>
+</table>
 
 ## Install
 
@@ -129,7 +170,18 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-## Measuring memory
+## Memory
+
+Memory use is measured on macOS as the physical footprint, which is what Activity Monitor shows. Requestor runs as a single process; for Postman the main, renderer and GPU processes are added together.
+
+| Scenario | Requestor | Postman 11.99 |
+| --- | --- | --- |
+| Idle, one collection, 5 open tabs | about 37 MB | about 641 MB |
+| 8 open tabs, 5 MB JSON response loaded | about 57 MB | not measured |
+
+The CI memory job runs both scenarios on macOS. The budget is 120 MB for the first and 180 MB for the second, and 200 MB is the hard limit.
+
+### Measuring it yourself
 
 ```
 scripts/measure-ram.sh 5 0 120
@@ -141,3 +193,11 @@ The arguments are the number of open tabs, the size of the response loaded into 
 ## Fonts
 
 The interface uses [Inter](https://github.com/rsms/inter) in Regular, Medium and SemiBold, reduced to the Latin and interface symbol ranges. Inter is licensed under the SIL Open Font License 1.1; see `assets/fonts/LICENSE-Inter.txt`.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and propose a change.
+
+## License
+
+Requestor is released under the [MIT License](LICENSE).
