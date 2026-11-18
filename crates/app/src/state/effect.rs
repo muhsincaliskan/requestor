@@ -22,6 +22,12 @@ pub enum Effect {
         request: Box<PreparedRequest>,
         settings: Box<RequestSettings>,
     },
+    FetchSchema {
+        tab: TabId,
+        job: u64,
+        request: Box<PreparedRequest>,
+        settings: Box<RequestSettings>,
+    },
     SocketSend {
         job: u64,
         text: String,
@@ -56,6 +62,7 @@ impl Effect {
             Effect::Send { .. }
             | Effect::OpenSocket { .. }
             | Effect::SocketSend { .. }
+            | Effect::FetchSchema { .. }
             | Effect::CopyText(_)
             | Effect::OpenUrl(_)
             | Effect::AbortSend(_)

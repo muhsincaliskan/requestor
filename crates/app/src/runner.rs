@@ -1,3 +1,4 @@
+mod schema;
 mod sockets;
 
 use std::collections::HashMap;

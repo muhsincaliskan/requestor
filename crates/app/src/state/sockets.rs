@@ -11,7 +11,7 @@ impl AppState {
             Action::SocketEvent { tab, job, event } => self.socket_event(tab, job, event),
             Action::SocketEnded { tab, job, result } => self.socket_ended(tab, job, result),
             Action::SendSocketMessage(tab) => self.send_socket_message(tab, effects),
-            other => self.dispatch_history_action(other, effects),
+            other => self.dispatch_schema_action(other, effects),
         }
     }
 

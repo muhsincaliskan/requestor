@@ -35,12 +35,22 @@ impl AppState {
         Some((request, self.workspace.scope_for(collection_id, item_id)))
     }
 
-    fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
+    pub(super) fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
         let (request, scope) = self.sendable(id)?;
         Some(
             PreparedRequest::from_request(&request, &scope, &self.workspace.settings.request)
                 .map_err(|error| error.to_string()),
         )
+    }
+
+    pub(super) fn warn_about_unresolved(&mut self, request: &PreparedRequest) {
+        let unresolved = request.unresolved_variables();
+        if !unresolved.is_empty() {
+            self.warn(format!(
+                "Not defined: {}. Add them to the environment or collection.",
+                unresolved.join(", ")
+            ));
+        }
     }
 
     fn send(&mut self, id: TabId, effects: &mut Vec<Effect>) {
@@ -59,13 +69,7 @@ impl AppState {
                 return;
             }
         };
-        let unresolved = request.unresolved_variables();
-        if !unresolved.is_empty() {
-            self.warn(format!(
-                "Not defined: {}. Add them to the environment or collection.",
-                unresolved.join(", ")
-            ));
-        }
+        self.warn_about_unresolved(&request);
         if request.is_websocket() {
             return self.connect(id, request, effects);
         }

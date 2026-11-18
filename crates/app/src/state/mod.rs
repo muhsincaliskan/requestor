@@ -9,6 +9,8 @@ mod library;
 mod notice;
 mod overlay;
 mod persistence;
+mod schema_view;
+mod schemas;
 mod sections;
 mod sending;
 mod socket;
@@ -31,6 +33,7 @@ pub use overlay::{
     SaveTabForm,
 };
 pub use persistence::SaveStatus;
+pub use schema_view::{SchemaLookup, SchemaView};
 pub use sections::{EditorSection, ResponseSection};
 pub use socket::{SocketPhase, SocketSession};
 pub use stream::{LiveStream, StreamUpdate};

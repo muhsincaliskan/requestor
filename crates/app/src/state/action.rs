@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use requestor_core::graphql::GraphQlSchema;
 use requestor_core::history::HistoryEntry;
 use requestor_core::response::HttpResponse;
 use requestor_core::transport::SocketEvent;
@@ -37,6 +38,13 @@ pub enum Action {
     },
     Send(TabId),
     CancelSend(TabId),
+    FetchSchema(TabId),
+    CancelSchema(TabId),
+    SchemaFetched {
+        tab: TabId,
+        job: u64,
+        result: Result<GraphQlSchema, String>,
+    },
     SendFinished {
         tab: TabId,
         job: u64,
