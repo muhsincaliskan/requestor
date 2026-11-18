@@ -477,6 +477,7 @@ mod code;
 mod examples;
 mod folders;
 mod history;
+mod protected_send;
 mod request_settings;
 mod rules;
 mod schema;

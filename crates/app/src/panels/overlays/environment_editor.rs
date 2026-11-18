@@ -1,5 +1,5 @@
-use eframe::egui::{Context, Ui};
-use requestor_core::environment::EnvironmentValue;
+use eframe::egui::{ComboBox, Context, Ui};
+use requestor_core::environment::{Environment, EnvironmentColor, EnvironmentValue};
 
 use super::dialog;
 use super::table::{
@@ -7,6 +7,7 @@ use super::table::{
     text_cell, RowEdit, KEY_HINT, VALUE_HINT,
 };
 use crate::state::{Action, AppState};
+use crate::widgets::environment_swatch;
 
 const DIALOG_ID: &str = "environment-editor";
 const TABLE_ID: &str = "environment-values";
@@ -14,6 +15,12 @@ const REVEAL_ID: &str = "environment-reveal-secrets";
 const TITLE: &str = "Edit environment";
 const SECRET_LABEL: &str = "Secret";
 const COLUMNS: usize = 5;
+const COLOR_ID: &str = "environment-color";
+const COLOR_LABEL: &str = "Color";
+const NO_COLOR_LABEL: &str = "None";
+const AUTOMATIC_RED_LABEL: &str = "Red (protected)";
+const PROTECT_LABEL: &str = "Ask before sending";
+const PROTECT_HINT: &str = "Use this for production. Send gets a red frame and asks first. Names with prod, production or live are protected by default.";
 
 pub fn show(
     ctx: &Context,
@@ -26,6 +33,7 @@ pub fn show(
     };
     let stays_open = dialog(ctx, DIALOG_ID, TITLE, |ui| {
         let mut changed = name_field(ui, &mut environment.name);
+        changed |= marking(ui, environment);
         let reveal = reveal_toggle(ui, REVEAL_ID);
         changed |= edit_rows(
             ui,
@@ -79,4 +87,50 @@ fn secret_cell(ui: &mut Ui, entry: &mut EnvironmentValue) -> bool {
         entry.set_secret(secret);
     }
     toggled
+}
+
+fn marking(ui: &mut Ui, environment: &mut Environment) -> bool {
+    ui.horizontal(|ui| {
+        let mut changed = color_picker(ui, environment);
+        let mut protected = environment.is_protected();
+        if ui
+            .checkbox(&mut protected, PROTECT_LABEL)
+            .on_hover_text(PROTECT_HINT)
+            .changed()
+        {
+            environment.set_protected(protected);
+            changed = true;
+        }
+        changed
+    })
+    .inner
+}
+
+fn color_picker(ui: &mut Ui, environment: &mut Environment) -> bool {
+    ui.label(COLOR_LABEL);
+    if let Some(color) = environment.color() {
+        environment_swatch(ui, color);
+    }
+    let unset = if environment.is_protected() {
+        AUTOMATIC_RED_LABEL
+    } else {
+        NO_COLOR_LABEL
+    };
+    let mut chosen = environment.chosen_color();
+    let selected = chosen.map_or(unset, EnvironmentColor::label);
+    let mut changed = false;
+    ComboBox::from_id_salt(COLOR_ID)
+        .selected_text(selected)
+        .show_ui(ui, |ui| {
+            changed |= ui.selectable_value(&mut chosen, None, unset).changed();
+            for color in EnvironmentColor::ALL {
+                changed |= ui
+                    .selectable_value(&mut chosen, Some(color), color.label())
+                    .changed();
+            }
+        });
+    if changed {
+        environment.set_color(chosen);
+    }
+    changed
 }

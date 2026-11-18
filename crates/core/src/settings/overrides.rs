@@ -85,7 +85,7 @@ impl RequestOverrides {
     }
 
     pub fn lowers_security(&self) -> bool {
-        self.verify_ssl == Some(false) || self.proxy.is_custom()
+        self.verify_ssl == Some(false) || self.proxy.uses_custom_proxy()
     }
 
     pub fn apply_to(&self, global: &RequestSettings) -> RequestSettings {

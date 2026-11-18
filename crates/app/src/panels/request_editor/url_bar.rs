@@ -1,6 +1,10 @@
-use eframe::egui::{Align, ComboBox, Event, Frame, Key, Layout, RichText, TextEdit, TextStyle, Ui};
+use eframe::egui::{
+    Align, ComboBox, Event, Frame, Key, Layout, Response, RichText, Stroke, StrokeKind, TextEdit,
+    TextStyle, Ui,
+};
 use requestor_core::method::HttpMethod;
 
+use super::EditorContext;
 use crate::state::{Action, RequestTab};
 use crate::widgets::variable_text_edit::{VariableHints, VariableTextEdit};
 use crate::widgets::{action_button, method_color};
@@ -23,12 +27,14 @@ const QUICK_CURL_HINT: &str =
 const METHOD_SALT: &str = "request-method";
 const URL_SALT: &str = "request-url";
 const METHOD_WIDTH: f32 = 96.0;
+const PROTECTED_FRAME_GAP: f32 = 2.0;
+const PROTECTED_FRAME_WIDTH: f32 = 1.5;
+const PROTECTED_HINT: &str = "The active environment is protected. Requestor asks before sending.";
 
 pub fn show(
     ui: &mut Ui,
     open: &mut RequestTab,
-    hints: &VariableHints,
-    code_panel_open: bool,
+    context: &EditorContext,
     actions: &mut Vec<Action>,
 ) -> bool {
     let name_changed = ui
@@ -41,7 +47,7 @@ pub fn show(
         )
         .changed();
     let request_changed = ui
-        .horizontal(|ui| request_line(ui, open, hints, code_panel_open, actions))
+        .horizontal(|ui| request_line(ui, open, context, actions))
         .inner;
     name_changed | request_changed
 }
@@ -49,15 +55,14 @@ pub fn show(
 fn request_line(
     ui: &mut Ui,
     open: &mut RequestTab,
-    hints: &VariableHints,
-    code_panel_open: bool,
+    context: &EditorContext,
     actions: &mut Vec<Action>,
 ) -> bool {
     let method_changed = method_picker(ui, open);
     let url_changed = ui
         .with_layout(Layout::right_to_left(Align::Center), |ui| {
-            buttons(ui, open, code_panel_open, actions);
-            url_field(ui, open, hints, actions)
+            buttons(ui, open, context, actions);
+            url_field(ui, open, context.hints, actions)
         })
         .inner;
     method_changed | url_changed
@@ -118,9 +123,9 @@ fn pasted(ui: &Ui) -> bool {
     })
 }
 
-fn buttons(ui: &mut Ui, open: &RequestTab, code_panel_open: bool, actions: &mut Vec<Action>) {
+fn buttons(ui: &mut Ui, open: &RequestTab, context: &EditorContext, actions: &mut Vec<Action>) {
     ui.menu_button(MORE_LABEL, |ui| {
-        copy_menu(ui, open, code_panel_open, actions)
+        copy_menu(ui, open, context.code_panel_open, actions)
     });
     if ui
         .button(QUICK_CURL_LABEL)
@@ -139,7 +144,7 @@ fn buttons(ui: &mut Ui, open: &RequestTab, code_panel_open: bool, actions: &mut 
     let clicked = if stops {
         action_button::destructive(ui, stop_label(open)).clicked()
     } else {
-        action_button::primary(ui, start_label(open)).clicked()
+        start_button(ui, open, context.protected).clicked()
     };
     if clicked {
         actions.push(if stops {
@@ -148,6 +153,22 @@ fn buttons(ui: &mut Ui, open: &RequestTab, code_panel_open: bool, actions: &mut 
             Action::Send(open.id)
         });
     }
+}
+
+fn start_button(ui: &mut Ui, open: &RequestTab, protected: bool) -> Response {
+    let button = action_button::primary(ui, start_label(open));
+    if protected {
+        let frame = button.rect.expand(PROTECTED_FRAME_GAP);
+        let stroke = Stroke::new(PROTECTED_FRAME_WIDTH, ui.visuals().error_fg_color);
+        ui.painter().rect_stroke(
+            frame,
+            ui.visuals().widgets.inactive.corner_radius,
+            stroke,
+            StrokeKind::Outside,
+        );
+        return button.on_hover_text(PROTECTED_HINT);
+    }
+    button
 }
 
 fn start_label(open: &RequestTab) -> &'static str {

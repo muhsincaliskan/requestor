@@ -144,7 +144,10 @@ impl Environment {
     }
 }
 
+mod marking;
 mod secrets;
+
+pub use marking::EnvironmentColor;
 
 #[cfg(test)]
 mod tests {

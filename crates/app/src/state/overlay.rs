@@ -102,6 +102,7 @@ pub enum Overlay {
     EnvironmentEditor { environment_id: String },
     CollectionEditor { collection_id: String },
     ConfirmCloseTab(TabId),
+    ConfirmProtectedSend(TabId),
     ConfirmDelete(DeleteConfirmation),
     SaveTab(SaveTabForm),
     Rename(RenameForm),

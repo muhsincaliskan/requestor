@@ -41,6 +41,7 @@ pub enum Action {
         close_after: bool,
     },
     Send(TabId),
+    SendConfirmed(TabId),
     CancelSend(TabId),
     FetchSchema(TabId),
     CancelSchema(TabId),

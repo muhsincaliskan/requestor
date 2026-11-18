@@ -23,6 +23,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
         state.interface().variable_autocomplete,
     );
     let code_panel_open = state.code_panel.is_some();
+    let protected = state.sends_to_protected_environment();
     let global = state.workspace.settings.request.clone();
     let Some(open) = state.tab_mut(tab) else {
         return;
@@ -31,6 +32,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
         hints: &hints,
         global: &global,
         code_panel_open,
+        protected,
     };
     let changed = ui
         .push_id(tab, |ui| show_tab(ui, open, &context, actions))
@@ -44,6 +46,7 @@ struct EditorContext<'a> {
     hints: &'a VariableHints,
     global: &'a RequestSettings,
     code_panel_open: bool,
+    protected: bool,
 }
 
 fn show_tab(
@@ -52,7 +55,7 @@ fn show_tab(
     context: &EditorContext,
     actions: &mut Vec<Action>,
 ) -> bool {
-    let mut changed = url_bar::show(ui, open, context.hints, context.code_panel_open, actions);
+    let mut changed = url_bar::show(ui, open, context, actions);
     ui.add_space(ui.spacing().item_spacing.y);
     section_selector(ui, open);
     ui.separator();

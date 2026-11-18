@@ -15,8 +15,8 @@ pub enum ProxyChoice {
 }
 
 impl ProxyChoice {
-    pub fn is_custom(&self) -> bool {
-        matches!(self, ProxyChoice::Custom(_))
+    pub fn uses_custom_proxy(&self) -> bool {
+        matches!(self, ProxyChoice::Custom(url) if !url.trim().is_empty())
     }
 
     pub fn same_kind(&self, other: &ProxyChoice) -> bool {

@@ -34,9 +34,10 @@ const BAR_MARGIN_X: i8 = 12;
 const BAR_MARGIN_Y: i8 = 6;
 
 pub fn show(ui: &mut Ui, state: &mut AppState, now: f64, actions: &mut Vec<Action>) {
-    Panel::top(TOOLBAR_ID)
+    let toolbar = Panel::top(TOOLBAR_ID)
         .frame(bar_frame(ui))
         .show(ui, |ui| toolbar::show(ui, state, actions));
+    toolbar::environment_strip(ui, toolbar.response.rect, state);
     Panel::bottom(STATUS_BAR_ID)
         .frame(bar_frame(ui))
         .show(ui, |ui| status_bar::show(ui, state, now, actions));
