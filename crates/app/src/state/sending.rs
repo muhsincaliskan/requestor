@@ -6,7 +6,7 @@ use requestor_core::secret::Redactor;
 use requestor_core::variables::VariableScope;
 
 use super::exchange::Exchange;
-use super::tab::TabId;
+use super::tab::{RequestTab, TabId};
 use super::{Action, AppState, Effect};
 use crate::response::ResponseView;
 
@@ -44,10 +44,7 @@ impl AppState {
     }
 
     fn send(&mut self, id: TabId, effects: &mut Vec<Effect>) {
-        if self
-            .tab(id)
-            .is_some_and(|tab| tab.exchange.open_socket().is_some())
-        {
+        if self.tab(id).is_some_and(RequestTab::is_connected) {
             return self.send_socket_message(id, effects);
         }
         let Some(prepared) = self.prepare(id) else {

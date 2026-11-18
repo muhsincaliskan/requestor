@@ -144,3 +144,14 @@ fn closing_the_tab_closes_its_socket() {
         .iter()
         .any(|effect| matches!(effect, Effect::AbortSend(closed) if *closed == job)));
 }
+
+#[test]
+fn sending_again_while_connecting_does_not_open_another_socket() {
+    let (mut state, _, _) = state_with_request();
+    let (tab, _) = connect(&mut state);
+    let effects = state.apply(Action::Send(tab), 0.0);
+    assert!(!effects
+        .iter()
+        .any(|effect| matches!(effect, Effect::OpenSocket { .. } | Effect::AbortSend(_))));
+    assert_eq!(phase(&state, tab), SocketPhase::Connecting);
+}

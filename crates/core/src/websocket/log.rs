@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
 
 use super::SocketMessage;
+use crate::settings::MAX_SOCKET_MESSAGE_BYTES;
 
 pub const MAX_KEPT_MESSAGES: usize = 1000;
-pub const MAX_KEPT_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_KEPT_MESSAGE_BYTES: usize = MAX_SOCKET_MESSAGE_BYTES;
 
 #[derive(Debug, Default)]
 pub struct SocketLog {

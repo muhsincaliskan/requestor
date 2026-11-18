@@ -112,7 +112,7 @@ impl RequestorApp {
 
 impl eframe::App for RequestorApp {
     fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        let mut pending: Vec<Action> = self.runner.finished().collect();
+        let mut pending = self.runner.finished();
         if std::mem::take(&mut self.sends_active_tab_on_start) {
             pending.extend(self.state.active_tab.map(Action::Send));
         }

@@ -8,6 +8,7 @@ use requestor_core::websocket::{Direction, SocketMessage, SocketPayload};
 use super::body::digits;
 use super::readout::{ByteSize, ElapsedText};
 use super::status::badge;
+use crate::shortcuts;
 use crate::state::{Action, SocketPhase, SocketSession, TabId};
 use crate::widgets::{action_button, success_color};
 
@@ -19,7 +20,7 @@ const CLOSED_LABEL: &str = "Closed";
 const MESSAGES_SUFFIX: &str = "messages";
 const SEPARATOR: &str = "·";
 const NO_MESSAGES_TEXT: &str = "No messages yet.";
-const MESSAGE_HINT: &str = "Message to send. Ctrl+Enter sends it.";
+const MESSAGE_HINT: &str = "Message to send";
 const SEND_MESSAGE_LABEL: &str = "Send";
 const SENT_MARK: &str = "↑";
 const RECEIVED_MARK: &str = "↓";
@@ -96,12 +97,19 @@ fn composer(ui: &mut Ui, tab: TabId, draft: &mut String, actions: &mut Vec<Actio
                 .code_editor()
                 .desired_rows(COMPOSER_ROWS)
                 .desired_width(width)
-                .hint_text(MESSAGE_HINT),
+                .hint_text(hint(ui)),
         );
         if action_button::primary(ui, SEND_MESSAGE_LABEL).clicked() {
             actions.push(Action::SendSocketMessage(tab));
         }
     });
+}
+
+fn hint(ui: &Ui) -> String {
+    match shortcuts::ALL.first() {
+        Some(send) => format!("{MESSAGE_HINT} ({})", send.keys_text(ui.ctx())),
+        None => MESSAGE_HINT.to_string(),
+    }
 }
 
 fn messages(ui: &mut Ui, session: &SocketSession, actions: &mut Vec<Action>) {

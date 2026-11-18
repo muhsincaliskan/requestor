@@ -1,3 +1,5 @@
+mod sockets;
+
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
@@ -6,16 +8,14 @@ use std::thread;
 use eframe::egui::Context;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
-use requestor_core::transport::{
-    Cancellation, ReqwestTransport, SocketCommand, SocketTransport, TungsteniteTransport,
-};
+use requestor_core::transport::{Cancellation, ReqwestTransport};
 use requestor_core::update::{newer_release, GithubReleaseClient, Version, LATEST_RELEASE_URL};
 
 use crate::state::{Action, StreamUpdate, TabId};
+use sockets::SocketWorkers;
 
 const WORKER_NAME: &str = "requestor-send";
 const UPDATE_WORKER_NAME: &str = "requestor-update-check";
-const SOCKET_WORKER_NAME: &str = "requestor-socket";
 
 struct SharedTransport {
     settings: RequestSettings,
@@ -27,7 +27,7 @@ pub struct Runner {
     report: Sender<Action>,
     shared: Option<SharedTransport>,
     running: HashMap<u64, Cancellation>,
-    sockets: HashMap<u64, Sender<SocketCommand>>,
+    sockets: SocketWorkers,
 }
 
 impl Runner {
@@ -38,7 +38,7 @@ impl Runner {
             report,
             shared: None,
             running: HashMap::new(),
-            sockets: HashMap::new(),
+            sockets: SocketWorkers::default(),
         }
     }
 
@@ -91,51 +91,16 @@ impl Runner {
         settings: &RequestSettings,
         wake: &Context,
     ) {
-        let (commands, received) = channel();
-        let transport = TungsteniteTransport::new(settings);
-        let report = self.report.clone();
-        let wake = wake.clone();
-        let spawned = thread::Builder::new()
-            .name(SOCKET_WORKER_NAME.to_string())
-            .spawn(move || {
-                let event_report = report.clone();
-                let event_wake = wake.clone();
-                let result = transport
-                    .open(&request, &received, &mut |event| {
-                        let action = Action::SocketEvent { tab, job, event };
-                        if event_report.send(action).is_ok() {
-                            event_wake.request_repaint();
-                        }
-                    })
-                    .map_err(|error| error.to_string());
-                if report
-                    .send(Action::SocketEnded { tab, job, result })
-                    .is_ok()
-                {
-                    wake.request_repaint();
-                }
-            });
-        match spawned {
-            Ok(_) => {
-                self.sockets.insert(job, commands);
-            }
-            Err(error) => {
-                let result = Err(error.to_string());
-                self.report
-                    .send(Action::SocketEnded { tab, job, result })
-                    .ok();
-            }
+        if let Err(reason) = self.sockets.open(tab, job, request, settings, wake) {
+            let result = Err(reason);
+            self.report
+                .send(Action::SocketEnded { tab, job, result })
+                .ok();
         }
     }
 
     pub fn socket_send(&mut self, job: u64, text: String) {
-        let delivered = self
-            .sockets
-            .get(&job)
-            .is_some_and(|commands| commands.send(SocketCommand::Send(text)).is_ok());
-        if !delivered {
-            self.sockets.remove(&job);
-        }
+        self.sockets.send(job, text);
     }
 
     pub fn check_for_update(&self, settings: &RequestSettings, wake: &Context) {
@@ -162,11 +127,13 @@ impl Runner {
         if let Some(cancellation) = self.running.remove(&job) {
             cancellation.cancel();
         }
-        self.sockets.remove(&job);
+        self.sockets.stop(job);
     }
 
-    pub fn finished(&self) -> impl Iterator<Item = Action> + '_ {
-        self.finished.try_iter()
+    pub fn finished(&mut self) -> Vec<Action> {
+        let mut finished: Vec<Action> = self.finished.try_iter().collect();
+        finished.extend(self.sockets.drain());
+        finished
     }
 
     fn transport_for(

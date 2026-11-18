@@ -7,12 +7,14 @@ use crate::secret::Secret;
 const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 50 * 1024 * 1024;
-pub const MAX_EVENT_STREAM_BYTES: usize = 16 * 1024 * 1024;
-pub const MAX_SOCKET_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_EVENT_STREAM_BYTES: usize = 16 * BYTES_PER_MEGABYTE;
+pub const MAX_SOCKET_MESSAGE_BYTES: usize = 16 * BYTES_PER_MEGABYTE;
 const DEFAULT_MAX_REDIRECTS: usize = 10;
 pub const BYTES_PER_MEGABYTE: usize = 1024 * 1024;
 const BYPASS_HOST_SEPARATOR: char = ',';
 const BYPASS_HOST_JOINER: &str = ", ";
+const BYPASS_EVERYTHING: &str = "*";
+const DOMAIN_SEPARATOR: char = '.';
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -69,6 +71,18 @@ impl ProxySettings {
             }
         }
         self.bypass_hosts = hosts;
+    }
+
+    pub fn bypasses(&self, host: &str) -> bool {
+        self.bypass_hosts.iter().any(|entry| {
+            let domain = entry.trim_start_matches(DOMAIN_SEPARATOR);
+            entry == BYPASS_EVERYTHING
+                || host.eq_ignore_ascii_case(domain)
+                || host.to_ascii_lowercase().ends_with(&format!(
+                    "{DOMAIN_SEPARATOR}{}",
+                    domain.to_ascii_lowercase()
+                ))
+        })
     }
 }
 

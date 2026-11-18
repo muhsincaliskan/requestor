@@ -116,3 +116,15 @@ fn socket_messages_are_capped_even_without_a_response_limit() {
     settings.set_max_response_megabytes(2);
     assert_eq!(settings.socket_message_limit(), 2 * BYTES_PER_MEGABYTE);
 }
+
+#[test]
+fn bypass_hosts_match_exact_names_and_subdomains() {
+    let mut proxy = ProxySettings::default();
+    proxy.set_bypass_hosts_text("localhost, .internal.test");
+    assert!(proxy.bypasses("localhost"));
+    assert!(proxy.bypasses("API.internal.test"));
+    assert!(proxy.bypasses("internal.test"));
+    assert!(!proxy.bypasses("example.com"));
+    proxy.set_bypass_hosts_text("*");
+    assert!(proxy.bypasses("example.com"));
+}

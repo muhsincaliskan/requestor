@@ -3,6 +3,7 @@ use std::net::TcpStream;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
+use tungstenite::error::ProtocolError;
 use tungstenite::protocol::CloseFrame;
 use tungstenite::{Error, Message};
 
@@ -13,6 +14,7 @@ use crate::websocket::{SocketMessage, SocketPayload};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const CLOSE_GRACE: Duration = Duration::from_secs(2);
+const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 
 enum Flow {
     Continue,
@@ -28,9 +30,10 @@ pub(super) struct Session {
 
 impl Session {
     pub(super) fn new(connection: Connection) -> Result<Self, TransportError> {
-        connection
-            .control
+        let control = &connection.control;
+        control
             .set_read_timeout(Some(POLL_INTERVAL))
+            .and_then(|()| control.set_write_timeout(Some(WRITE_TIMEOUT)))
             .map_err(|error| TransportError::from_io(&error))?;
         Ok(Session {
             socket: connection.socket,
@@ -63,9 +66,9 @@ impl Session {
         text: String,
         on_event: &mut dyn FnMut(SocketEvent),
     ) -> Result<Flow, TransportError> {
-        self.socket
-            .send(Message::text(text.as_str()))
-            .map_err(TransportError::from_socket)?;
+        if let Err(error) = self.socket.send(Message::text(text.as_str())) {
+            return after_send_error(error);
+        }
         let message = SocketMessage::sent(text, self.opened.elapsed());
         on_event(SocketEvent::Message(message));
         Ok(Flow::Continue)
@@ -108,7 +111,16 @@ fn after_read_error(error: Error) -> Result<Flow, TransportError> {
     match error {
         Error::ConnectionClosed | Error::AlreadyClosed => Ok(Flow::Finished),
         Error::Io(error) if is_idle(error.kind()) => Ok(Flow::Continue),
-        other => Err(TransportError::from_socket(other)),
+        other => Err(TransportError::from_session(other)),
+    }
+}
+
+fn after_send_error(error: Error) -> Result<Flow, TransportError> {
+    match error {
+        Error::ConnectionClosed
+        | Error::AlreadyClosed
+        | Error::Protocol(ProtocolError::SendAfterClosing) => Ok(Flow::Finished),
+        other => Err(TransportError::from_session(other)),
     }
 }
 

@@ -20,6 +20,9 @@ const SECURE_SCHEME: &str = "wss";
 const SECURE_PORT: u16 = 443;
 const PLAIN_PORT: u16 = 80;
 const NO_ADDRESS: &str = "the host name did not resolve to an address";
+const PROXY_UNSUPPORTED: &str =
+    "WebSocket connections cannot go through a proxy yet; turn the proxy off in Settings to connect directly";
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 const HANDSHAKE_OWNED_HEADERS: [&str; 7] = [
     "host",
     "connection",
@@ -42,12 +45,24 @@ pub(super) fn connect(
 ) -> Result<Connection, TransportError> {
     let started = Instant::now();
     let handshake = handshake_request(request)?;
+    let host = handshake.uri().host().unwrap_or_default();
+    if settings
+        .proxy
+        .as_ref()
+        .is_some_and(|proxy| !proxy.bypasses(host))
+    {
+        return Err(TransportError::InvalidSettings(
+            PROXY_UNSUPPORTED.to_string(),
+        ));
+    }
     let stream = open_stream(handshake.uri(), settings.connect_timeout())?;
     let control = stream
         .try_clone()
         .map_err(|error| TransportError::from_io(&error))?;
     control
-        .set_read_timeout(settings.request_timeout())
+        .set_read_timeout(Some(
+            settings.request_timeout().unwrap_or(HANDSHAKE_TIMEOUT),
+        ))
         .map_err(|error| TransportError::from_io(&error))?;
     let limit = settings.socket_message_limit();
     let config = WebSocketConfig::default()
