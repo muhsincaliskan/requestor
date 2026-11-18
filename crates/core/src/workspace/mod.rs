@@ -1,3 +1,4 @@
+mod accent;
 mod data_folder;
 mod extracted;
 mod folder;
@@ -10,6 +11,7 @@ mod store;
 mod store_write;
 mod vault_write;
 
+pub use accent::AccentName;
 pub use data_folder::DataFolder;
 pub use extracted::ChangedStores;
 pub use folder::{read_folder, FolderLayout, FolderWrite};

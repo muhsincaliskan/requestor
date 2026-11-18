@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::AccentName;
 use crate::prepared::CodeLanguage;
 use crate::secret::Secret;
 use crate::settings::RequestSettings;
@@ -25,6 +26,7 @@ pub enum ThemeName {
 #[serde(default)]
 pub struct InterfaceSettings {
     pub theme: ThemeName,
+    pub accent: AccentName,
     pub interface_scale: f32,
     pub autosave: bool,
     pub variable_autocomplete: bool,
@@ -72,6 +74,7 @@ impl Default for InterfaceSettings {
     fn default() -> Self {
         InterfaceSettings {
             theme: ThemeName::System,
+            accent: AccentName::Theme,
             interface_scale: DEFAULT_INTERFACE_SCALE,
             autosave: true,
             variable_autocomplete: true,
@@ -141,7 +144,7 @@ impl AppSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppSettings, InterfaceSettings, ThemeName};
+    use super::{AccentName, AppSettings, InterfaceSettings, ThemeName};
     use crate::prepared::CodeLanguage;
 
     #[test]
@@ -156,10 +159,11 @@ mod tests {
     #[test]
     fn partial_and_unknown_values_fall_back_to_defaults() {
         let settings: AppSettings = serde_json::from_str(
-            r#"{"interface":{"theme":"neon","two_pane_view":true,"interface_scale":9.0}}"#,
+            r#"{"interface":{"theme":"neon","accent":"neon","two_pane_view":true,"interface_scale":9.0}}"#,
         )
         .unwrap();
         assert_eq!(settings.interface.theme, ThemeName::System);
+        assert_eq!(settings.interface.accent, AccentName::Theme);
         assert!(settings.interface.two_pane_view);
         assert!(settings.interface.autosave);
         assert_eq!(settings.interface.effective_scale(), 2.0);
@@ -183,5 +187,16 @@ mod tests {
         assert!(serde_json::to_string(&interface)
             .unwrap()
             .contains(r#""theme":"midnight""#));
+    }
+
+    #[test]
+    fn accents_are_stored_in_snake_case() {
+        let interface = InterfaceSettings {
+            accent: AccentName::Purple,
+            ..InterfaceSettings::default()
+        };
+        assert!(serde_json::to_string(&interface)
+            .unwrap()
+            .contains(r#""accent":"purple""#));
     }
 }

@@ -1,4 +1,7 @@
 use eframe::egui::{Color32, CornerRadius, Stroke, Visuals};
+use requestor_core::workspace::{AccentName, ThemeName};
+
+use super::accent::accent_color;
 
 const WIDGET_RADIUS: u8 = 6;
 const WINDOW_RADIUS: u8 = 10;
@@ -6,6 +9,7 @@ const MENU_RADIUS: u8 = 8;
 const BORDER_WIDTH: f32 = 1.0;
 const SELECTION_STRENGTH: f32 = 0.3;
 
+#[derive(Clone, Copy)]
 pub struct Palette {
     pub panel: Color32,
     pub window: Color32,
@@ -82,6 +86,19 @@ pub const SEPIA: Palette = Palette {
 };
 
 impl Palette {
+    pub fn of(theme: ThemeName, accent: AccentName, dark_mode: bool) -> Palette {
+        let base = match (theme, dark_mode) {
+            (ThemeName::Midnight, true) => MIDNIGHT,
+            (ThemeName::Sepia, false) => SEPIA,
+            (_, true) => NIGHT,
+            (_, false) => DAYLIGHT,
+        };
+        Palette {
+            accent: accent_color(accent, dark_mode).unwrap_or(base.accent),
+            ..base
+        }
+    }
+
     pub fn tint(&self, mut visuals: Visuals) -> Visuals {
         visuals.panel_fill = self.panel;
         visuals.window_fill = self.window;
