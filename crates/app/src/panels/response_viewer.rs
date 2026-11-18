@@ -5,6 +5,7 @@ mod cookie;
 mod events;
 mod lists;
 mod readout;
+mod socket;
 mod status;
 
 use std::time::Duration;
@@ -35,6 +36,9 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
         Exchange::Sending { job, live, .. } => sending(ui, tab, *job, live.as_deref(), actions),
         Exchange::Failed(reason) => failed(ui, reason),
         Exchange::Completed(view) => completed(ui, view, &mut chosen, actions),
+        Exchange::Socket(session) => {
+            socket::show(ui, tab, session, &mut open.message_draft, actions);
+        }
     }
     open.response_section = chosen;
 }

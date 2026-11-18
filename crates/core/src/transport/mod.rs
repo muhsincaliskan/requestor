@@ -2,10 +2,14 @@ mod cancellation;
 mod error;
 mod reading;
 mod reqwest_transport;
+mod socket;
+mod tungstenite_transport;
 
 pub use cancellation::Cancellation;
 pub use error::TransportError;
 pub use reqwest_transport::ReqwestTransport;
+pub use socket::{SocketCommand, SocketEvent, SocketTransport};
+pub use tungstenite_transport::TungsteniteTransport;
 
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;

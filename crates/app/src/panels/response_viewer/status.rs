@@ -1,4 +1,4 @@
-use eframe::egui::{CornerRadius, Frame, Margin, RichText, Ui};
+use eframe::egui::{Color32, CornerRadius, Frame, Margin, RichText, Ui};
 
 use super::readout::{ByteSize, ElapsedText};
 use crate::response::ResponseView;
@@ -15,13 +15,7 @@ pub fn show(ui: &mut Ui, view: &ResponseView) {
     ui.horizontal_wrapped(|ui| {
         let color = status_color(ui, view.status_class());
         let status = format!("{} {}", view.status, view.reason);
-        Frame::new()
-            .fill(color.gamma_multiply(BADGE_TINT))
-            .corner_radius(CornerRadius::same(BADGE_RADIUS))
-            .inner_margin(BADGE_MARGIN)
-            .show(ui, |ui| {
-                ui.label(RichText::new(status.trim()).color(color).strong())
-            });
+        badge(ui, status.trim(), color);
         ui.weak(SEPARATOR);
         ui.label(ElapsedText(view.elapsed).to_string());
         ui.weak(SEPARATOR);
@@ -33,4 +27,12 @@ pub fn show(ui: &mut Ui, view: &ResponseView) {
             ui.label(warning).on_hover_text(TRUNCATED_HINT);
         }
     });
+}
+
+pub(super) fn badge(ui: &mut Ui, text: &str, color: Color32) {
+    Frame::new()
+        .fill(color.gamma_multiply(BADGE_TINT))
+        .corner_radius(CornerRadius::same(BADGE_RADIUS))
+        .inner_margin(BADGE_MARGIN)
+        .show(ui, |ui| ui.label(RichText::new(text).color(color).strong()));
 }

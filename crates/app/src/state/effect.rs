@@ -16,6 +16,16 @@ pub enum Effect {
         request: Box<PreparedRequest>,
         settings: Box<RequestSettings>,
     },
+    OpenSocket {
+        tab: TabId,
+        job: u64,
+        request: Box<PreparedRequest>,
+        settings: Box<RequestSettings>,
+    },
+    SocketSend {
+        job: u64,
+        text: String,
+    },
     Persist(StoreWrite),
     DeleteFile(PathBuf),
     WriteFile {
@@ -44,6 +54,8 @@ impl Effect {
                 .commit()
                 .map_err(|error| error.to_string()),
             Effect::Send { .. }
+            | Effect::OpenSocket { .. }
+            | Effect::SocketSend { .. }
             | Effect::CopyText(_)
             | Effect::OpenUrl(_)
             | Effect::AbortSend(_)

@@ -21,7 +21,7 @@ impl AppState {
                 tab,
                 include_secrets,
             } => self.copy_as_curl(tab, include_secrets, effects),
-            other => self.dispatch_history_action(other, effects),
+            other => self.dispatch_socket_action(other, effects),
         }
     }
 
@@ -44,6 +44,12 @@ impl AppState {
     }
 
     fn send(&mut self, id: TabId, effects: &mut Vec<Effect>) {
+        if self
+            .tab(id)
+            .is_some_and(|tab| tab.exchange.open_socket().is_some())
+        {
+            return self.send_socket_message(id, effects);
+        }
         let Some(prepared) = self.prepare(id) else {
             return;
         };
@@ -62,6 +68,9 @@ impl AppState {
                 "Not defined: {}. Add them to the environment or collection.",
                 unresolved.join(", ")
             ));
+        }
+        if request.is_websocket() {
+            return self.connect(id, request, effects);
         }
         self.next_job += 1;
         let job = self.next_job;

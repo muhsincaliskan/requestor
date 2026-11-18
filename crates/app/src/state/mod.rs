@@ -11,6 +11,8 @@ mod overlay;
 mod persistence;
 mod sections;
 mod sending;
+mod socket;
+mod sockets;
 mod stream;
 mod streaming;
 mod tab;
@@ -30,6 +32,7 @@ pub use overlay::{
 };
 pub use persistence::SaveStatus;
 pub use sections::{EditorSection, ResponseSection};
+pub use socket::{SocketPhase, SocketSession};
 pub use stream::{LiveStream, StreamUpdate};
 pub use tab::{ItemBinding, RequestTab, TabId};
 

@@ -28,6 +28,7 @@ pub struct RequestTab {
     pub exchange: Exchange,
     pub editor_section: EditorSection,
     pub response_section: ResponseSection,
+    pub message_draft: String,
 }
 
 impl ItemBinding {
@@ -162,9 +163,15 @@ impl RequestTab {
         matches!(self.exchange, Exchange::Sending { job: current, .. } if current == job)
     }
 
+    pub fn is_connected(&self) -> bool {
+        matches!(&self.exchange, Exchange::Socket(session) if session.is_live())
+    }
+
     pub fn abandon_send(&mut self) -> Option<u64> {
-        let Exchange::Sending { job, .. } = self.exchange else {
-            return None;
+        let job = match &self.exchange {
+            Exchange::Sending { job, .. } => *job,
+            Exchange::Socket(session) => session.live_job()?,
+            _ => return None,
         };
         self.exchange = Exchange::Idle;
         Some(job)
@@ -192,6 +199,7 @@ impl RequestTab {
             exchange: Exchange::Idle,
             editor_section: EditorSection::default(),
             response_section: ResponseSection::default(),
+            message_draft: String::new(),
         }
     }
 }

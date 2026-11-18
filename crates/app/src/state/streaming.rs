@@ -41,6 +41,9 @@ impl AppState {
     }
 
     pub(super) fn cancel_send(&mut self, id: TabId) {
+        if self.disconnect(id) {
+            return;
+        }
         let live = self.tab_mut(id).and_then(|tab| tab.exchange.stop_live());
         match live {
             Some((job, stream)) => {

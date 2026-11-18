@@ -65,6 +65,13 @@ impl RequestorApp {
                     request,
                     settings,
                 } => self.runner.send(tab, job, *request, &settings, ctx),
+                Effect::OpenSocket {
+                    tab,
+                    job,
+                    request,
+                    settings,
+                } => self.runner.open_socket(tab, job, *request, &settings, ctx),
+                Effect::SocketSend { job, text } => self.runner.socket_send(job, text),
                 Effect::CopyText(text) => ctx.copy_text(text),
                 Effect::OpenUrl(url) => {
                     if let Err(error) = browser::open(&url) {
