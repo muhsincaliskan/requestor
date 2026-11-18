@@ -4,6 +4,8 @@ mod rows;
 use edits::{edit_script, Edit};
 
 pub const CONTEXT_LINES: usize = 3;
+pub const MAX_ROW_BYTES: usize = 2_000;
+const MAX_COMPARED_LINES: usize = 50_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiffRow {
@@ -22,8 +24,11 @@ pub struct LineDiff {
 
 impl LineDiff {
     pub fn between(before: &str, after: &str) -> Option<LineDiff> {
-        let old: Vec<&str> = before.lines().collect();
-        let new: Vec<&str> = after.lines().collect();
+        let old: Vec<&str> = before.lines().take(MAX_COMPARED_LINES + 1).collect();
+        let new: Vec<&str> = after.lines().take(MAX_COMPARED_LINES + 1).collect();
+        if old.len() > MAX_COMPARED_LINES || new.len() > MAX_COMPARED_LINES {
+            return None;
+        }
         let script = edit_script(&old, &new)?;
         let added = script.iter().filter(|edit| **edit == Edit::Insert).count();
         let removed = script.iter().filter(|edit| **edit == Edit::Delete).count();

@@ -1,23 +1,27 @@
-use crate::response::ResponseView;
+use crate::response::{ComparisonBase, ResponseView};
 
 pub enum Exchange {
     Idle,
-    Sending { job: u64, previous: Option<String> },
+    Sending {
+        job: u64,
+        previous: Option<ComparisonBase>,
+    },
     Completed(Box<ResponseView>),
     Failed(String),
 }
 
 impl Exchange {
-    pub fn followed_by_send(&self, job: u64) -> Exchange {
-        let previous = match self {
-            Exchange::Completed(view) => view.comparison_text(),
-            Exchange::Sending { previous, .. } => previous.clone(),
-            Exchange::Idle | Exchange::Failed(_) => None,
+    pub fn start_send(&mut self, job: u64) -> Option<u64> {
+        let (replaced, previous) = match std::mem::replace(self, Exchange::Idle) {
+            Exchange::Completed(view) => (None, view.into_comparison_base()),
+            Exchange::Sending { job, previous } => (Some(job), previous),
+            Exchange::Idle | Exchange::Failed(_) => (None, None),
         };
-        Exchange::Sending { job, previous }
+        *self = Exchange::Sending { job, previous };
+        replaced
     }
 
-    pub fn take_previous(&mut self) -> Option<String> {
+    pub fn take_previous(&mut self) -> Option<ComparisonBase> {
         match self {
             Exchange::Sending { previous, .. } => previous.take(),
             _ => None,

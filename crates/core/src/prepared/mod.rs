@@ -19,8 +19,6 @@ use body::EncodedBody;
 const CACHE_CONTROL: &str = "Cache-Control";
 const NO_CACHE: &str = "no-cache";
 const POSTMAN_TOKEN: &str = "Postman-Token";
-const SCHEME_SEPARATOR: &str = "://";
-const DEFAULT_SCHEME: &str = "http";
 
 #[derive(Clone, PartialEq)]
 pub struct PreparedRequest {
@@ -42,13 +40,6 @@ impl std::fmt::Debug for PreparedRequest {
     }
 }
 
-fn with_scheme(url: String) -> String {
-    if url.contains(SCHEME_SEPARATOR) {
-        return url;
-    }
-    format!("{DEFAULT_SCHEME}{SCHEME_SEPARATOR}{}", url.trim_start())
-}
-
 impl PreparedRequest {
     pub fn from_request(
         request: &Request,
@@ -63,7 +54,7 @@ impl PreparedRequest {
             .ok_or(CoreError::MissingUrl)?;
         let mut prepared = PreparedRequest {
             method: request.http_method(),
-            url: with_scheme(scope.resolve(&url).text),
+            url: Url::with_default_scheme(scope.resolve(&url).text),
             headers: request
                 .enabled_headers()
                 .into_iter()

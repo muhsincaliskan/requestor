@@ -1,4 +1,4 @@
-const OPEN_MARK: &str = "{{";
+pub(crate) const OPEN_MARK: &str = "{{";
 const CLOSE_MARK: &str = "}}";
 pub(super) const MAX_EXPANDED_BYTES: usize = 1024 * 1024;
 

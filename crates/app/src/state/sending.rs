@@ -65,12 +65,12 @@ impl AppState {
                 unresolved.join(", ")
             ));
         }
-        self.abandon_send(id);
         self.next_job += 1;
         let job = self.next_job;
-        if let Some(tab) = self.tab_mut(id) {
-            tab.exchange = tab.exchange.followed_by_send(job);
-        }
+        let replaced = self
+            .tab_mut(id)
+            .and_then(|tab| tab.exchange.start_send(job));
+        self.abandoned_jobs.extend(replaced);
         effects.push(Effect::Send {
             tab: id,
             job,

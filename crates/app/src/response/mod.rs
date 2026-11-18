@@ -1,7 +1,11 @@
 mod buffer;
+mod comparison;
 mod search;
 
 pub use buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
+pub use comparison::{ChangesUnavailable, ComparisonBase};
+
+use comparison::comparable_text;
 pub use search::BodySearch;
 
 use std::time::Duration;
@@ -28,8 +32,8 @@ pub struct ResponseView {
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
     search: BodySearch,
-    previous: Option<String>,
-    changes: Option<Option<LineDiff>>,
+    previous: Option<ComparisonBase>,
+    changes: Option<Result<LineDiff, ChangesUnavailable>>,
 }
 
 impl ResponseView {
@@ -57,38 +61,45 @@ impl ResponseView {
         }
     }
 
-    pub fn with_previous(mut self, previous: Option<String>) -> Self {
+    pub fn with_previous(mut self, previous: Option<ComparisonBase>) -> Self {
         self.previous = previous;
         self
     }
 
     pub fn has_previous(&self) -> bool {
-        self.previous.is_some()
+        self.previous.is_some() || self.changes.is_some()
     }
 
-    pub fn comparison_text(&self) -> Option<String> {
-        if self.format == ResponseFormat::Binary || self.body.len() > MAX_COMPARED_BYTES {
-            return None;
-        }
-        let text = String::from_utf8_lossy(&self.body);
-        Some(if self.format.has_layout() {
-            self.format.laid_out(&text)
-        } else {
-            text.into_owned()
-        })
+    pub fn into_comparison_base(self) -> Option<ComparisonBase> {
+        let comparable = self.format != ResponseFormat::Binary && self.is_small_enough();
+        comparable.then(|| ComparisonBase::new(self.body, self.format))
     }
 
-    pub fn changes(&mut self) -> Option<&LineDiff> {
+    pub fn changes(&mut self) -> Result<&LineDiff, ChangesUnavailable> {
         if self.changes.is_none() {
-            let current = self.comparison_text();
-            let diff = self
-                .previous
-                .as_deref()
-                .zip(current.as_deref())
-                .and_then(|(before, after)| LineDiff::between(before, after));
-            self.changes = Some(diff);
+            let previous = self.previous.take();
+            self.changes = previous.map(|previous| self.compared_with(&previous));
         }
-        self.changes.as_ref().and_then(Option::as_ref)
+        match &self.changes {
+            Some(Ok(diff)) => Ok(diff),
+            Some(Err(reason)) => Err(*reason),
+            None => Err(ChangesUnavailable::TooLarge),
+        }
+    }
+
+    fn compared_with(&self, previous: &ComparisonBase) -> Result<LineDiff, ChangesUnavailable> {
+        if self.format == ResponseFormat::Binary {
+            return Err(ChangesUnavailable::Binary);
+        }
+        if !self.is_small_enough() {
+            return Err(ChangesUnavailable::TooLarge);
+        }
+        let current = comparable_text(&self.body, self.format);
+        LineDiff::between(&previous.text(), &current).ok_or(ChangesUnavailable::TooLarge)
+    }
+
+    fn is_small_enough(&self) -> bool {
+        self.body.len() <= MAX_COMPARED_BYTES
     }
 
     pub fn with_report(mut self, report: Option<RulesReport>) -> Self {

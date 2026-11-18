@@ -1,5 +1,5 @@
 use super::edits::Edit;
-use super::DiffRow;
+use super::{DiffRow, MAX_ROW_BYTES};
 
 pub(super) fn folded(script: &[Edit], old: &[&str], new: &[&str], context: usize) -> Vec<DiffRow> {
     let mut rows = Vec::new();
@@ -18,7 +18,7 @@ pub(super) fn folded(script: &[Edit], old: &[&str], new: &[&str], context: usize
                 rows.extend(
                     new[new_at..new_at + end - start]
                         .iter()
-                        .map(|line| DiffRow::Added(line.to_string())),
+                        .map(|line| DiffRow::Added(clipped(line))),
                 );
                 new_at += end - start;
             }
@@ -26,7 +26,7 @@ pub(super) fn folded(script: &[Edit], old: &[&str], new: &[&str], context: usize
                 rows.extend(
                     old[old_at..old_at + end - start]
                         .iter()
-                        .map(|line| DiffRow::Removed(line.to_string())),
+                        .map(|line| DiffRow::Removed(clipped(line))),
                 );
                 old_at += end - start;
             }
@@ -51,10 +51,15 @@ fn push_kept(rows: &mut Vec<DiffRow>, kept: &[&str], first: bool, last: bool, co
         context.min(kept.len() - head)
     };
     let hidden = kept.len() - head - tail;
+    let (head, tail, hidden) = if hidden == 1 {
+        (head + 1, tail, 0)
+    } else {
+        (head, tail, hidden)
+    };
     let shown = |lines: &[&str]| {
         lines
             .iter()
-            .map(|line| DiffRow::Kept(line.to_string()))
+            .map(|line| DiffRow::Kept(clipped(line)))
             .collect::<Vec<_>>()
     };
     rows.extend(shown(&kept[..head]));
@@ -62,4 +67,15 @@ fn push_kept(rows: &mut Vec<DiffRow>, kept: &[&str], first: bool, last: bool, co
         rows.push(DiffRow::Folded(hidden));
     }
     rows.extend(shown(&kept[kept.len() - tail..]));
+}
+
+fn clipped(line: &str) -> String {
+    if line.len() <= MAX_ROW_BYTES {
+        return line.to_string();
+    }
+    let mut end = MAX_ROW_BYTES;
+    while !line.is_char_boundary(end) {
+        end -= 1;
+    }
+    line[..end].to_string()
 }

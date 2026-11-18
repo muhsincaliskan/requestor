@@ -92,3 +92,17 @@ fn every_edit_script_turns_the_old_lines_into_the_new_ones() {
         assert_eq!(rebuilt, new);
     }
 }
+
+#[test]
+fn very_long_lines_are_clipped_and_single_hidden_lines_are_shown() {
+    let long = "é".repeat(5_000);
+    let diff = LineDiff::between("a", &long).unwrap();
+    let DiffRow::Added(shown) = &diff.rows[1] else {
+        panic!("expected an added row");
+    };
+    assert!(shown.len() <= super::MAX_ROW_BYTES);
+    let before = "0\n1\n2\n3\n4\n5\n6\n7\n8";
+    let after = "x\n1\n2\n3\n4\n5\n6\n7\ny";
+    let rows = LineDiff::between(before, after).unwrap().rows;
+    assert!(!rows.iter().any(|row| matches!(row, DiffRow::Folded(_))));
+}

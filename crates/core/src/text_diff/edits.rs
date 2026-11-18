@@ -34,7 +34,7 @@ fn shortest_edits(old: &[&str], new: &[&str]) -> Option<Vec<Edit>> {
     let limit = (old.len() + new.len()).min(MAX_EDITS) as isize;
     let offset = limit + 1;
     let mut furthest = vec![0isize; (2 * limit + 3) as usize];
-    let mut trace: Vec<Vec<isize>> = Vec::new();
+    let mut trace: Vec<Vec<i32>> = Vec::new();
     for depth in 0..=limit {
         for diagonal in (-depth..=depth).step_by(2) {
             let index = (offset + diagonal) as usize;
@@ -54,7 +54,7 @@ fn shortest_edits(old: &[&str], new: &[&str]) -> Option<Vec<Edit>> {
             }
         }
         let window = (offset - depth) as usize..=(offset + depth) as usize;
-        trace.push(furthest[window].to_vec());
+        trace.push(furthest[window].iter().map(|&x| x as i32).collect());
     }
     None
 }
@@ -63,12 +63,12 @@ fn moves_down(furthest: &[isize], index: usize, diagonal: isize, depth: isize) -
     diagonal == -depth || (diagonal != depth && furthest[index - 1] < furthest[index + 1])
 }
 
-fn backtrack(trace: &[Vec<isize>], old_len: isize, new_len: isize) -> Vec<Edit> {
+fn backtrack(trace: &[Vec<i32>], old_len: isize, new_len: isize) -> Vec<Edit> {
     let (mut x, mut y) = (old_len, new_len);
     let mut script = Vec::new();
     for depth in (1..=trace.len() as isize).rev() {
         let previous = &trace[(depth - 1) as usize];
-        let at = |diagonal: isize| previous[(diagonal + depth - 1) as usize];
+        let at = |diagonal: isize| previous[(diagonal + depth - 1) as usize] as isize;
         let diagonal = x - y;
         let down = diagonal == -depth || (diagonal != depth && at(diagonal - 1) < at(diagonal + 1));
         let previous_diagonal = if down { diagonal + 1 } else { diagonal - 1 };
