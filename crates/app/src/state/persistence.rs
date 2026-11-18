@@ -118,6 +118,13 @@ impl AppState {
                     .map(StoreWrite::from),
             );
         }
+        if changes.history {
+            writes.push(
+                self.store
+                    .history_write(&self.workspace.history)
+                    .map(StoreWrite::from),
+            );
+        }
         let mut effects = Vec::with_capacity(writes.len());
         for write in writes {
             self.persist_or_report(write, &mut effects);

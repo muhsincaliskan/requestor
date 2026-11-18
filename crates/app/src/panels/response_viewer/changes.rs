@@ -1,8 +1,8 @@
 use eframe::egui::{Color32, Label, RichText, ScrollArea, TextStyle, Ui};
 use requestor_core::text_diff::DiffRow;
 
-use super::status::success_color;
 use crate::response::{ChangesUnavailable, ResponseView};
+use crate::widgets::success_color;
 
 const SCROLL_ID: &str = "response-changes";
 const BINARY_TEXT: &str = "Binary responses cannot be compared";

@@ -1,8 +1,10 @@
 use requestor_core::collection::{Item, Request};
 use requestor_core::draft::{RequestDraft, RulesDraft};
+use requestor_core::history::HistoryEntry;
 use requestor_core::workspace::{SessionTab, Workspace};
 
 use super::exchange::Exchange;
+use super::sections::{EditorSection, ResponseSection};
 
 pub const UNTITLED_REQUEST: &str = "Untitled request";
 const RESTORED_AT: f64 = 0.0;
@@ -16,75 +18,16 @@ pub struct ItemBinding {
     pub item_id: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum EditorSection {
-    #[default]
-    Params,
-    Headers,
-    Body,
-    Auth,
-    Tests,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ResponseSection {
-    #[default]
-    Body,
-    Headers,
-    Cookies,
-    Tests,
-    Changes,
-}
-
 pub struct RequestTab {
     pub id: TabId,
     pub binding: Option<ItemBinding>,
+    pub source: Option<ItemBinding>,
     pub draft: RequestDraft,
     pub unsaved: bool,
     pub edited_at: Option<f64>,
     pub exchange: Exchange,
     pub editor_section: EditorSection,
     pub response_section: ResponseSection,
-}
-
-impl EditorSection {
-    pub const ALL: [EditorSection; 5] = [
-        EditorSection::Params,
-        EditorSection::Headers,
-        EditorSection::Body,
-        EditorSection::Auth,
-        EditorSection::Tests,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            EditorSection::Params => "Params",
-            EditorSection::Headers => "Headers",
-            EditorSection::Body => "Body",
-            EditorSection::Auth => "Auth",
-            EditorSection::Tests => "Tests",
-        }
-    }
-}
-
-impl ResponseSection {
-    pub const ALL: [ResponseSection; 5] = [
-        ResponseSection::Body,
-        ResponseSection::Headers,
-        ResponseSection::Cookies,
-        ResponseSection::Tests,
-        ResponseSection::Changes,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            ResponseSection::Body => "Body",
-            ResponseSection::Headers => "Headers",
-            ResponseSection::Cookies => "Cookies",
-            ResponseSection::Tests => "Tests",
-            ResponseSection::Changes => "Changes",
-        }
-    }
 }
 
 impl ItemBinding {
@@ -145,6 +88,11 @@ impl RequestTab {
         }
         let mut tab = RequestTab::with_draft(id, binding, draft, unsaved);
         tab.edited_at = unsaved.then_some(RESTORED_AT);
+        if tab.binding.is_none() {
+            tab.source = saved
+                .source()
+                .map(|(collection, item)| ItemBinding::new(collection, item));
+        }
         tab
     }
 
@@ -161,6 +109,20 @@ impl RequestTab {
                 .unsaved
                 .then(|| self.draft.rules.script_lines())
                 .flatten(),
+            source_collection_id: self.source.as_ref().map(|from| from.collection_id.clone()),
+            source_item_id: self.source.as_ref().map(|from| from.item_id.clone()),
+        }
+    }
+
+    pub fn scope(&self) -> Option<&ItemBinding> {
+        self.binding.as_ref().or(self.source.as_ref())
+    }
+
+    pub fn history_entry(&self) -> HistoryEntry {
+        let entry = HistoryEntry::new(self.draft.name.as_str(), self.draft.to_request());
+        match self.scope() {
+            Some(scope) => entry.sent_from(&scope.collection_id, &scope.item_id),
+            None => entry,
         }
     }
 
@@ -223,6 +185,7 @@ impl RequestTab {
         RequestTab {
             id,
             binding,
+            source: None,
             draft,
             unsaved,
             edited_at: None,

@@ -7,17 +7,20 @@ use serde::Serialize;
 
 use self::index::DocumentIndex;
 use self::links::LinkedFolders;
+use self::location::platform_root;
 use super::pending_write::{PendingDelete, PendingWrite, StoreError};
 use super::settings::AppSettings;
 use super::{Session, StoreWrite, Workspace};
 use crate::collection::Collection;
 use crate::environment::Environment;
+use crate::history::History;
 
 const HOME_OVERRIDE_VARIABLE: &str = "REQUESTOR_HOME";
 const COLLECTIONS_DIRECTORY: &str = "collections";
 const ENVIRONMENTS_DIRECTORY: &str = "environments";
 const SETTINGS_FILE: &str = "settings.json";
 const SESSION_FILE: &str = "session.json";
+const HISTORY_FILE: &str = "history.json";
 pub(super) const JSON_EXTENSION: &str = "json";
 const FILE_NAME_FILLER: char = '_';
 const UNNAMED_FILE: &str = "unnamed";
@@ -85,6 +88,7 @@ impl WorkspaceStore {
             environments,
             settings: self.load_file(SETTINGS_FILE, &mut warnings),
             session: self.load_file(SESSION_FILE, &mut warnings),
+            history: self.load_file(HISTORY_FILE, &mut warnings),
         };
         workspace.normalize();
         LoadedWorkspace {
@@ -118,6 +122,10 @@ impl WorkspaceStore {
 
     pub fn session_write(&self, session: &Session) -> Result<PendingWrite, StoreError> {
         pending(self.root.join(SESSION_FILE), session)
+    }
+
+    pub fn history_write(&self, history: &History) -> Result<PendingWrite, StoreError> {
+        pending(self.root.join(HISTORY_FILE), history)
     }
 
     pub fn release_collection(&mut self, id: &str) -> Option<Result<StoreWrite, StoreError>> {
@@ -187,25 +195,6 @@ fn json_paths(directory: &Path) -> Vec<PathBuf> {
     paths
 }
 
-fn platform_root(variable: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBuf> {
-    const APPLICATION_DIRECTORY: &str = "Requestor";
-    if cfg!(target_os = "macos") {
-        let home = PathBuf::from(variable("HOME")?);
-        return Some(
-            home.join("Library")
-                .join("Application Support")
-                .join(APPLICATION_DIRECTORY),
-        );
-    }
-    if cfg!(windows) {
-        return Some(PathBuf::from(variable("APPDATA")?).join(APPLICATION_DIRECTORY));
-    }
-    let configuration = variable("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| Some(PathBuf::from(variable("HOME")?).join(".config")))?;
-    Some(configuration.join(APPLICATION_DIRECTORY.to_ascii_lowercase()))
-}
-
 fn pending<T: Serialize>(path: PathBuf, document: &T) -> Result<PendingWrite, StoreError> {
     serde_json::to_string_pretty(document)
         .map(|contents| PendingWrite::new(path.clone(), contents))
@@ -238,5 +227,6 @@ pub(super) fn safe_file_stem(id: &str) -> String {
 mod index;
 mod linked_folder;
 mod links;
+mod location;
 #[cfg(test)]
 mod tests;

@@ -434,6 +434,7 @@ fn unsaved_work_restored_from_the_session_is_autosaved() {
 
 mod changes;
 mod folders;
+mod history;
 mod rules;
 mod transfer;
 mod unsaved;

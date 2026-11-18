@@ -16,6 +16,7 @@ pub use store_write::StoreWrite;
 
 use crate::collection::{Collection, Request, Variable};
 use crate::environment::Environment;
+use crate::history::History;
 use crate::identity::random_uuid;
 use crate::variables::VariableScope;
 
@@ -25,6 +26,7 @@ pub struct Workspace {
     pub environments: Vec<Environment>,
     pub settings: AppSettings,
     pub session: Session,
+    pub history: History,
 }
 
 impl Workspace {

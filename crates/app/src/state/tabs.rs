@@ -162,11 +162,13 @@ impl AppState {
         self.overlay = Some(Overlay::SaveTab(SaveTabForm {
             tab: id,
             name: tab.draft.name.clone(),
-            collection_id: self
-                .workspace
-                .collections
-                .first()
-                .map(|collection| collection.id().to_string()),
+            collection_id: tab
+                .source
+                .as_ref()
+                .map(|source| source.collection_id.as_str())
+                .filter(|id| self.workspace.collection(id).is_some())
+                .or_else(|| self.workspace.collections.first().map(|first| first.id()))
+                .map(str::to_string),
             folder_id: None,
             close_after,
         }));

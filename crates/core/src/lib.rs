@@ -6,6 +6,7 @@ pub mod encoding;
 pub mod environment;
 pub mod error;
 pub mod header;
+pub mod history;
 pub mod identity;
 pub mod import;
 pub mod json_layout;

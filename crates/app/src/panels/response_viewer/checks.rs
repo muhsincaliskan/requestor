@@ -1,8 +1,8 @@
 use eframe::egui::{Label, RichText, ScrollArea, Ui};
 use requestor_core::checks::{CheckOutcome, Extracted};
 
-use super::status::success_color;
 use crate::response::ResponseView;
+use crate::widgets::success_color;
 
 const PASSED_MARK: &str = "✓";
 const FAILED_MARK: &str = "✗";

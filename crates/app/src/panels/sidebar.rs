@@ -1,5 +1,6 @@
 mod drag;
 mod environments;
+mod history;
 mod menus;
 mod reveal;
 mod tree;
@@ -44,6 +45,8 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
             }
             ui.add_space(SECTION_GAP);
             environments::show(ui, state, actions);
+            ui.add_space(SECTION_GAP);
+            history::show(ui, state, &filter, actions);
         });
 }
 
