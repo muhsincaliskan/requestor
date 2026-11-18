@@ -85,6 +85,8 @@ pub struct ExportForm {
     pub target: LibraryTarget,
     pub file_path: String,
     pub error: Option<String>,
+    pub keep_credentials: bool,
+    pub credentials_found: Option<usize>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -153,6 +155,8 @@ impl ExportForm {
             target,
             file_path,
             error: None,
+            keep_credentials: false,
+            credentials_found: None,
         }
     }
 }
@@ -163,6 +167,7 @@ impl ExportForm {
         (!file_path.is_empty()).then(|| Action::Export {
             target: self.target.clone(),
             file_path: PathBuf::from(file_path),
+            keep_credentials: self.keep_credentials,
         })
     }
 
@@ -170,6 +175,7 @@ impl ExportForm {
         Action::ChooseExportLocation {
             target: self.target.clone(),
             suggested: PathBuf::from(self.file_path.trim()),
+            keep_credentials: self.keep_credentials,
         }
     }
 }

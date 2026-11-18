@@ -51,6 +51,7 @@ pub enum Effect {
     PickExportLocation {
         target: LibraryTarget,
         suggested: PathBuf,
+        keep_credentials: bool,
     },
     PickFolder(FolderPurpose),
     PickCertificateFile(CertificateFile),

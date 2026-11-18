@@ -3,8 +3,8 @@ use requestor_core::collection::{Collection, Variable};
 
 use super::shared_fields::{auth_section, headers_section};
 use super::table::{
-    delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, reveal_toggle,
-    text_cell, RowEdit, KEY_HINT, VALUE_HINT,
+    delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, secret_value_cell,
+    text_cell, RowEdit, KEY_HINT,
 };
 use super::{dialog, SECTION_GAP};
 use crate::state::{Action, AppState};
@@ -66,13 +66,10 @@ fn variables_table(ui: &mut Ui, collection: &mut Collection) -> bool {
     let Some(variables) = collection.variable.as_mut() else {
         return false;
     };
-    let reveal = variables.iter().any(Variable::is_secret) && reveal_toggle(ui, REVEAL_ID);
-    edit_rows(ui, TABLE_ID, COLUMNS, variables, |ui, variable| {
-        row(ui, variable, reveal)
-    })
+    edit_rows(ui, TABLE_ID, COLUMNS, variables, row)
 }
 
-fn row(ui: &mut Ui, variable: &mut Variable, reveal: bool) -> RowEdit {
+fn row(ui: &mut Ui, variable: &mut Variable) -> RowEdit {
     let mut changed = false;
     if let Some(enabled) = enabled_cell(ui, variable.is_enabled()) {
         variable.set_enabled(enabled);
@@ -84,8 +81,8 @@ fn row(ui: &mut Ui, variable: &mut Variable, reveal: bool) -> RowEdit {
         changed = true;
     }
     let mut value = variable.value_text();
-    let masked = variable.is_secret() && !reveal;
-    if text_cell(ui, &mut value, VALUE_HINT, masked) {
+    let row_key = variable.key_text().to_string();
+    if secret_value_cell(ui, &mut value, variable.is_secret(), (REVEAL_ID, &row_key)) {
         variable.set_value_text(&value);
         changed = true;
     }

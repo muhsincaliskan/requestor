@@ -100,10 +100,17 @@ impl RequestorApp {
                 Effect::PickImportFile => {
                     follow_ups.extend(file_picker::import_file().map(Action::ImportFile));
                 }
-                Effect::PickExportLocation { target, suggested } => follow_ups.extend(
-                    file_picker::export_location(&suggested)
-                        .map(|file_path| Action::Export { target, file_path }),
-                ),
+                Effect::PickExportLocation {
+                    target,
+                    suggested,
+                    keep_credentials,
+                } => follow_ups.extend(file_picker::export_location(&suggested).map(|file_path| {
+                    Action::Export {
+                        target,
+                        file_path,
+                        keep_credentials,
+                    }
+                })),
                 Effect::PickCertificateFile(file) => follow_ups.extend(
                     file_picker::certificate_file()
                         .map(|path| Action::CertificateFilePicked { file, path }),

@@ -41,7 +41,12 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         Overlay::ConfirmDelete(confirmation) => dialogs::confirm_delete(ctx, confirmation, actions),
         Overlay::SaveTab(form) => dialogs::save_tab(ctx, state, form, actions),
         Overlay::Rename(form) => dialogs::rename(ctx, form, actions),
-        Overlay::Export(form) => dialogs::export(ctx, form, actions),
+        Overlay::Export(form) => {
+            let credentials = *form
+                .credentials_found
+                .get_or_insert_with(|| state.exposed_credential_count(&form.target));
+            dialogs::export(ctx, form, credentials, actions)
+        }
         Overlay::CommandPalette(form) => palette::show(ctx, state, form, actions),
         Overlay::Code(form) => code::show(ctx, form, actions),
     };

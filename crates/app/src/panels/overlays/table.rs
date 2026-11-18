@@ -1,13 +1,12 @@
 use eframe::egui::{vec2, Align, Button, Context, Grid, Id, Layout, ScrollArea, TextEdit, Ui};
 
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
-use crate::widgets::{action_button, icon_button};
+use crate::widgets::{action_button, eye_button, icon_button};
 
 const ADD_VARIABLE_LABEL: &str = "+ Add variable";
 pub(super) const KEY_HINT: &str = "Variable";
 pub(super) const VALUE_HINT: &str = "Value";
 const DONE_LABEL: &str = "Done";
-const REVEAL_LABEL: &str = "Show secret values";
 const NAME_LABEL: &str = "Name";
 const DELETE_LABEL: &str = "×";
 const DELETE_HINT: &str = "Delete variable";
@@ -116,17 +115,44 @@ pub(super) fn footer(ui: &mut Ui) -> (bool, bool) {
     .inner
 }
 
-pub(super) fn reveal_toggle(ui: &mut Ui, id: &str) -> bool {
-    let id = Id::new(id);
-    let mut reveal = ui.data(|data| data.get_temp::<bool>(id)).unwrap_or(false);
-    if ui.checkbox(&mut reveal, REVEAL_LABEL).changed() {
-        ui.data_mut(|data| data.insert_temp(id, reveal));
+pub(super) fn secret_value_cell(
+    ui: &mut Ui,
+    text: &mut String,
+    secret: bool,
+    (reveal_id, row_key): (&str, &str),
+) -> bool {
+    let revealed = secret
+        && revealed_rows(ui.ctx(), reveal_id)
+            .iter()
+            .any(|key| key == row_key);
+    ui.horizontal(|ui| {
+        let changed = text_cell(ui, text, VALUE_HINT, secret && !revealed);
+        if secret && eye_button(ui, revealed).clicked() {
+            toggle_revealed(ui.ctx(), reveal_id, row_key);
+        }
+        changed
+    })
+    .inner
+}
+
+fn revealed_rows(ctx: &Context, id: &str) -> Vec<String> {
+    ctx.data(|data| data.get_temp::<Vec<String>>(Id::new(id)))
+        .unwrap_or_default()
+}
+
+fn toggle_revealed(ctx: &Context, id: &str, row_key: &str) {
+    let mut rows = revealed_rows(ctx, id);
+    match rows.iter().position(|key| key == row_key) {
+        Some(position) => {
+            rows.remove(position);
+        }
+        None => rows.push(row_key.to_string()),
     }
-    reveal
+    ctx.data_mut(|data| data.insert_temp(Id::new(id), rows));
 }
 
 pub(super) fn forget_reveal(ctx: &Context, id: &str) {
-    ctx.data_mut(|data| data.remove_temp::<bool>(Id::new(id)));
+    ctx.data_mut(|data| data.remove_temp::<Vec<String>>(Id::new(id)));
 }
 
 pub(super) fn footer_done(ui: &mut Ui) -> bool {

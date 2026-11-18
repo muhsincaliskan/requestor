@@ -11,6 +11,10 @@ pub use redactor::Redactor;
 
 const MASK: &str = "********";
 pub const REDACTED: &str = "<redacted>";
+const VARIABLE_OPEN: &str = "{{";
+const VARIABLE_CLOSE: &str = "}}";
+const CREDENTIAL_SEPARATOR: char = ':';
+const AUTH_SCHEMES: [&str; 4] = ["Bearer", "Basic", "Digest", "Token"];
 const SECRET_NAME_MARKERS: [&str; 9] = [
     "auth",
     "cookie",
@@ -22,6 +26,24 @@ const SECRET_NAME_MARKERS: [&str; 9] = [
     "signature",
     "credential",
 ];
+
+pub(crate) fn is_literal(value: &str) -> bool {
+    let mut remaining = value.to_string();
+    while let Some(open) = remaining.find(VARIABLE_OPEN) {
+        let Some(length) = remaining[open..].find(VARIABLE_CLOSE) else {
+            break;
+        };
+        remaining.replace_range(open..open + length + VARIABLE_CLOSE.len(), " ");
+    }
+    remaining
+        .split(|character: char| character.is_whitespace() || character == CREDENTIAL_SEPARATOR)
+        .any(|word| {
+            !word.is_empty()
+                && !AUTH_SCHEMES
+                    .iter()
+                    .any(|scheme| word.eq_ignore_ascii_case(scheme))
+        })
+}
 
 pub fn is_secret_name(name: &str) -> bool {
     let lowered = name.to_ascii_lowercase();

@@ -83,9 +83,44 @@ fn exported_environments_leave_secret_values_empty() {
     let mut state = super::state_with(workspace);
     let target = LibraryTarget::Environment { environment_id };
     let file_path = "Staging.postman_environment.json".into();
-    let effects = state.apply(Action::Export { target, file_path }, 0.0);
+    let effects = state.apply(
+        Action::Export {
+            target,
+            file_path,
+            keep_credentials: false,
+        },
+        0.0,
+    );
     let [Effect::WriteFile { contents, .. }] = effects.as_slice() else {
         panic!("expected one written file, got {effects:?}");
     };
     assert!(!contents.contains(TOKEN_VALUE), "{contents}");
+}
+
+#[test]
+fn exports_leave_out_unmarked_credentials_unless_kept() {
+    use requestor_core::environment::Environment;
+
+    let mut workspace = requestor_core::workspace::Workspace::default();
+    let mut environment = Environment::new("Staging");
+    environment.set_value("apiToken", "plain-token");
+    let environment_id = workspace.add_environment(environment);
+    let mut state = super::state_with(workspace);
+    let target = LibraryTarget::Environment { environment_id };
+    assert_eq!(state.exposed_credential_count(&target), 1);
+
+    let mut export = |keep_credentials: bool| {
+        let action = Action::Export {
+            target: target.clone(),
+            file_path: "Staging.postman_environment.json".into(),
+            keep_credentials,
+        };
+        let effects = state.apply(action, 0.0);
+        let [Effect::WriteFile { contents, .. }] = effects.as_slice() else {
+            panic!("expected one written file, got {effects:?}");
+        };
+        contents.clone()
+    };
+    assert!(!export(false).contains("plain-token"));
+    assert!(export(true).contains("plain-token"));
 }

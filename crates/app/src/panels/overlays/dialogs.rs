@@ -21,6 +21,9 @@ const FOLDER_PATH_SEPARATOR: &str = " / ";
 const EXPORT_PATH_HINT: &str = "File to write";
 const EXPORT_PATH_MISSING: &str = "Enter the file to write";
 const FIELD_WIDTH: f32 = 320.0;
+const SECRET_VARIABLES_NOTE: &str = "Values of secret variables are always left out.";
+const CREDENTIALS_FOUND: &str = "values look like passwords, tokens or keys (auth fields, headers or variables not marked secret). They are left out of the file.";
+const KEEP_CREDENTIALS_LABEL: &str = "Keep them in the file";
 
 pub fn confirm_close_tab(
     ctx: &Context,
@@ -166,11 +169,17 @@ pub fn rename(ctx: &Context, form: &mut RenameForm, actions: &mut Vec<Action>) -
     })
 }
 
-pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -> bool {
+pub fn export(
+    ctx: &Context,
+    form: &mut ExportForm,
+    credentials: usize,
+    actions: &mut Vec<Action>,
+) -> bool {
     dialog(ctx, "export", "Export", |ui| {
         if form.offers_formats() {
             format_choice(ui, form);
         }
+        credentials_choice(ui, form, credentials);
         ui.horizontal(|ui| {
             ui.add(
                 TextEdit::singleline(&mut form.file_path)
@@ -194,6 +203,16 @@ pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -
             !ui.button(CANCEL_LABEL).clicked()
         })
     })
+}
+
+fn credentials_choice(ui: &mut Ui, form: &mut ExportForm, credentials: usize) {
+    ui.weak(SECRET_VARIABLES_NOTE);
+    if credentials == 0 {
+        return;
+    }
+    let found = format!("{credentials} {CREDENTIALS_FOUND}");
+    ui.colored_label(ui.visuals().warn_fg_color, found);
+    ui.checkbox(&mut form.keep_credentials, KEEP_CREDENTIALS_LABEL);
 }
 
 fn format_choice(ui: &mut Ui, form: &mut ExportForm) {

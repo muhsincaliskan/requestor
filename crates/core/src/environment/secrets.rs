@@ -4,12 +4,16 @@ use serde_json::Value;
 
 use super::{Environment, EnvironmentValue};
 use crate::error::CoreError;
-use crate::secret::Secret;
+use crate::secret::{is_literal, is_secret_name, Secret};
 use crate::vault::{EnvironmentSecrets, SecretEntry, SecretOrigin, VaultSlot};
 
 impl EnvironmentValue {
     pub fn holds_secret(&self) -> bool {
         self.is_secret() && !self.value_text().is_empty()
+    }
+
+    fn holds_unmarked_secret(&self) -> bool {
+        !self.is_secret() && is_secret_name(&self.key) && is_literal(&self.value_text())
     }
 
     fn clear_secret_value(&mut self) {
@@ -84,5 +88,22 @@ impl Environment {
 
     pub fn to_export_json(&self) -> Result<String, CoreError> {
         self.without_secret_values().to_json_pretty()
+    }
+
+    pub fn unmarked_secret_count(&self) -> usize {
+        self.values
+            .iter()
+            .filter(|entry| entry.holds_unmarked_secret())
+            .count()
+    }
+
+    pub fn without_unmarked_secrets(&self) -> Environment {
+        let mut stripped = self.clone();
+        stripped
+            .values
+            .iter_mut()
+            .filter(|entry| entry.holds_unmarked_secret())
+            .for_each(|entry| entry.set_value_text(""));
+        stripped
     }
 }

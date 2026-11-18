@@ -5,8 +5,8 @@ use requestor_core::environment::{
 
 use super::dialog;
 use super::table::{
-    delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, reveal_toggle,
-    text_cell, RowEdit, KEY_HINT, VALUE_HINT,
+    delete_cell, edit_rows, enabled_cell, footer, forget_reveal, name_field, secret_value_cell,
+    text_cell, RowEdit, KEY_HINT,
 };
 use crate::state::{Action, AppState};
 use crate::widgets::environment_swatch;
@@ -37,14 +37,7 @@ pub fn show(
     let stays_open = dialog(ctx, DIALOG_ID, TITLE, |ui| {
         let mut changed = name_field(ui, &mut environment.name);
         changed |= marking(ui, environment);
-        let reveal = reveal_toggle(ui, REVEAL_ID);
-        changed |= edit_rows(
-            ui,
-            TABLE_ID,
-            COLUMNS,
-            &mut environment.values,
-            |ui, entry| row(ui, entry, reveal),
-        );
+        changed |= edit_rows(ui, TABLE_ID, COLUMNS, &mut environment.values, row);
         let (add, done) = footer(ui);
         if add {
             environment.values.push(EnvironmentValue::blank());
@@ -61,22 +54,21 @@ pub fn show(
     stays_open
 }
 
-fn row(ui: &mut Ui, entry: &mut EnvironmentValue, reveal: bool) -> RowEdit {
+fn row(ui: &mut Ui, entry: &mut EnvironmentValue) -> RowEdit {
     let mut changed = false;
     if let Some(enabled) = enabled_cell(ui, entry.is_enabled()) {
         entry.set_enabled(enabled);
         changed = true;
     }
     changed |= text_cell(ui, &mut entry.key, KEY_HINT, false);
-    changed |= value_cell(ui, entry, reveal);
+    changed |= value_cell(ui, entry);
     changed |= secret_cell(ui, entry);
     RowEdit::from_flags(changed, delete_cell(ui))
 }
 
-fn value_cell(ui: &mut Ui, entry: &mut EnvironmentValue, reveal: bool) -> bool {
+fn value_cell(ui: &mut Ui, entry: &mut EnvironmentValue) -> bool {
     let mut text = entry.value_text();
-    let masked = entry.is_secret() && !reveal;
-    let edited = text_cell(ui, &mut text, VALUE_HINT, masked);
+    let edited = secret_value_cell(ui, &mut text, entry.is_secret(), (REVEAL_ID, &entry.key));
     if edited {
         entry.set_value_text(&text);
     }
