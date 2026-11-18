@@ -8,6 +8,7 @@ pub struct UnsavedChanges {
     pub environments: BTreeSet<String>,
     pub settings: bool,
     pub session: bool,
+    pub history: bool,
     changed_at: Option<f64>,
 }
 
@@ -32,6 +33,11 @@ impl UnsavedChanges {
         self.changed_at = Some(now);
     }
 
+    pub fn touch_history(&mut self, now: f64) {
+        self.history = true;
+        self.changed_at = Some(now);
+    }
+
     pub fn forget_collection(&mut self, id: &str) {
         self.collections.remove(id);
     }
@@ -45,6 +51,7 @@ impl UnsavedChanges {
             && self.environments.is_empty()
             && !self.settings
             && !self.session
+            && !self.history
     }
 
     pub fn is_due(&self, now: f64) -> bool {

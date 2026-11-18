@@ -45,6 +45,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - It has Pretty and Raw modes for JSON and XML, and a find box.
 - Headers and cookies have one-click copy.
 - Send a request again and the Changes tab shows what differs from the previous response, line by line, with JSON and XML laid out first.
+- The History section in the sidebar lists the last 100 requests you sent, with their status. Click one to open it in a new tab. Sending the same request again updates its entry instead of adding a new one. Request bodies over 256 KB are left out. Responses are not kept. Right-click the History heading to clear it.
 - A URL typed without `http://` or `https://` is sent over HTTP, as in a browser.
 - With autosave off, requests with unsaved edits are marked in the tree and listed in an Unsaved group at the top of the sidebar.
 - A standalone `requestor` command-line binary runs collections, sends single cURL or raw HTTP requests, and converts imports to Postman format.

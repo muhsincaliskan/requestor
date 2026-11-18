@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use requestor_core::history::HistoryEntry;
 use requestor_core::response::HttpResponse;
 
 use super::folders::FolderPurpose;
@@ -43,6 +44,8 @@ pub enum Action {
         include_secrets: bool,
     },
     CopyText(String),
+    OpenHistoryEntry(Box<HistoryEntry>),
+    ClearHistory,
     NewCollection,
     AddFolder {
         collection_id: String,

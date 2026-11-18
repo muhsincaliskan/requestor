@@ -1,5 +1,6 @@
 use requestor_core::collection::{Item, Request};
 use requestor_core::draft::{RequestDraft, RulesDraft};
+use requestor_core::history::HistoryEntry;
 use requestor_core::workspace::{SessionTab, Workspace};
 
 use super::exchange::Exchange;
@@ -162,6 +163,10 @@ impl RequestTab {
                 .then(|| self.draft.rules.script_lines())
                 .flatten(),
         }
+    }
+
+    pub fn history_entry(&self) -> HistoryEntry {
+        HistoryEntry::new(self.draft.name.as_str(), self.draft.to_request())
     }
 
     pub fn mark_edited(&mut self, now: f64) {

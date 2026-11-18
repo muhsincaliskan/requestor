@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use super::{safe_file_stem, WorkspaceStore};
 
-use crate::collection::Collection;
+use crate::collection::{Collection, Request, Url};
 use crate::environment::Environment;
+use crate::history::HistoryEntry;
 use crate::identity::random_uuid;
 use crate::workspace::{AppSettings, Session, SessionTab, Workspace};
 
@@ -59,6 +60,10 @@ fn everything_written_is_read_back() {
         active_tab: Some(0),
         active_environment: Some(environment_id.clone()),
     };
+    let request = Request::new("GET", Url::Raw("https://example.com/ping".to_string()));
+    workspace
+        .history
+        .record(HistoryEntry::new("ping", request).finished(Some(200)));
     let writes = [
         store.collection_write(&workspace.collections[0]).unwrap(),
         store
@@ -67,6 +72,7 @@ fn everything_written_is_read_back() {
             .into(),
         store.settings_write(&workspace.settings).unwrap().into(),
         store.session_write(&workspace.session).unwrap().into(),
+        store.history_write(&workspace.history).unwrap().into(),
     ];
     for write in writes {
         write.commit().unwrap();

@@ -18,6 +18,7 @@ const EXPORT_LABEL: &str = "Export";
 const DELETE_LABEL: &str = "Delete";
 const SAVE_TO_FOLDER_LABEL: &str = "Save to folder…";
 const STOP_FOLDER_LABEL: &str = "Stop saving to folder";
+const CLEAR_HISTORY_LABEL: &str = "Clear history";
 
 pub(super) fn collection(
     response: &Response,
@@ -128,6 +129,10 @@ fn item_entries(ui: &mut Ui, collection_id: &str, item: &Item, actions: &mut Vec
             item_id: item_id.to_string(),
         });
     }
+}
+
+pub(super) fn history(response: &Response, actions: &mut Vec<Action>) {
+    response.context_menu(|ui| entry(ui, CLEAR_HISTORY_LABEL, actions, || Action::ClearHistory));
 }
 
 fn library_entries(ui: &mut Ui, target: &LibraryTarget, name: &str, actions: &mut Vec<Action>) {

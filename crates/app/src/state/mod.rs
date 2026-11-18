@@ -4,6 +4,7 @@ mod effect;
 mod environments;
 mod exchange;
 mod folders;
+mod history;
 mod library;
 mod notice;
 mod overlay;

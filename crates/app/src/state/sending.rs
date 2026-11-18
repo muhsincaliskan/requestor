@@ -20,7 +20,7 @@ impl AppState {
                 tab,
                 include_secrets,
             } => self.copy_as_curl(tab, include_secrets, effects),
-            other => self.dispatch_library_action(other, effects),
+            other => self.dispatch_history_action(other, effects),
         }
     }
 
@@ -67,9 +67,10 @@ impl AppState {
         }
         self.next_job += 1;
         let job = self.next_job;
-        let replaced = self
-            .tab_mut(id)
-            .and_then(|tab| tab.exchange.start_send(job));
+        let replaced = self.tab_mut(id).and_then(|tab| {
+            let record = tab.history_entry();
+            tab.exchange.start_send(job, record)
+        });
         self.abandoned_jobs.extend(replaced);
         effects.push(Effect::Send {
             tab: id,
@@ -96,6 +97,9 @@ impl AppState {
         let previous = self
             .tab_mut(id)
             .and_then(|tab| tab.exchange.take_previous());
+        let record = self.tab_mut(id).and_then(|tab| tab.exchange.take_record());
+        let status = result.as_ref().ok().map(|response| response.status);
+        self.remember_sent(record.map(|record| record.finished(status)));
         let exchange = match result {
             Ok(response) => {
                 let report = (!rules.is_empty()).then(|| rules.evaluate(&response));
