@@ -5,7 +5,7 @@ use reqwest::blocking::Response;
 
 use super::{Cancellation, StreamProgress, TransportError};
 use crate::header::Header;
-use crate::response::HttpResponse;
+use crate::response::{HttpResponse, ResponseTiming};
 use crate::settings::RequestSettings;
 
 const READ_CHUNK_BYTES: usize = 16 * 1024;
@@ -37,6 +37,7 @@ pub(super) fn read_response(
     settings: &RequestSettings,
     started: Instant,
     watch: ReadWatch<'_>,
+    timing: ResponseTiming,
     on_stream: &mut dyn FnMut(StreamProgress<'_>),
 ) -> Result<HttpResponse, TransportError> {
     let status = response.status();
@@ -53,7 +54,8 @@ pub(super) fn read_response(
             .collect(),
         body: Vec::new(),
         truncated: false,
-        elapsed: started.elapsed(),
+        elapsed: timing.first_byte,
+        timing: Some(timing),
     };
     let (body, truncated) = if head.is_event_stream() {
         on_stream(StreamProgress::Opened(&head));
@@ -75,6 +77,7 @@ pub(super) fn read_response(
     head.body = body;
     head.truncated = truncated;
     head.elapsed = started.elapsed();
+    head.timing = Some(timing.completed_in(head.elapsed));
     Ok(head)
 }
 

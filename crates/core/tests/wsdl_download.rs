@@ -55,6 +55,7 @@ impl HttpTransport for FakeWeb {
             body: found.map(|(_, body)| body.clone()).unwrap_or_default(),
             truncated: self.truncated,
             elapsed: Duration::ZERO,
+            timing: None,
         })
     }
 }

@@ -85,6 +85,7 @@ fn saved_examples_lose_their_credentials_too() {
         body: Vec::new(),
         truncated: false,
         elapsed: std::time::Duration::ZERO,
+        timing: None,
     };
     item.add_example(&requestor_core::collection::Example::from_exchange(
         &request, &response,

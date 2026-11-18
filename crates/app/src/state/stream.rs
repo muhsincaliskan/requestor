@@ -44,8 +44,13 @@ impl LiveStream {
     }
 
     pub fn into_response(self) -> HttpResponse {
+        let elapsed = self.response.elapsed + self.opened_at.elapsed();
         HttpResponse {
-            elapsed: self.response.elapsed + self.opened_at.elapsed(),
+            elapsed,
+            timing: self
+                .response
+                .timing
+                .map(|timing| timing.completed_in(elapsed)),
             ..self.response
         }
     }

@@ -38,6 +38,7 @@ impl HttpTransport for FakeTransport {
             body: Vec::new(),
             truncated: false,
             elapsed: Duration::ZERO,
+            timing: None,
         })
     }
 }

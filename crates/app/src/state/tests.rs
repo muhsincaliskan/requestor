@@ -64,6 +64,7 @@ fn response(body: &[u8]) -> HttpResponse {
         body: body.to_vec(),
         truncated: false,
         elapsed: Duration::ZERO,
+        timing: None,
     }
 }
 

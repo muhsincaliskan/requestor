@@ -2,7 +2,8 @@ use reqwest::blocking::{Client, ClientBuilder};
 use reqwest::redirect::{Attempt, Policy};
 use reqwest::{Identity, Url};
 
-use super::reqwest_transport::{configure, finish};
+use super::reqwest_transport::configure;
+use super::timing::MeasuredClient;
 use super::TransportError;
 use crate::settings::{ClientCertificate, HttpVersion, RequestSettings};
 
@@ -10,7 +11,7 @@ const SECURE_SCHEME: &str = "https";
 const TOO_MANY_REDIRECTS: &str = "too many redirects";
 
 pub struct CertifiedClients {
-    entries: Vec<(ClientCertificate, Result<Client, TransportError>)>,
+    entries: Vec<(ClientCertificate, Result<MeasuredClient, TransportError>)>,
 }
 
 impl CertifiedClients {
@@ -20,14 +21,15 @@ impl CertifiedClients {
             .iter()
             .filter(|certificate| certificate.is_complete())
             .map(|certificate| {
-                let client = certified_builder(settings, certificate).and_then(finish);
+                let client =
+                    certified_builder(settings, certificate).and_then(MeasuredClient::build);
                 (certificate.clone(), client)
             })
             .collect();
         CertifiedClients { entries }
     }
 
-    pub fn client_for(&self, url: &str) -> Option<Result<&Client, TransportError>> {
+    pub fn client_for(&self, url: &str) -> Option<Result<&MeasuredClient, TransportError>> {
         if self.entries.is_empty() {
             return None;
         }

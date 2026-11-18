@@ -80,6 +80,7 @@ impl Example {
             body: self.body.clone().unwrap_or_default().into_bytes(),
             truncated: false,
             elapsed: Duration::ZERO,
+            timing: None,
         }
     }
 }

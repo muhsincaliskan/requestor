@@ -16,7 +16,7 @@ use std::time::Duration;
 use requestor_core::checks::RulesReport;
 use requestor_core::event_stream::EventLog;
 use requestor_core::header::Header;
-use requestor_core::response::{HttpResponse, ResponseFormat, StatusClass};
+use requestor_core::response::{HttpResponse, ResponseFormat, ResponseTiming, StatusClass};
 use requestor_core::text_diff::LineDiff;
 
 const BINARY_NOTICE: &str = "Binary response body";
@@ -27,6 +27,7 @@ pub struct ResponseView {
     pub reason: String,
     pub version: String,
     pub elapsed: Duration,
+    pub timing: Option<ResponseTiming>,
     pub headers: Vec<Header>,
     pub format: ResponseFormat,
     pub truncated: bool,
@@ -56,6 +57,7 @@ impl ResponseView {
             reason: response.reason,
             version: response.version,
             elapsed: response.elapsed,
+            timing: response.timing,
             headers: response.headers,
             format,
             truncated: response.truncated,
@@ -86,6 +88,7 @@ impl ResponseView {
             body: self.body.clone(),
             truncated: self.truncated,
             elapsed: self.elapsed,
+            timing: self.timing,
         }
     }
 

@@ -6,6 +6,7 @@ use reqwest::{Method, NoProxy, Proxy};
 
 use super::certified::CertifiedClients;
 use super::reading::{read_response, ReadWatch};
+use super::timing::MeasuredClient;
 use super::{Cancellation, HttpTransport, StreamProgress, TransportError};
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
@@ -16,8 +17,8 @@ const HOST_LIST_SEPARATOR: &str = ",";
 const SECURE_SCHEME_PREFIX: &str = "https://";
 
 pub struct ReqwestTransport {
-    client: Client,
-    secure_client: Option<Client>,
+    client: MeasuredClient,
+    secure_client: Option<MeasuredClient>,
     certified_clients: CertifiedClients,
     settings: RequestSettings,
 }
@@ -40,7 +41,7 @@ impl ReqwestTransport {
         })
     }
 
-    fn client_for(&self, url: &str) -> Result<&Client, TransportError> {
+    fn client_for(&self, url: &str) -> Result<&MeasuredClient, TransportError> {
         if let Some(certified) = self.certified_clients.client_for(url) {
             return certified;
         }
@@ -77,7 +78,8 @@ impl ReqwestTransport {
     ) -> Result<HttpResponse, TransportError> {
         let method = Method::from_bytes(request.method.as_str().as_bytes())
             .map_err(|error| TransportError::InvalidRequest(error.to_string()))?;
-        let mut builder = self.client_for(&request.url)?.request(method, &request.url);
+        let client = self.client_for(&request.url)?;
+        let mut builder = client.client.request(method, &request.url);
         for header in &request.headers {
             builder = builder.header(&header.name, &header.value);
         }
@@ -88,26 +90,22 @@ impl ReqwestTransport {
             builder = builder.timeout(timeout);
         }
         let started = Instant::now();
+        let measurement = client.measure(started);
         let response = builder.send().map_err(TransportError::from_reqwest)?;
+        let timing = measurement.received_headers(Instant::now());
         let watch = ReadWatch {
             deadline: timeout.map(|timeout| started + timeout),
             cancellation,
         };
-        read_response(response, &self.settings, started, watch, on_stream)
+        read_response(response, &self.settings, started, watch, timing, on_stream)
     }
 }
 
 fn build(
     settings: &RequestSettings,
     version: impl FnOnce(ClientBuilder) -> ClientBuilder,
-) -> Result<Client, TransportError> {
-    finish(version(configure(Client::builder(), settings)?))
-}
-
-pub(super) fn finish(builder: ClientBuilder) -> Result<Client, TransportError> {
-    builder
-        .build()
-        .map_err(|error| TransportError::InvalidSettings(error.without_url().to_string()))
+) -> Result<MeasuredClient, TransportError> {
+    MeasuredClient::build(version(configure(Client::builder(), settings)?))
 }
 
 pub(super) fn configure(

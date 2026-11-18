@@ -18,6 +18,7 @@ fn response(content_type: &str, body: &[u8]) -> HttpResponse {
         body: body.to_vec(),
         truncated: false,
         elapsed: Duration::from_millis(12),
+        timing: None,
     }
 }
 

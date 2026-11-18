@@ -237,6 +237,7 @@ fn a_cut_off_or_failed_answer_names_the_reason() {
         body: introspection().to_string().into_bytes(),
         truncated: true,
         elapsed: Default::default(),
+        timing: None,
     };
     assert_eq!(response.graphql_schema(), Err(SchemaError::TooLarge));
     response.truncated = false;
