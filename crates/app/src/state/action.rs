@@ -136,10 +136,12 @@ pub enum Action {
     ChooseExportLocation {
         target: LibraryTarget,
         suggested: PathBuf,
+        keep_credentials: bool,
     },
     Export {
         target: LibraryTarget,
         file_path: PathBuf,
+        keep_credentials: bool,
     },
     ChooseFolder(FolderPurpose),
     ResetDataFolder,

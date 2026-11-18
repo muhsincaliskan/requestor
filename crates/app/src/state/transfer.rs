@@ -21,11 +21,21 @@ impl AppState {
             Action::ImportText(text) => self.import(import_text(&text)),
             Action::ImportDownloaded { job, imported } => self.finish_download(job, *imported),
             Action::ImportFile(path) => self.import_file(&path),
-            Action::Export { target, file_path } => self.export(&target, file_path, effects),
+            Action::Export {
+                target,
+                file_path,
+                keep_credentials,
+            } => self.export(&target, file_path, keep_credentials, effects),
             Action::ChooseImportFile => effects.push(Effect::PickImportFile),
-            Action::ChooseExportLocation { target, suggested } => {
-                effects.push(Effect::PickExportLocation { target, suggested })
-            }
+            Action::ChooseExportLocation {
+                target,
+                suggested,
+                keep_credentials,
+            } => effects.push(Effect::PickExportLocation {
+                target,
+                suggested,
+                keep_credentials,
+            }),
             other => self.dispatch_folder_action(other, effects),
         }
     }
@@ -137,11 +147,13 @@ impl AppState {
         }
     }
 
-    fn export(&mut self, target: &LibraryTarget, file_path: PathBuf, effects: &mut Vec<Effect>) {
-        let keep_credentials = matches!(
-            &self.overlay,
-            Some(Overlay::Export(form)) if form.keep_credentials
-        );
+    fn export(
+        &mut self,
+        target: &LibraryTarget,
+        file_path: PathBuf,
+        keep_credentials: bool,
+        effects: &mut Vec<Effect>,
+    ) {
         let format = ExportFormat::of(&file_path);
         let settings = &self.workspace.settings.request;
         let shareable = |collection: Collection| {

@@ -3,7 +3,12 @@ use serde_json::Value;
 use super::{Auth, AuthAttribute, Collection, Item, Param, Request, RequestSpec, Variable};
 use crate::secret::{is_literal, is_secret_name};
 
-const AUTH_SECRET_KEYS: [&str; 10] = [
+const AUTH_SECRET_KEYS: [&str; 15] = [
+    "authKey",
+    "secret",
+    "privateKey",
+    "clientToken",
+    "accessKey",
     "token",
     "password",
     "value",
@@ -111,7 +116,11 @@ impl Item {
             _ => 0,
         };
         let nested: usize = self.children().iter().map(Item::literal_secret_count).sum();
-        own_auth + request + nested + unmarked_secret_count(self.variable.as_ref())
+        let examples: usize = self
+            .example_requests()
+            .map(|request| request.literal_secret_count())
+            .sum();
+        own_auth + request + nested + examples + unmarked_secret_count(self.variable.as_ref())
     }
 
     fn clear_literal_secrets(&mut self) {
@@ -122,10 +131,42 @@ impl Item {
             request.clear_literal_secrets();
         }
         clear_unmarked_secrets(self.variable.as_mut());
+        self.clear_example_secrets();
         self.item
             .iter_mut()
             .flatten()
             .for_each(Item::clear_literal_secrets);
+    }
+}
+
+impl Item {
+    fn example_requests(&self) -> impl Iterator<Item = Request> + '_ {
+        (0..self.response.as_ref().map_or(0, Vec::len))
+            .filter_map(|index| self.example(index)?.request())
+    }
+
+    fn clear_example_secrets(&mut self) {
+        let count = self.response.as_ref().map_or(0, Vec::len);
+        for index in 0..count {
+            let Some(mut example) = self.example(index) else {
+                continue;
+            };
+            let Some(RequestSpec::Full(request)) = example.original_request.as_mut() else {
+                continue;
+            };
+            if request.literal_secret_count() == 0 {
+                continue;
+            }
+            request.clear_literal_secrets();
+            if let (Some(slot), Ok(value)) = (
+                self.response
+                    .as_mut()
+                    .and_then(|examples| examples.get_mut(index)),
+                serde_json::to_value(&example),
+            ) {
+                *slot = value;
+            }
+        }
     }
 }
 

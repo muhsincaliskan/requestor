@@ -52,6 +52,7 @@ fn choosing_files_asks_the_shell_for_a_native_picker() {
         Action::ChooseExportLocation {
             target: target.clone(),
             suggested: "Sample.postman_collection.json".into(),
+            keep_credentials: false,
         },
         0.0,
     );
@@ -228,7 +229,14 @@ fn a_collection_exports_as_postman_json_or_an_http_file() {
     assert!(form.file_path.ends_with("Sample.postman_collection.json"));
 
     let file_path = PathBuf::from("Sample.http");
-    let effects = state.apply(Action::Export { target, file_path }, 0.0);
+    let effects = state.apply(
+        Action::Export {
+            target,
+            file_path,
+            keep_credentials: false,
+        },
+        0.0,
+    );
     let [Effect::WriteFile { contents, .. }] = effects.as_slice() else {
         panic!("expected one written file, got {effects:?}");
     };

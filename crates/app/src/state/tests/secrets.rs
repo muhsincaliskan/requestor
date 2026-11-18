@@ -83,7 +83,14 @@ fn exported_environments_leave_secret_values_empty() {
     let mut state = super::state_with(workspace);
     let target = LibraryTarget::Environment { environment_id };
     let file_path = "Staging.postman_environment.json".into();
-    let effects = state.apply(Action::Export { target, file_path }, 0.0);
+    let effects = state.apply(
+        Action::Export {
+            target,
+            file_path,
+            keep_credentials: false,
+        },
+        0.0,
+    );
     let [Effect::WriteFile { contents, .. }] = effects.as_slice() else {
         panic!("expected one written file, got {effects:?}");
     };
@@ -102,24 +109,18 @@ fn exports_leave_out_unmarked_credentials_unless_kept() {
     let target = LibraryTarget::Environment { environment_id };
     assert_eq!(state.exposed_credential_count(&target), 1);
 
-    let export = |state: &mut crate::state::AppState| {
-        let file_path = "Staging.postman_environment.json".into();
-        let effects = state.apply(
-            Action::Export {
-                target: target.clone(),
-                file_path,
-            },
-            0.0,
-        );
+    let mut export = |keep_credentials: bool| {
+        let action = Action::Export {
+            target: target.clone(),
+            file_path: "Staging.postman_environment.json".into(),
+            keep_credentials,
+        };
+        let effects = state.apply(action, 0.0);
         let [Effect::WriteFile { contents, .. }] = effects.as_slice() else {
             panic!("expected one written file, got {effects:?}");
         };
         contents.clone()
     };
-    assert!(!export(&mut state).contains("plain-token"));
-
-    let mut form = crate::state::ExportForm::suggested(target.clone(), "Staging");
-    form.keep_credentials = true;
-    state.overlay = Some(crate::state::Overlay::Export(form));
-    assert!(export(&mut state).contains("plain-token"));
+    assert!(!export(false).contains("plain-token"));
+    assert!(export(true).contains("plain-token"));
 }
