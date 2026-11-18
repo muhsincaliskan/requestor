@@ -1,5 +1,6 @@
 use requestor_core::checks::RulesReport;
 use requestor_core::collection::Request;
+use requestor_core::environment::Environment;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
 use requestor_core::settings::RequestSettings;
@@ -7,13 +8,14 @@ use requestor_core::variables::VariableScope;
 
 use super::exchange::Exchange;
 use super::tab::{RequestTab, TabId};
-use super::{Action, AppState, Effect};
+use super::{Action, AppState, Effect, Overlay};
 use crate::response::ResponseView;
 
 impl AppState {
     pub(super) fn dispatch_sending_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
         match action {
-            Action::Send(tab) => self.send(tab, effects),
+            Action::Send(tab) => self.send_guarded(tab, effects),
+            Action::SendConfirmed(tab) => self.send(tab, effects),
             Action::CancelSend(tab) => self.cancel_send(tab),
             Action::StreamProgress { tab, job, update } => self.stream_progress(tab, job, update),
             Action::SendFinished { tab, job, result } => self.finish_send(tab, job, result),
@@ -65,6 +67,23 @@ impl AppState {
                 unresolved.join(", ")
             ));
         }
+    }
+
+    pub fn sends_to_protected_environment(&self) -> bool {
+        self.workspace
+            .active_environment()
+            .is_some_and(Environment::is_protected)
+    }
+
+    fn send_guarded(&mut self, id: TabId, effects: &mut Vec<Effect>) {
+        let starts_exchange = self.tab(id).is_some_and(|tab| !tab.is_connected());
+        if starts_exchange && self.sends_to_protected_environment() {
+            if self.overlay.is_none() {
+                self.overlay = Some(Overlay::ConfirmProtectedSend(id));
+            }
+            return;
+        }
+        self.send(id, effects);
     }
 
     fn send(&mut self, id: TabId, effects: &mut Vec<Effect>) {

@@ -159,3 +159,12 @@ fn proxy_addresses_with_credentials_are_recognised() {
     }
     .lowers_security());
 }
+
+#[test]
+fn an_empty_custom_proxy_does_not_count_as_lowering_security() {
+    let empty = RequestOverrides {
+        proxy: ProxyChoice::Custom(" ".to_string()),
+        ..RequestOverrides::default()
+    };
+    assert!(!empty.lowers_security());
+}

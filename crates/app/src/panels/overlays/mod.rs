@@ -4,6 +4,7 @@ mod dialogs;
 mod environment_editor;
 mod import;
 mod palette;
+mod protected_send;
 mod settings;
 mod table;
 
@@ -29,6 +30,7 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
             collection_editor::show(ctx, state, collection_id, actions)
         }
         Overlay::ConfirmCloseTab(tab) => dialogs::confirm_close_tab(ctx, state, *tab, actions),
+        Overlay::ConfirmProtectedSend(tab) => protected_send::show(ctx, state, *tab, actions),
         Overlay::ConfirmDelete(confirmation) => dialogs::confirm_delete(ctx, confirmation, actions),
         Overlay::SaveTab(form) => dialogs::save_tab(ctx, state, form, actions),
         Overlay::Rename(form) => dialogs::rename(ctx, form, actions),
