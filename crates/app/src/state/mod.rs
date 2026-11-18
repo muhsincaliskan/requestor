@@ -2,9 +2,13 @@ mod action;
 mod autosave;
 mod certificates;
 mod code;
+mod code_panel;
+mod data_folder;
 mod effect;
 mod environments;
+mod examples;
 mod exchange;
+mod export_format;
 mod folders;
 mod history;
 mod library;
@@ -27,8 +31,11 @@ mod updates;
 
 pub use action::Action;
 pub use certificates::{CertificateFile, CertificatePart};
+pub use code_panel::CodePanel;
 pub use effect::Effect;
+pub use examples::ExampleRef;
 pub use exchange::Exchange;
+pub use export_format::ExportFormat;
 pub use folders::FolderPurpose;
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
@@ -44,7 +51,9 @@ pub use tab::{ItemBinding, RequestTab, TabId};
 
 use requestor_core::update::Release;
 use requestor_core::variables::VariableScope;
-use requestor_core::workspace::{InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore};
+use requestor_core::workspace::{
+    DataFolder, InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore,
+};
 
 use autosave::UnsavedChanges;
 use notice::Notices;
@@ -55,6 +64,8 @@ pub struct AppState {
     pub active_tab: Option<TabId>,
     pub overlay: Option<Overlay>,
     pub available_update: Option<Release>,
+    pub code_panel: Option<CodePanel>,
+    pub data_folder: Option<DataFolder>,
     notices: Notices,
     store: WorkspaceStore,
     unsaved: UnsavedChanges,
@@ -72,6 +83,8 @@ impl AppState {
             active_tab: None,
             overlay: None,
             available_update: None,
+            code_panel: None,
+            data_folder: None,
             notices: Notices::default(),
             store,
             unsaved: UnsavedChanges::default(),
@@ -91,7 +104,11 @@ impl AppState {
     pub fn apply(&mut self, action: Action, now: f64) -> Vec<Effect> {
         self.now = now;
         let mut effects = Vec::new();
+        let refreshes_code = action.may_change_request_code();
         self.dispatch(action, &mut effects);
+        if refreshes_code {
+            self.refresh_code_panel();
+        }
         effects.extend(self.abandoned_jobs.drain(..).map(Effect::AbortSend));
         effects
     }

@@ -13,9 +13,13 @@ const CONNECT_LABEL: &str = "Connect";
 const DISCONNECT_LABEL: &str = "Disconnect";
 const SAVE_LABEL: &str = "Save";
 const MORE_LABEL: &str = "…";
-const COPY_CURL_LABEL: &str = "Copy as cURL";
 const COPY_CURL_SECRETS_LABEL: &str = "Copy as cURL with secrets";
 const GENERATE_CODE_LABEL: &str = "Generate code…";
+const SHOW_CODE_PANEL_LABEL: &str = "Show code panel";
+const HIDE_CODE_PANEL_LABEL: &str = "Hide code panel";
+const QUICK_CURL_LABEL: &str = "Copy cURL";
+const QUICK_CURL_HINT: &str =
+    "Copy as cURL. Secrets show as <redacted>; Alt-click to include them.";
 const METHOD_SALT: &str = "request-method";
 const URL_SALT: &str = "request-url";
 const METHOD_WIDTH: f32 = 96.0;
@@ -24,6 +28,7 @@ pub fn show(
     ui: &mut Ui,
     open: &mut RequestTab,
     hints: &VariableHints,
+    code_panel_open: bool,
     actions: &mut Vec<Action>,
 ) -> bool {
     let name_changed = ui
@@ -36,7 +41,7 @@ pub fn show(
         )
         .changed();
     let request_changed = ui
-        .horizontal(|ui| request_line(ui, open, hints, actions))
+        .horizontal(|ui| request_line(ui, open, hints, code_panel_open, actions))
         .inner;
     name_changed | request_changed
 }
@@ -45,12 +50,13 @@ fn request_line(
     ui: &mut Ui,
     open: &mut RequestTab,
     hints: &VariableHints,
+    code_panel_open: bool,
     actions: &mut Vec<Action>,
 ) -> bool {
     let method_changed = method_picker(ui, open);
     let url_changed = ui
         .with_layout(Layout::right_to_left(Align::Center), |ui| {
-            buttons(ui, open, actions);
+            buttons(ui, open, code_panel_open, actions);
             url_field(ui, open, hints, actions)
         })
         .inner;
@@ -112,8 +118,20 @@ fn pasted(ui: &Ui) -> bool {
     })
 }
 
-fn buttons(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
-    ui.menu_button(MORE_LABEL, |ui| copy_menu(ui, open, actions));
+fn buttons(ui: &mut Ui, open: &RequestTab, code_panel_open: bool, actions: &mut Vec<Action>) {
+    ui.menu_button(MORE_LABEL, |ui| {
+        copy_menu(ui, open, code_panel_open, actions)
+    });
+    if ui
+        .button(QUICK_CURL_LABEL)
+        .on_hover_text(QUICK_CURL_HINT)
+        .clicked()
+    {
+        actions.push(Action::CopyAsCurl {
+            tab: open.id,
+            include_secrets: ui.input(|input| input.modifiers.alt),
+        });
+    }
     if ui.button(SAVE_LABEL).clicked() {
         actions.push(Action::SaveTab(open.id));
     }
@@ -148,19 +166,26 @@ fn stop_label(open: &RequestTab) -> &'static str {
     }
 }
 
-fn copy_menu(ui: &mut Ui, open: &RequestTab, actions: &mut Vec<Action>) {
+fn copy_menu(ui: &mut Ui, open: &RequestTab, code_panel_open: bool, actions: &mut Vec<Action>) {
     if ui.button(GENERATE_CODE_LABEL).clicked() {
         actions.push(Action::OpenCode(open.id));
         ui.close();
     }
+    let panel_label = if code_panel_open {
+        HIDE_CODE_PANEL_LABEL
+    } else {
+        SHOW_CODE_PANEL_LABEL
+    };
+    if ui.button(panel_label).clicked() {
+        actions.push(Action::ToggleCodePanel);
+        ui.close();
+    }
     ui.separator();
-    for (label, include_secrets) in [(COPY_CURL_LABEL, false), (COPY_CURL_SECRETS_LABEL, true)] {
-        if ui.button(label).clicked() {
-            actions.push(Action::CopyAsCurl {
-                tab: open.id,
-                include_secrets,
-            });
-            ui.close();
-        }
+    if ui.button(COPY_CURL_SECRETS_LABEL).clicked() {
+        actions.push(Action::CopyAsCurl {
+            tab: open.id,
+            include_secrets: true,
+        });
+        ui.close();
     }
 }

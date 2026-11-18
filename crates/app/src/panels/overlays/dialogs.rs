@@ -3,7 +3,7 @@ use requestor_core::collection::Collection;
 
 use super::{button_row, dialog};
 use crate::state::{
-    Action, AppState, DeleteConfirmation, ExportForm, RenameForm, SaveTabForm, TabId,
+    Action, AppState, DeleteConfirmation, ExportForm, ExportFormat, RenameForm, SaveTabForm, TabId,
 };
 use crate::widgets::action_button;
 
@@ -168,6 +168,9 @@ pub fn rename(ctx: &Context, form: &mut RenameForm, actions: &mut Vec<Action>) -
 
 pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -> bool {
     dialog(ctx, "export", "Export", |ui| {
+        if form.offers_formats() {
+            format_choice(ui, form);
+        }
         ui.horizontal(|ui| {
             ui.add(
                 TextEdit::singleline(&mut form.file_path)
@@ -191,4 +194,19 @@ pub fn export(ctx: &Context, form: &mut ExportForm, actions: &mut Vec<Action>) -
             !ui.button(CANCEL_LABEL).clicked()
         })
     })
+}
+
+fn format_choice(ui: &mut Ui, form: &mut ExportForm) {
+    let current = form.format();
+    ui.horizontal(|ui| {
+        for format in ExportFormat::ALL {
+            let clicked = ui
+                .selectable_label(current == format, format.label())
+                .on_hover_text(format.hint())
+                .clicked();
+            if clicked && current != format {
+                form.set_format(format);
+            }
+        }
+    });
 }

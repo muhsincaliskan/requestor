@@ -47,7 +47,7 @@ impl AppState {
         }
     }
 
-    fn code_for(
+    pub(super) fn code_for(
         &self,
         id: TabId,
         language: CodeLanguage,

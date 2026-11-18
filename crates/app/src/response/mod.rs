@@ -104,6 +104,24 @@ impl ResponseView {
         LineDiff::between(&previous.text(), &current).ok_or(ChangesUnavailable::TooLarge)
     }
 
+    pub fn is_storable_as_text(&self) -> bool {
+        !self.truncated
+            && self.format != ResponseFormat::Binary
+            && std::str::from_utf8(&self.body).is_ok()
+    }
+
+    pub fn to_response(&self) -> HttpResponse {
+        HttpResponse {
+            status: self.status,
+            reason: self.reason.clone(),
+            version: self.version.clone(),
+            headers: self.headers.clone(),
+            body: self.body.clone(),
+            truncated: self.truncated,
+            elapsed: self.elapsed,
+        }
+    }
+
     fn is_small_enough(&self) -> bool {
         self.body.len() <= MAX_COMPARED_BYTES
     }

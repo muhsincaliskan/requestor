@@ -140,3 +140,22 @@ fn stopping_or_deleting_leaves_the_folder_files_in_place() {
         _ => true,
     }));
 }
+
+#[test]
+fn choosing_a_data_folder_takes_effect_after_a_restart() {
+    let home = TemporaryFolder::new();
+    let synced = TemporaryFolder::new();
+    fs::create_dir_all(&home.0).unwrap();
+    let mut state = state_with(Workspace::default())
+        .with_data_folder(requestor_core::workspace::DataFolder::new(&home.0), Ok(()));
+    let picked = Action::FolderPicked {
+        purpose: FolderPurpose::DataFolder,
+        path: synced.0.clone(),
+    };
+    state.apply(picked, 0.0);
+    let folder = state.data_folder.clone().unwrap();
+    assert_eq!(folder.location(), home.0);
+    assert_eq!(folder.next_location(), synced.0);
+    state.apply(Action::ResetDataFolder, 0.0);
+    assert!(state.data_folder.as_ref().unwrap().is_default());
+}

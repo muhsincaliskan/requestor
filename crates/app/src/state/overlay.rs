@@ -177,18 +177,10 @@ impl fmt::Debug for CodeForm {
 }
 
 impl CodeForm {
-    pub fn with_language(&self, language: CodeLanguage) -> Action {
+    pub fn with_options(&self, language: CodeLanguage, include_secrets: bool) -> Action {
         Action::ShowCode {
             tab: self.tab,
             language,
-            include_secrets: self.include_secrets,
-        }
-    }
-
-    pub fn with_secrets(&self, include_secrets: bool) -> Action {
-        Action::ShowCode {
-            tab: self.tab,
-            language: self.language,
             include_secrets,
         }
     }

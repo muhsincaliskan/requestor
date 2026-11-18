@@ -8,6 +8,7 @@ set -euo pipefail
 
 APP_NAME="Requestor"
 BUNDLE_IDENTIFIER="dev.requestor.app"
+CREDIT="Developed by Muhsin Caliskan"
 APP_BINARY="requestor-app"
 BUNDLE_EXECUTABLE="Requestor"
 CLI_BINARY="requestor"
@@ -101,6 +102,7 @@ write_info_plist() {
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleIconFile</key><string>$ICON_FILE</string>
+  <key>NSHumanReadableCopyright</key><string>$CREDIT</string>
   <key>LSMinimumSystemVersion</key><string>$MIN_MACOS_VERSION</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>

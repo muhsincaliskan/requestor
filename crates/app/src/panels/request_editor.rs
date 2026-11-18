@@ -19,11 +19,14 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
         state.variable_scope(tab),
         state.interface().variable_autocomplete,
     );
+    let code_panel_open = state.code_panel.is_some();
     let Some(open) = state.tab_mut(tab) else {
         return;
     };
     let changed = ui
-        .push_id(tab, |ui| show_tab(ui, open, &hints, actions))
+        .push_id(tab, |ui| {
+            show_tab(ui, open, &hints, code_panel_open, actions)
+        })
         .inner;
     if changed {
         actions.push(Action::TabEdited(tab));
@@ -34,9 +37,10 @@ fn show_tab(
     ui: &mut Ui,
     open: &mut RequestTab,
     hints: &VariableHints,
+    code_panel_open: bool,
     actions: &mut Vec<Action>,
 ) -> bool {
-    let mut changed = url_bar::show(ui, open, hints, actions);
+    let mut changed = url_bar::show(ui, open, hints, code_panel_open, actions);
     ui.add_space(ui.spacing().item_spacing.y);
     section_selector(ui, open);
     ui.separator();

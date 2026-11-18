@@ -1,3 +1,4 @@
+mod data_folder;
 mod extracted;
 mod folder;
 mod pending_write;
@@ -9,6 +10,7 @@ mod store;
 mod store_write;
 mod vault_write;
 
+pub use data_folder::DataFolder;
 pub use extracted::ChangedStores;
 pub use folder::{read_folder, FolderLayout, FolderWrite};
 pub use pending_write::{PendingDelete, PendingWrite, StoreError};

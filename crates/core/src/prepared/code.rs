@@ -1,3 +1,4 @@
+mod collection_file;
 mod form_part;
 mod http_file;
 mod java;

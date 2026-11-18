@@ -19,7 +19,7 @@ use std::sync::Arc;
 use app::RequestorApp;
 use eframe::egui::ViewportBuilder;
 use keychain::KeychainVaultStore;
-use requestor_core::workspace::WorkspaceStore;
+use requestor_core::workspace::{DataFolder, WorkspaceStore};
 
 const APP_NAME: &str = "Requestor";
 const FALLBACK_STORE_DIRECTORY: &str = ".requestor";
@@ -32,9 +32,20 @@ const WINDOW_ICON_RGBA: &[u8] = include_bytes!("../../../assets/icon/window-64.r
 const WINDOW_ICON_SIZE: u32 = 64;
 
 fn main() -> eframe::Result {
-    let store = WorkspaceStore::in_default_location()
-        .unwrap_or_else(|| WorkspaceStore::new(FALLBACK_STORE_DIRECTORY));
-    let keychain = KeychainVaultStore::for_workspace(store.root());
+    let data_folder = WorkspaceStore::default_data_folder();
+    let settled = data_folder
+        .as_ref()
+        .map(DataFolder::settle)
+        .unwrap_or(Ok(()));
+    let store = data_folder.as_ref().map_or_else(
+        || WorkspaceStore::new(FALLBACK_STORE_DIRECTORY),
+        |folder| WorkspaceStore::new(folder.location()),
+    );
+    let keychain_root = data_folder.as_ref().map_or_else(
+        || store.root().to_path_buf(),
+        |folder| folder.home().to_path_buf(),
+    );
+    let keychain = KeychainVaultStore::for_workspace(&keychain_root);
     let store = store.with_vault(Arc::new(keychain));
     let send_on_start = std::env::args().any(|argument| argument == SEND_ON_START_FLAG);
     eframe::run_native(
@@ -50,7 +61,8 @@ fn main() -> eframe::Result {
         Box::new(move |creation_context| {
             theme::install_fonts(&creation_context.egui_ctx);
             Ok(Box::new(
-                RequestorApp::new(store).sending_active_tab_on_start(send_on_start),
+                RequestorApp::new(store, data_folder.map(|folder| (folder, settled)))
+                    .sending_active_tab_on_start(send_on_start),
             ))
         }),
     )
