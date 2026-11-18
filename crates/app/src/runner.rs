@@ -53,7 +53,8 @@ impl Runner {
         settings: &RequestSettings,
         wake: &Context,
     ) {
-        let transport = match self.transport_for(settings) {
+        let timeout = settings.request_timeout();
+        let transport = match self.transport_for(&settings.without_request_timeout()) {
             Ok(transport) => transport,
             Err(reason) => return self.report_failure(tab, job, reason),
         };
@@ -68,7 +69,7 @@ impl Runner {
                 let progress_report = report.clone();
                 let progress_wake = wake.clone();
                 let result = transport
-                    .send_cancellable(request, &cancellation, &mut |progress| {
+                    .send_within(request, timeout, &cancellation, &mut |progress| {
                         let update = StreamUpdate::from(progress);
                         let action = Action::StreamProgress { tab, job, update };
                         if progress_report.send(action).is_ok() {

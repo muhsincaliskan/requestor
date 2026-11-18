@@ -62,3 +62,17 @@ fn unsaved_request_settings_survive_a_restart() {
     assert_eq!(restored.draft.overrides, insecure_without_proxy());
     assert!(restored.unsaved);
 }
+
+#[test]
+fn a_tab_from_an_older_session_keeps_the_saved_request_settings() {
+    let (mut state, collection_id, item_id) = state_with_request();
+    let tab = open(&mut state, &collection_id, &item_id);
+    state.tab_mut(tab).unwrap().draft.overrides = insecure_without_proxy();
+    state.apply(Action::SaveTab(tab), 1.0);
+    state.tab_mut(tab).unwrap().draft.url = "https://example.test/other".to_string();
+    state.apply(Action::TabEdited(tab), 2.0);
+    let mut session = state.tab(tab).unwrap().to_session();
+    session.extra.clear();
+    let restored = RequestTab::from_session(tab, &session, &state.workspace);
+    assert_eq!(restored.draft.overrides, insecure_without_proxy());
+}

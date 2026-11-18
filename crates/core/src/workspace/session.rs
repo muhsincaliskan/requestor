@@ -36,14 +36,13 @@ pub struct Session {
 
 impl SessionTab {
     pub fn unsaved_overrides(&self) -> Option<RequestOverrides> {
-        self.unsaved_request
-            .is_some()
-            .then(|| RequestOverrides::from_extra(&self.extra))
+        self.unsaved_request.as_ref()?;
+        RequestOverrides::stored_in(&self.extra)
     }
 
     pub fn with_unsaved_overrides(mut self, overrides: Option<&RequestOverrides>) -> Self {
         if let Some(overrides) = overrides {
-            overrides.write_into(&mut self.extra);
+            overrides.store_in(&mut self.extra);
         }
         self
     }

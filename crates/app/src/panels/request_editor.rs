@@ -15,6 +15,7 @@ use crate::widgets::variable_text_edit::VariableHints;
 
 const SECTION_SCROLL_SALT: &str = "request-editor-section";
 const AUTH_SALT: &str = "request-auth";
+const ATTENTION_MARK: &str = " !";
 
 pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Action>) {
     let hints = VariableHints::new(
@@ -82,10 +83,14 @@ fn section_label(open: &RequestTab, section: EditorSection) -> String {
         EditorSection::Tests => open.draft.rules.active_count(),
         EditorSection::Settings => open.draft.overrides.count(),
     };
-    match count {
+    let label = match count {
         0 => section.label().to_string(),
         count => format!("{} ({count})", section.label()),
+    };
+    if section == EditorSection::Settings && open.draft.overrides.lowers_security() {
+        return format!("{label}{ATTENTION_MARK}");
     }
+    label
 }
 
 fn show_section(

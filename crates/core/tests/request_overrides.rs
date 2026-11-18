@@ -34,7 +34,7 @@ fn writing_keeps_unknown_behaviour_keys_and_round_trips() {
     let overrides = RequestOverrides {
         timeout_ms: Some(1500),
         proxy: ProxyChoice::Custom("http://proxy.local:8080".to_string()),
-        client_certificates: Some(false),
+        skip_client_certificates: true,
         ..RequestOverrides::default()
     };
     overrides.write_into(&mut item);
@@ -84,7 +84,7 @@ fn set_fields_replace_the_global_settings() {
         follow_redirects: Some(false),
         max_redirects: Some(2),
         proxy: ProxyChoice::Direct,
-        client_certificates: Some(false),
+        skip_client_certificates: true,
     };
     let effective = overrides.apply_to(&global);
     assert_eq!(effective.http_version, HttpVersion::Http1);
@@ -108,8 +108,9 @@ fn a_custom_proxy_without_an_address_keeps_the_global_proxy() {
 }
 
 #[test]
-fn number_text_ignores_everything_but_digits_and_empties_to_unset() {
+fn number_text_rejects_anything_but_digits_and_empties_to_unset() {
     let mut overrides = RequestOverrides::default();
+    overrides.set_timeout_text("500");
     overrides.set_timeout_text("5s00");
     assert_eq!(overrides.timeout_ms, Some(500));
     assert_eq!(overrides.timeout_text(), "500");
@@ -117,4 +118,44 @@ fn number_text_ignores_everything_but_digits_and_empties_to_unset() {
     assert_eq!(overrides.timeout_ms, None);
     overrides.set_max_redirects_text("7");
     assert_eq!(overrides.max_redirects_text(), "7");
+}
+
+#[test]
+fn saving_keeps_values_it_cannot_read() {
+    let mut item = extra(json!({
+        "protocolProfileBehavior": { "maxRedirects": "5", "protocolVersion": "http3" }
+    }));
+    let overrides = RequestOverrides {
+        verify_ssl: Some(false),
+        ..RequestOverrides::from_extra(&item)
+    };
+    overrides.write_into(&mut item);
+    let behavior = &item["protocolProfileBehavior"];
+    assert_eq!(behavior["maxRedirects"], json!("5"));
+    assert_eq!(behavior["protocolVersion"], json!("http3"));
+    assert_eq!(behavior["strictSSL"], json!(false));
+}
+
+#[test]
+fn stored_overrides_tell_cleared_apart_from_missing() {
+    let mut extra = Map::new();
+    assert_eq!(RequestOverrides::stored_in(&extra), None);
+    RequestOverrides::default().store_in(&mut extra);
+    assert_eq!(
+        RequestOverrides::stored_in(&extra),
+        Some(RequestOverrides::default())
+    );
+}
+
+#[test]
+fn proxy_addresses_with_credentials_are_recognised() {
+    let with = ProxyChoice::Custom("http://user:secret@proxy:8080".to_string());
+    let without = ProxyChoice::Custom("http://proxy:8080/path@x".to_string());
+    assert!(with.has_credentials());
+    assert!(!without.has_credentials());
+    assert!(RequestOverrides {
+        proxy: with,
+        ..RequestOverrides::default()
+    }
+    .lowers_security());
 }
