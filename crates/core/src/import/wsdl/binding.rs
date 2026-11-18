@@ -7,7 +7,6 @@ use super::xml::{
 use crate::soap::SoapVersion;
 
 const RPC_STYLE: &str = "rpc";
-const PARTS_SEPARATOR: char = ' ';
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Style {
@@ -98,13 +97,9 @@ impl BindingOperation {
             body_namespace: body
                 .and_then(|body| body.trimmed("namespace"))
                 .map(str::to_string),
-            body_parts: body.and_then(|body| body.attribute("parts")).map(|parts| {
-                parts
-                    .split(PARTS_SEPARATOR)
-                    .filter(|part| !part.is_empty())
-                    .map(str::to_string)
-                    .collect()
-            }),
+            body_parts: body
+                .and_then(|body| body.attribute("parts"))
+                .map(|parts| parts.split_whitespace().map(str::to_string).collect()),
             headers: input
                 .into_iter()
                 .flat_map(|input| input.elements(soap_namespace, "header"))

@@ -33,6 +33,7 @@
         <s:sequence>
           <s:element name="Id" type="s:string"/>
         </s:sequence>
+        <s:attribute name="version" type="s:int"/>
       </s:complexType>
       <s:complexType name="Order">
         <s:complexContent>
@@ -41,6 +42,7 @@
               <s:element name="Status" type="tns:Status"/>
               <s:element name="Lines" minOccurs="0" maxOccurs="unbounded" type="tns:Line"/>
               <s:choice>
+                <s:annotation><s:documentation>How the order is paid.</s:documentation></s:annotation>
                 <s:element name="Card" type="s:string"/>
                 <s:element name="Cash" type="s:boolean"/>
               </s:choice>

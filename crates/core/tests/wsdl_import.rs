@@ -4,6 +4,9 @@ use requestor_core::collection::{Item, Request, RequestSpec};
 use requestor_core::import::{
     import_file_text, import_text, ImportError, Imported, ImportedCollection,
 };
+use requestor_core::prepared::PreparedRequest;
+use requestor_core::settings::RequestSettings;
+use requestor_core::variables::VariableScope;
 
 const CALCULATOR: &str = include_str!("fixtures/wsdl/calculator.wsdl");
 const SPLIT_SERVICE: &str = "fixtures/wsdl/split/service.wsdl";
@@ -85,9 +88,16 @@ fn soap_1_2_requests_carry_the_action_in_the_content_type() {
     let imported = collection_of(import_text(CALCULATOR));
     let soap12 = imported.collection.item[1].item.as_ref().unwrap();
     let add = request_of(&soap12[0]);
-    assert_eq!(add.header_value("SOAPAction"), None);
     assert_eq!(
-        add.header_value("Content-Type"),
+        add.header_value("SOAPAction"),
+        Some("http://tempuri.org/Add")
+    );
+    assert_eq!(add.header_value("Content-Type"), None);
+    let prepared =
+        PreparedRequest::from_request(&add, &VariableScope::new(), &RequestSettings::default())
+            .unwrap();
+    assert_eq!(
+        prepared.header("Content-Type"),
         Some("application/soap+xml; charset=utf-8; action=\"http://tempuri.org/Add\"")
     );
     assert!(body_of(&soap12[0]).contains("http://www.w3.org/2003/05/soap-envelope"));
@@ -99,7 +109,7 @@ fn samples_follow_extensions_choices_enumerations_and_stop_at_recursion() {
     let soap11 = imported.collection.item[0].item.as_ref().unwrap();
     let body = body_of(&soap11[1]);
     let expected = r#"    <ns1:PlaceOrder xmlns:ns1="http://tempuri.org/">
-      <ns1:order currency="?">
+      <ns1:order version="?" currency="?">
         <ns1:Id>?</ns1:Id>
         <ns1:Status>Open</ns1:Status>
         <ns1:Lines sku="?">?</ns1:Lines>
@@ -126,7 +136,7 @@ fn imported_files_and_schemas_load_relative_to_the_wsdl_file() {
     let body = body_of(&collection.item[0]);
     assert!(
         body.contains(
-            "    <ns1:GetBalance xmlns:ns1=\"urn:accounts:types\">\n      <account>TR00-0000</account>\n    </ns1:GetBalance>"
+            "    <ns1:GetBalance xmlns:ns1=\"urn:accounts:types\">\n      <account>\n        <number>TR00-0000</number>\n      </account>\n    </ns1:GetBalance>"
         ),
         "{body}"
     );
@@ -231,5 +241,86 @@ fn header_parts_are_written_into_the_soap_header() {
             "  <soap:Header>\n    <ns1:Ticket xmlns:ns1=\"urn:quotes\">?</ns1:Ticket>\n  </soap:Header>\n  <soap:Body>\n    <ns1:Quote xmlns:ns1=\"urn:quotes\">\n      <ns1:symbol>?</ns1:symbol>\n    </ns1:Quote>\n  </soap:Body>"
         ),
         "{body}"
+    );
+}
+
+const HOSTILE_SCHEMA: &str = r#"<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:tns="urn:hostile" targetNamespace="urn:hostile">
+  <types>
+    <xs:schema targetNamespace="urn:hostile" elementFormDefault="qualified">
+      <xs:group name="Loop"><xs:sequence><xs:group ref="tns:Loop"/><xs:element name="leaf" type="xs:string"/></xs:sequence></xs:group>
+      <xs:element name="Looping"><xs:complexType><xs:group ref="tns:Loop"/></xs:complexType></xs:element>
+      <xs:element name="Fan"><xs:complexType><xs:sequence>
+        <xs:element ref="tns:Fan"/><xs:element ref="tns:Fan"/><xs:element ref="tns:Fan"/><xs:element ref="tns:Fan"/>
+        <xs:element ref="tns:Fan"/><xs:element ref="tns:Fan"/><xs:element ref="tns:Fan"/><xs:element ref="tns:Fan"/>
+      </xs:sequence></xs:complexType></xs:element>
+      <xs:complexType name="T0"><xs:sequence>SEQUENCE</xs:sequence></xs:complexType>
+      CHAIN
+      <xs:element name="Wide" type="tns:T0"/>
+    </xs:schema>
+  </types>
+  <message name="LoopingIn"><part name="p" element="tns:Looping"/></message>
+  <message name="FanIn"><part name="p" element="tns:Fan"/></message>
+  <message name="WideIn"><part name="p" element="tns:Wide"/></message>
+  <portType name="Hostile">
+    <operation name="Looping"><input message="tns:LoopingIn"/></operation>
+    <operation name="Fan"><input message="tns:FanIn"/></operation>
+    <operation name="Wide"><input message="tns:WideIn"/></operation>
+  </portType>
+  <binding name="HostileBinding" type="tns:Hostile">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="Looping"><input><soap:body use="literal"/></input></operation>
+    <operation name="Fan"><input><soap:body use="literal"/></input></operation>
+    <operation name="Wide"><input><soap:body use="literal"/></input></operation>
+  </binding>
+</definitions>"#;
+
+fn wide_schema() -> String {
+    let fan_out: String = (0..8)
+        .map(|index| format!("<xs:element name=\"e{index}\" type=\"tns:NEXT\"/>"))
+        .collect();
+    let chain: String = (1..12)
+        .map(|level| {
+            format!(
+                "<xs:complexType name=\"T{level}\"><xs:sequence>{}</xs:sequence></xs:complexType>",
+                fan_out.replace("NEXT", &format!("T{}", level + 1))
+            )
+        })
+        .collect();
+    HOSTILE_SCHEMA
+        .replace("SEQUENCE", &fan_out.replace("NEXT", "T1"))
+        .replace("CHAIN", &chain)
+}
+
+#[test]
+fn circular_groups_and_explosive_schemas_stay_small() {
+    let imported = collection_of(import_text(&wide_schema()));
+    let items = &imported.collection.item;
+    assert_eq!(names(items), ["Looping", "Fan", "Wide"]);
+    assert!(body_of(&items[0]).contains("<ns1:leaf>?</ns1:leaf>"));
+    let fan = body_of(&items[1]);
+    assert_eq!(fan.matches("<ns1:Fan/>").count(), 8, "{fan}");
+    let wide = body_of(&items[2]);
+    assert!(wide.len() < 64 * 1024, "{} bytes", wide.len());
+    assert!(roxmltree::Document::parse(&wide).is_ok());
+}
+
+#[cfg(unix)]
+#[test]
+fn imports_that_are_not_regular_files_are_refused() {
+    let directory = std::env::temp_dir().join(format!("requestor-wsdl-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("device.wsdl");
+    let wsdl = CALCULATOR.replace(
+        "<s:schema elementFormDefault",
+        "<s:schema><s:include schemaLocation=\"/dev/zero\"/></s:schema><s:schema elementFormDefault",
+    );
+    std::fs::write(&path, &wsdl).unwrap();
+    let imported = collection_of(import_file_text(&wsdl, &path));
+    assert_eq!(
+        imported.warnings,
+        ["/dev/zero was not loaded: it is not a regular file"]
     );
 }

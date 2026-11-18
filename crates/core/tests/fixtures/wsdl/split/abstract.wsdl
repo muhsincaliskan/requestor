@@ -8,7 +8,7 @@
       <xsd:import namespace="urn:accounts:types" schemaLocation="types/accounts.xsd"/>
     </xsd:schema>
   </types>
-  <import namespace="urn:accounts:service" location="service.wsdl"/>
+  <import namespace="urn:accounts:service" location="../split/./service.wsdl"/>
   <message name="GetBalanceRequest">
     <part name="body" element="t:GetBalance" xmlns:t="urn:accounts:types"/>
   </message>

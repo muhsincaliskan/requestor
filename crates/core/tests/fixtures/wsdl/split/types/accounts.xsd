@@ -5,7 +5,7 @@
   <xs:element name="GetBalance">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="account" type="t:AccountNumber" xmlns:t="urn:accounts:types"/>
+        <xs:element name="account" type="t:Account" xmlns:t="urn:accounts:types"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>

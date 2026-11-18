@@ -12,6 +12,7 @@ use crate::header::{find_header, Header, CONTENT_TYPE};
 use crate::identity::random_uuid;
 use crate::method::HttpMethod;
 use crate::settings::RequestSettings;
+use crate::soap::{SoapVersion, SOAP_ACTION_HEADER};
 use crate::variables::{placeholder_names, VariableScope};
 
 pub use body_source::{BodySource, FormField, FormValue};
@@ -133,7 +134,11 @@ impl PreparedRequest {
             Some(content_type) if encoded.is_multipart() => {
                 self.set_header(CONTENT_TYPE, content_type)
             }
-            Some(content_type) => self.add_header_if_absent(CONTENT_TYPE, content_type),
+            Some(content_type) => {
+                let content_type =
+                    SoapVersion::with_action(content_type, self.header(SOAP_ACTION_HEADER));
+                self.add_header_if_absent(CONTENT_TYPE, content_type)
+            }
             None => {}
         }
         self.body = Some(encoded.data);

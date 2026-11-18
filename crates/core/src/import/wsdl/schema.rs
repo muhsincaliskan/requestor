@@ -15,12 +15,11 @@ pub struct Schema {
 
 impl Schema {
     pub fn add(&mut self, schema: Node, inherited_namespace: Option<&str>) {
-        let target = schema
-            .trimmed("targetNamespace")
-            .or(inherited_namespace)
-            .unwrap_or_default();
+        let declared = schema.trimmed("targetNamespace");
+        let target = declared.or(inherited_namespace).unwrap_or_default();
         let scope = SchemaScope {
             target_namespace: target.to_string(),
+            chameleon: declared.is_none() && inherited_namespace.is_some(),
             qualified_elements: schema.attribute("elementFormDefault") == Some(QUALIFIED),
         };
         for child in schema.children().filter(Node::is_element) {

@@ -7,6 +7,7 @@ mod requests;
 mod sample;
 mod schema;
 mod xml;
+mod xml_writer;
 
 use roxmltree::Document;
 

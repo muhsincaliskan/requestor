@@ -1,5 +1,6 @@
 use std::collections::HashSet;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::Path;
 
 use roxmltree::{Document, Node};
@@ -11,6 +12,8 @@ use super::MAX_DOCUMENT_BYTES;
 use crate::settings::BYTES_PER_MEGABYTE;
 
 const MAX_DOCUMENTS: usize = 64;
+const MAX_TOTAL_BYTES: usize = 64 * BYTES_PER_MEGABYTE;
+const NOT_A_FILE: &str = "it is not a regular file";
 const REMOTE_SCHEMES: [&str; 2] = ["http://", "https://"];
 const STANDARD_SCHEMA_HOSTS: [&str; 3] = [
     "http://schemas.xmlsoap.org/",
@@ -35,12 +38,12 @@ impl DocumentSource for FileSource {
         if is_remote(location) {
             return location.to_string();
         }
-        Path::new(base)
-            .parent()
-            .map_or_else(
-                || Path::new(location).to_path_buf(),
-                |folder| folder.join(location),
-            )
+        let joined = Path::new(base).parent().map_or_else(
+            || Path::new(location).to_path_buf(),
+            |folder| folder.join(location),
+        );
+        fs::canonicalize(&joined)
+            .unwrap_or(joined)
             .to_string_lossy()
             .into_owned()
     }
@@ -49,16 +52,24 @@ impl DocumentSource for FileSource {
         if is_remote(location) {
             return Err(REMOTE_NOT_FETCHED.to_string());
         }
-        let size = fs::metadata(location)
+        let is_file = fs::metadata(location)
             .map_err(|error| error.to_string())?
-            .len();
-        if size > MAX_DOCUMENT_BYTES as u64 {
+            .is_file();
+        if !is_file {
+            return Err(NOT_A_FILE.to_string());
+        }
+        let file = File::open(location).map_err(|error| error.to_string())?;
+        let mut text = String::new();
+        file.take(MAX_DOCUMENT_BYTES as u64 + 1)
+            .read_to_string(&mut text)
+            .map_err(|error| error.to_string())?;
+        if text.len() > MAX_DOCUMENT_BYTES {
             return Err(format!(
                 "it is larger than {} MB",
                 MAX_DOCUMENT_BYTES / BYTES_PER_MEGABYTE
             ));
         }
-        fs::read_to_string(location).map_err(|error| error.to_string())
+        Ok(text)
     }
 }
 
@@ -76,6 +87,7 @@ pub struct Loader<'a> {
     source: &'a dyn DocumentSource,
     visited: HashSet<String>,
     limit_reported: bool,
+    loaded_bytes: usize,
     pub definitions: Definitions,
     pub warnings: Vec<String>,
 }
@@ -84,8 +96,9 @@ impl<'a> Loader<'a> {
     pub fn new(source: &'a dyn DocumentSource, location: &str) -> Self {
         Loader {
             source,
-            visited: HashSet::from([location.to_string()]),
+            visited: HashSet::from([source.resolve("", location)]),
             limit_reported: false,
+            loaded_bytes: 0,
             definitions: Definitions::default(),
             warnings: Vec::new(),
         }
@@ -126,6 +139,16 @@ impl<'a> Loader<'a> {
             Ok(text) => text,
             Err(reason) => return self.warn(location, &reason),
         };
+        self.loaded_bytes += text.len();
+        if self.loaded_bytes > MAX_TOTAL_BYTES {
+            return self.warn(
+                location,
+                &format!(
+                    "imported documents together exceed {} MB",
+                    MAX_TOTAL_BYTES / BYTES_PER_MEGABYTE
+                ),
+            );
+        }
         let document = match Document::parse(&text) {
             Ok(document) => document,
             Err(error) => return self.warn(location, &error.to_string()),

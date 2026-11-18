@@ -5,4 +5,9 @@
       <xs:enumeration value="TR00-0000"/>
     </xs:restriction>
   </xs:simpleType>
+  <xs:complexType name="Account">
+    <xs:sequence>
+      <xs:element name="number" type="AccountNumber"/>
+    </xs:sequence>
+  </xs:complexType>
 </xs:schema>

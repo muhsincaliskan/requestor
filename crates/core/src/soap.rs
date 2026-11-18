@@ -1,4 +1,4 @@
-use crate::{header, media_type};
+use crate::media_type;
 
 pub const SOAP_ACTION_HEADER: &str = "SOAPAction";
 
@@ -45,13 +45,14 @@ impl SoapVersion {
         }
     }
 
-    pub fn action_header(self, action: &str) -> (&'static str, String) {
-        match self {
-            SoapVersion::V1_1 => (SOAP_ACTION_HEADER, action.to_string()),
-            SoapVersion::V1_2 => (
-                header::CONTENT_TYPE,
-                format!("{}; {ACTION_PARAMETER}=\"{action}\"", self.content_type()),
-            ),
+    pub fn with_action(content_type: String, action: Option<&str>) -> String {
+        match action.map(str::trim) {
+            Some(action)
+                if !action.is_empty() && content_type == SoapVersion::V1_2.content_type() =>
+            {
+                format!("{content_type}; {ACTION_PARAMETER}=\"{action}\"")
+            }
+            _ => content_type,
         }
     }
 
@@ -98,21 +99,24 @@ fn indented(content: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{SoapVersion, SOAP_ACTION_HEADER};
+    use super::SoapVersion;
     use crate::media_type;
 
     #[test]
-    fn the_action_travels_in_the_header_each_version_expects() {
+    fn only_soap_1_2_carries_the_action_in_its_content_type() {
+        let soap_1_2 = SoapVersion::V1_2.content_type().to_string();
         assert_eq!(
-            SoapVersion::V1_1.action_header("urn:Ping"),
-            (SOAP_ACTION_HEADER, "urn:Ping".to_string())
+            SoapVersion::with_action(soap_1_2.clone(), Some("urn:Ping")),
+            "application/soap+xml; charset=utf-8; action=\"urn:Ping\""
         );
         assert_eq!(
-            SoapVersion::V1_2.action_header("urn:Ping"),
-            (
-                "Content-Type",
-                "application/soap+xml; charset=utf-8; action=\"urn:Ping\"".to_string()
-            )
+            SoapVersion::with_action(soap_1_2.clone(), Some(" ")),
+            soap_1_2
+        );
+        let soap_1_1 = SoapVersion::V1_1.content_type().to_string();
+        assert_eq!(
+            SoapVersion::with_action(soap_1_1.clone(), Some("urn:Ping")),
+            soap_1_1
         );
     }
 

@@ -6,12 +6,24 @@ use super::xml::{ElementNode, SCHEMA_NAMESPACE};
 pub const QUALIFIED: &str = "qualified";
 const FLATTENED_GROUPS: [&str; 2] = ["sequence", "all"];
 const EXTENSION: &str = "extension";
+const ANNOTATION: &str = "annotation";
 const CONTENT_DERIVATIONS: [&str; 2] = [EXTENSION, "restriction"];
 
 #[derive(Debug)]
 pub struct SchemaScope {
     pub target_namespace: String,
     pub qualified_elements: bool,
+    pub chameleon: bool,
+}
+
+impl SchemaScope {
+    fn qname(&self, node: Node, attribute: &str) -> Option<QName> {
+        let name = QName::of_attribute(node, attribute)?;
+        if self.chameleon && !name.is_qualified() {
+            return Some(QName::new(self.target_namespace.as_str(), name.local));
+        }
+        Some(name)
+    }
 }
 
 #[derive(Debug)]
@@ -83,7 +95,7 @@ impl ElementDecl {
 
 impl ElementType {
     fn of(node: Node, scope: &SchemaScope) -> Self {
-        if let Some(name) = QName::of_attribute(node, "type") {
+        if let Some(name) = scope.qname(node, "type") {
             return ElementType::Named(name);
         }
         node.children()
@@ -112,9 +124,12 @@ impl Particle {
         }
         match child.tag_name().name() {
             "element" => particles.push(Particle::of_element(child, scope)),
-            "group" => particles.extend(QName::of_attribute(child, "ref").map(Particle::Group)),
+            "group" => particles.extend(scope.qname(child, "ref").map(Particle::Group)),
             "choice" => {
-                if let Some(first) = child.children().find(Node::is_element) {
+                if let Some(first) = child
+                    .children()
+                    .find(|option| option.is_element() && !option.is(SCHEMA_NAMESPACE, ANNOTATION))
+                {
                     Particle::collect_child(first, scope, particles);
                 }
             }
@@ -126,7 +141,7 @@ impl Particle {
     }
 
     fn of_element(node: Node, scope: &SchemaScope) -> Particle {
-        match QName::of_attribute(node, "ref") {
+        match scope.qname(node, "ref") {
             Some(reference) => Particle::Reference(reference),
             None => Particle::Element(ElementDecl::declared(node, scope, false)),
         }
@@ -169,7 +184,7 @@ impl ComplexType {
         };
         let extends = derived.tag_name().name() == EXTENSION;
         ComplexType {
-            base: QName::of_attribute(derived, "base").filter(|_| extends),
+            base: scope.qname(derived, "base").filter(|_| extends),
             attributes: attribute_names(derived),
             content: Content::Particles(Particle::collect(derived, scope)),
         }

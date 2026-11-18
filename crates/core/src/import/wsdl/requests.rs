@@ -3,6 +3,7 @@ use super::definitions::{Definitions, Part};
 use super::qname::QName;
 use super::sample::SampleWriter;
 use crate::collection::{Body, Collection, Item, Request, Url, UrlParts};
+use crate::soap::SOAP_ACTION_HEADER;
 use crate::text::Description;
 
 const SOAP_METHOD: &str = "POST";
@@ -167,8 +168,7 @@ impl Endpoint<'_> {
         let envelope = version.envelope_with_header(&sample.header, &sample.body);
         request.body = Some(Body::raw(envelope, Some(XML_LANGUAGE)));
         if let Some(action) = operation.action.as_deref() {
-            let (name, value) = version.action_header(action);
-            request.push_header(name, value);
+            request.push_header(SOAP_ACTION_HEADER, action);
         }
         request.description = definitions
             .operation(&self.binding.port_type, &operation.name)
