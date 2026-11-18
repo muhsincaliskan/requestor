@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use requestor_core::collection::Collection;
 use requestor_core::environment::Environment;
-use requestor_core::import::{import_text, Imported};
+use requestor_core::import::{import_file_text, import_text, ImportError, Imported};
 
 use super::overlay::{LibraryTarget, Overlay};
 use super::tab::RequestTab;
@@ -13,7 +13,7 @@ const MAX_IMPORT_FILE_BYTES: u64 = 64 * 1024 * 1024;
 impl AppState {
     pub(super) fn dispatch_transfer_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
         match action {
-            Action::ImportText(text) => self.import(&text),
+            Action::ImportText(text) => self.import(import_text(&text)),
             Action::ImportFile(path) => self.import_file(&path),
             Action::Export { target, file_path } => self.export(&target, file_path, effects),
             Action::ChooseImportFile => effects.push(Effect::PickImportFile),
@@ -32,13 +32,13 @@ impl AppState {
             return;
         }
         match std::fs::read_to_string(path) {
-            Ok(text) => self.import(&text),
+            Ok(text) => self.import(import_file_text(&text, path)),
             Err(error) => self.import_failed(format!("Could not read {}: {error}", path.display())),
         }
     }
 
-    fn import(&mut self, text: &str) {
-        let imported = match import_text(text) {
+    fn import(&mut self, imported: Result<Imported, ImportError>) {
+        let imported = match imported {
             Ok(imported) => imported,
             Err(error) => {
                 self.import_failed(format!("Could not import: {error}"));

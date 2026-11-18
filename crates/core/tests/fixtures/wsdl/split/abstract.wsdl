@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:a="urn:accounts"
+             targetNamespace="urn:accounts">
+  <types>
+    <xsd:schema targetNamespace="urn:accounts">
+      <xsd:import namespace="urn:accounts:types" schemaLocation="types/accounts.xsd"/>
+    </xsd:schema>
+  </types>
+  <import namespace="urn:accounts:service" location="service.wsdl"/>
+  <message name="GetBalanceRequest">
+    <part name="body" element="t:GetBalance" xmlns:t="urn:accounts:types"/>
+  </message>
+  <portType name="Accounts">
+    <operation name="GetBalance">
+      <input message="a:GetBalanceRequest"/>
+    </operation>
+  </portType>
+</definitions>
