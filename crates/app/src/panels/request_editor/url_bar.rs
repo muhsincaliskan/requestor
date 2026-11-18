@@ -7,7 +7,7 @@ use requestor_core::method::HttpMethod;
 use super::EditorContext;
 use crate::state::{Action, RequestTab};
 use crate::widgets::variable_text_edit::{VariableHints, VariableTextEdit};
-use crate::widgets::{action_button, method_color};
+use crate::widgets::{action_button, method_color, PROTECTED_SEND_HINT};
 
 const NAME_HINT: &str = "Request name";
 const URL_HINT: &str = "Enter a URL or paste a cURL command";
@@ -29,7 +29,6 @@ const URL_SALT: &str = "request-url";
 const METHOD_WIDTH: f32 = 96.0;
 const PROTECTED_FRAME_GAP: f32 = 2.0;
 const PROTECTED_FRAME_WIDTH: f32 = 1.5;
-const PROTECTED_HINT: &str = "The active environment is protected. Requestor asks before sending.";
 
 pub fn show(
     ui: &mut Ui,
@@ -166,7 +165,7 @@ fn start_button(ui: &mut Ui, open: &RequestTab, protected: bool) -> Response {
             stroke,
             StrokeKind::Outside,
         );
-        return button.on_hover_text(PROTECTED_HINT);
+        return button.on_hover_text(PROTECTED_SEND_HINT);
     }
     button
 }

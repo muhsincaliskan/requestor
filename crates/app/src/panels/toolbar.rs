@@ -1,8 +1,8 @@
-use eframe::egui::{Align, ComboBox, Layout, Rect, Ui};
+use eframe::egui::{vec2, Align, ComboBox, Layout, Rect, Ui};
 use requestor_core::environment::Environment;
 
 use crate::state::{Action, AppState, Overlay};
-use crate::widgets::{environment_color, environment_swatch};
+use crate::widgets::{environment_color, environment_swatch, PROTECTED_SEND_HINT};
 
 const NEW_LABEL: &str = "New";
 const IMPORT_LABEL: &str = "Import";
@@ -12,7 +12,6 @@ const EDIT_ENVIRONMENT_HINT: &str = "Edit the active environment";
 const NO_ENVIRONMENT_LABEL: &str = "No environment";
 const NEW_ENVIRONMENT_LABEL: &str = "New environment…";
 const ENVIRONMENT_PICKER_ID: &str = "environment-picker";
-const PROTECTED_HINT: &str = "Protected: Requestor asks before sending";
 const STRIP_HEIGHT: f32 = 3.0;
 
 pub fn show(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
@@ -71,7 +70,7 @@ fn environment_picker(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) 
         marker(ui, environment);
     }
     if active.is_some_and(Environment::is_protected) {
-        picker.response.on_hover_text(PROTECTED_HINT);
+        picker.response.on_hover_text(PROTECTED_SEND_HINT);
     }
 }
 
@@ -84,7 +83,7 @@ pub fn environment_strip(ui: &Ui, toolbar: Rect, state: &AppState) {
         return;
     };
     let strip = Rect::from_min_max(
-        toolbar.left_bottom() - eframe::egui::vec2(0.0, STRIP_HEIGHT),
+        toolbar.left_bottom() - vec2(0.0, STRIP_HEIGHT),
         toolbar.right_bottom(),
     );
     ui.painter()

@@ -14,6 +14,8 @@ pub use status_color::{status_color, success_color};
 
 pub const UNSAVED_MARK: &str = " •";
 pub const UNSAVED_DOT: &str = "•";
+pub const PROTECTED_SEND_HINT: &str =
+    "This environment is protected. Requestor asks before sending.";
 
 pub mod action_button;
 pub mod auth_editor;

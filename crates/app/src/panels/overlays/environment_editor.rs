@@ -1,5 +1,7 @@
 use eframe::egui::{ComboBox, Context, Ui};
-use requestor_core::environment::{Environment, EnvironmentColor, EnvironmentValue};
+use requestor_core::environment::{
+    Environment, EnvironmentColor, EnvironmentValue, PRODUCTION_NAMES,
+};
 
 use super::dialog;
 use super::table::{
@@ -20,7 +22,8 @@ const COLOR_LABEL: &str = "Color";
 const NO_COLOR_LABEL: &str = "None";
 const AUTOMATIC_RED_LABEL: &str = "Red (protected)";
 const PROTECT_LABEL: &str = "Ask before sending";
-const PROTECT_HINT: &str = "Use this for production. Send gets a red frame and asks first. Names with prod, production or live are protected by default.";
+const PROTECT_HINT: &str = "Use this for production. Send gets a red frame and asks first. Protected by default when the name contains:";
+const NAME_LIST_SEPARATOR: &str = ", ";
 
 pub fn show(
     ctx: &Context,
@@ -95,7 +98,10 @@ fn marking(ui: &mut Ui, environment: &mut Environment) -> bool {
         let mut protected = environment.is_protected();
         if ui
             .checkbox(&mut protected, PROTECT_LABEL)
-            .on_hover_text(PROTECT_HINT)
+            .on_hover_text(format!(
+                "{PROTECT_HINT} {}",
+                PRODUCTION_NAMES.join(NAME_LIST_SEPARATOR)
+            ))
             .changed()
         {
             environment.set_protected(protected);

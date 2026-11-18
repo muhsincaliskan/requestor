@@ -5,8 +5,7 @@ use super::Environment;
 
 const COLOR_KEY: &str = "requestorColor";
 const PROTECTED_KEY: &str = "requestorProtected";
-const PRODUCTION_NAMES: [&str; 3] = ["prod", "production", "live"];
-const WORD_SEPARATORS: [char; 4] = [' ', '-', '_', '.'];
+pub const PRODUCTION_NAMES: [&str; 3] = ["prod", "production", "live"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -66,18 +65,18 @@ impl Environment {
     }
 
     pub fn set_protected(&mut self, protected: bool) {
-        if protected == self.is_named_like_production() {
-            self.extra.remove(PROTECTED_KEY);
-        } else {
+        if protected || self.is_named_like_production() {
             self.extra
                 .insert(PROTECTED_KEY.to_string(), Value::Bool(protected));
+        } else {
+            self.extra.remove(PROTECTED_KEY);
         }
     }
 
     fn is_named_like_production(&self) -> bool {
         self.name
             .to_lowercase()
-            .split(WORD_SEPARATORS)
+            .split(|character: char| !character.is_alphanumeric())
             .any(|word| PRODUCTION_NAMES.contains(&word))
     }
 }

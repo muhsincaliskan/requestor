@@ -78,7 +78,9 @@ impl AppState {
     fn send_guarded(&mut self, id: TabId, effects: &mut Vec<Effect>) {
         let starts_exchange = self.tab(id).is_some_and(|tab| !tab.is_connected());
         if starts_exchange && self.sends_to_protected_environment() {
-            self.overlay = Some(Overlay::ConfirmProtectedSend(id));
+            if self.overlay.is_none() {
+                self.overlay = Some(Overlay::ConfirmProtectedSend(id));
+            }
             return;
         }
         self.send(id, effects);
