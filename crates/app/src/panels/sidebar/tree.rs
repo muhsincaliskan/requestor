@@ -5,7 +5,7 @@ use eframe::egui::{Align, Button, Id, Label, Response, RichText, Sense, Ui, Widg
 use requestor_core::collection::{Collection, Item};
 
 use super::drag::{self, DropSlot};
-use super::{examples, menus, reveal};
+use super::{add_menu, examples, menus, reveal};
 use crate::state::{Action, AppState, ItemBinding};
 use crate::widgets::{aligned_request_title, list_row, row_label, UNSAVED_MARK};
 
@@ -85,6 +85,7 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView) {
     let collection = view.collection;
     let folder = view.folder;
     let id = Id::new((COLLECTION_NODE_ID, collection.id()));
+    let mut added = None;
     let response = branch(
         ui,
         id,
@@ -92,6 +93,7 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView) {
         |ui| {
             let name = RichText::new(&collection.info.name).strong();
             let label = ui.add(Label::new(name).sense(Sense::click()));
+            added = add_menu::show(ui, collection.id(), None);
             match folder {
                 Some(folder) => {
                     label.on_hover_text(format!("{SAVED_IN_TEXT} {}", folder.display()))
@@ -101,6 +103,7 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView) {
         },
         |ui| items(ui, view, &collection.item),
     );
+    view.actions.extend(added);
     menus::collection(&response, collection, folder, view.actions);
     drag::accept(
         ui,
@@ -136,20 +139,24 @@ fn folder_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
     };
     let collection = view.collection;
     let id = Id::new((FOLDER_NODE_ID, collection.id(), item_id));
+    let mut added = None;
     let response = branch(
         ui,
         id,
         !view.filter.is_empty(),
         |ui| {
             let name = WidgetText::from(item.display_name());
-            ui.add(
+            let button = ui.add(
                 Button::new(name)
                     .frame(false)
                     .sense(Sense::click_and_drag()),
-            )
+            );
+            added = add_menu::show(ui, collection.id(), Some(item_id));
+            button
         },
         |ui| items(ui, view, item.children()),
     );
+    view.actions.extend(added);
     drag::begin(&response, collection.id(), item_id);
     drag::accept(
         ui,

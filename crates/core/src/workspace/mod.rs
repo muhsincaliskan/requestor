@@ -106,6 +106,10 @@ impl Workspace {
         Some(self.environments.remove(position))
     }
 
+    pub fn has_requests(&self) -> bool {
+        !self.collections.is_empty() || !self.history.is_empty()
+    }
+
     pub fn active_environment(&self) -> Option<&Environment> {
         self.environment(self.session.active_environment.as_deref()?)
     }

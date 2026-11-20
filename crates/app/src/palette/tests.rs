@@ -78,6 +78,11 @@ fn the_postman_migration_is_reachable_from_the_palette() {
     let (mut state, _, _) = state();
     let entries = Entry::all(&state);
     let mut actions = Vec::new();
-    Query::new("postman").rank(&entries)[0].run(&mut state, &mut actions);
+    let entry = Query::new("import from postman")
+        .rank(&entries)
+        .into_iter()
+        .find(|entry| entry.title == "Import from Postman")
+        .unwrap();
+    entry.run(&mut state, &mut actions);
     assert!(matches!(actions[..], [Action::OpenPostmanMigration]));
 }

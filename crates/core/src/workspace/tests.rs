@@ -95,3 +95,12 @@ fn a_request_without_auth_is_sent_with_the_inherited_auth() {
         .auth
         .is_none());
 }
+
+#[test]
+fn a_workspace_has_requests_once_it_holds_a_collection() {
+    let mut workspace = Workspace::default();
+    workspace.add_environment(Environment::new("Staging"));
+    assert!(!workspace.has_requests());
+    workspace.add_collection(Collection::new("Shop"));
+    assert!(workspace.has_requests());
+}

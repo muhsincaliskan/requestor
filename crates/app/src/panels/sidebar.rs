@@ -1,3 +1,4 @@
+mod add_menu;
 mod drag;
 mod empty;
 mod environments;
@@ -21,6 +22,7 @@ const CLEAR_LABEL: &str = "×";
 const CLEAR_HINT: &str = "Clear filter";
 const FILTER_HINT: &str = "Filter requests";
 const FILTER_ID: &str = "sidebar-filter";
+const FILTER_FIELD_KEY: &str = "field";
 const SCROLL_ID: &str = "sidebar-scroll";
 const SECTION_GAP: f32 = 8.0;
 const ROW_GAP: f32 = 2.0;
@@ -30,9 +32,7 @@ const ROW_PADDING: (f32, f32) = (6.0, 3.0);
 pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
     unsaved::show(ui, state, actions);
     header(ui, actions);
-    let has_content =
-        !state.workspace.collections.is_empty() || !state.workspace.history.is_empty();
-    let filter = if has_content {
+    let filter = if state.workspace.has_requests() {
         filter_field(ui)
     } else {
         String::new()
@@ -92,6 +92,7 @@ fn filter_field(ui: &mut Ui) -> String {
                 changed = true;
             }
             let edit = TextEdit::singleline(&mut text)
+                .id(id.with(FILTER_FIELD_KEY))
                 .hint_text(FILTER_HINT)
                 .margin(FIELD_MARGIN)
                 .desired_width(f32::INFINITY);

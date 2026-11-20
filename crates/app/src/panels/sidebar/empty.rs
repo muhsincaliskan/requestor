@@ -1,12 +1,12 @@
 use eframe::egui::{Frame, Margin, RichText, Ui};
 
+use super::NEW_COLLECTION_LABEL;
+use crate::panels::overlays::postman_migration::TITLE as MIGRATION_LABEL;
 use crate::state::{Action, Overlay};
 use crate::widgets::action_button;
 
 const HEADING: &str = "Coming from Postman?";
 const BODY: &str = "Bring every collection and environment over in one step.";
-const MIGRATION_LABEL: &str = "Import from Postman";
-const NEW_COLLECTION_LABEL: &str = "New collection";
 const OTHER_FORMATS_LABEL: &str = "Other formats…";
 const OTHER_FORMATS_HINT: &str = "OpenAPI, WSDL, cURL or a raw HTTP request";
 const CARD_MARGIN: i8 = 10;
