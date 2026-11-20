@@ -9,7 +9,7 @@ impl RequestSettings {
     pub fn for_update_check(&self) -> Self {
         RequestSettings {
             verify_ssl: true,
-            follow_redirects: true,
+            follow_redirects: false,
             request_timeout_ms: CHECK_TIMEOUT_MS,
             connect_timeout_ms: CHECK_CONNECT_TIMEOUT_MS,
             client_certificates: Vec::new(),
@@ -21,6 +21,7 @@ impl RequestSettings {
         RequestSettings {
             request_timeout_ms: DOWNLOAD_TIMEOUT_MS,
             max_response_bytes: MAX_DOWNLOAD_BYTES,
+            follow_redirects: true,
             ..self.for_update_check()
         }
     }

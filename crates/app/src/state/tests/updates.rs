@@ -10,7 +10,7 @@ fn release() -> Release {
     Release {
         version: Version::parse("9.0.0").unwrap(),
         page_url: PAGE.to_string(),
-        assets: Vec::new(),
+        download_base: String::new(),
     }
 }
 

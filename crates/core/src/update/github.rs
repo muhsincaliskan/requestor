@@ -1,16 +1,14 @@
-mod latest_release;
+mod latest_redirect;
 
-use latest_release::LatestReleaseResponse;
+use latest_redirect::LatestReleaseRedirect;
 
 use super::{Release, ReleaseClient, UpdateError};
 use crate::header::{Header, ACCEPT};
 use crate::prepared::PreparedRequest;
-use crate::response::StatusClass;
+use crate::response::{HttpResponse, StatusClass};
 use crate::transport::HttpTransport;
 
-pub const LATEST_RELEASE_URL: &str =
-    "https://api.github.com/repos/muhsincaliskan/requestor/releases/latest";
-pub(super) const GITHUB_JSON: &str = "application/vnd.github+json";
+pub const LATEST_RELEASE_URL: &str = "https://github.com/muhsincaliskan/requestor/releases/latest";
 const ANY_MEDIA_TYPE: &str = "*/*";
 
 pub struct GithubReleaseClient<T> {
@@ -28,12 +26,15 @@ impl<T: HttpTransport> GithubReleaseClient<T> {
 }
 
 impl<T: HttpTransport> GithubReleaseClient<T> {
-    fn fetch(&self, url: &str, accept: &str) -> Result<Vec<u8>, UpdateError> {
-        let request = PreparedRequest::get(url, vec![Header::new(ACCEPT, accept)]);
-        let response = self
-            .transport
+    fn send(&self, url: &str) -> Result<HttpResponse, UpdateError> {
+        let request = PreparedRequest::get(url, vec![Header::new(ACCEPT, ANY_MEDIA_TYPE)]);
+        self.transport
             .send(request)
-            .map_err(UpdateError::Unreachable)?;
+            .map_err(UpdateError::Unreachable)
+    }
+
+    fn fetch(&self, url: &str) -> Result<Vec<u8>, UpdateError> {
+        let response = self.send(url)?;
         if StatusClass::of(response.status) != StatusClass::Success {
             return Err(UpdateError::Status(response.status));
         }
@@ -46,13 +47,10 @@ impl<T: HttpTransport> GithubReleaseClient<T> {
 
 impl<T: HttpTransport> ReleaseClient for GithubReleaseClient<T> {
     fn latest_release(&self) -> Result<Release, UpdateError> {
-        let body = self.fetch(&self.url, GITHUB_JSON)?;
-        serde_json::from_slice::<LatestReleaseResponse>(&body)
-            .map_err(|_| UpdateError::InvalidResponse)?
-            .to_domain()
+        LatestReleaseRedirect::from_response(&self.send(&self.url)?)?.to_domain()
     }
 
     fn download(&self, url: &str) -> Result<Vec<u8>, UpdateError> {
-        self.fetch(url, ANY_MEDIA_TYPE)
+        self.fetch(url)
     }
 }

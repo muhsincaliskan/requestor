@@ -15,6 +15,17 @@ pub enum UpdateError {
     Incomplete,
 }
 
+const NOT_FOUND: u16 = 404;
+
+impl UpdateError {
+    pub fn when_missing(self, missing: UpdateError) -> UpdateError {
+        match self {
+            UpdateError::Status(NOT_FOUND) => missing,
+            other => other,
+        }
+    }
+}
+
 impl fmt::Display for UpdateError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
