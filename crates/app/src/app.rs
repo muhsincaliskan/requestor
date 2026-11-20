@@ -98,6 +98,10 @@ impl RequestorApp {
                     address,
                     settings,
                 } => self.runner.download_import(job, address, &settings, ctx),
+                Effect::ImportFiles { job, paths } => self.runner.import_files(job, paths, ctx),
+                Effect::PickImportFiles => {
+                    follow_ups.extend(file_picker::postman_export_files().map(Action::ImportFiles));
+                }
                 Effect::PickImportFile => {
                     follow_ups.extend(file_picker::import_file().map(Action::ImportFile));
                 }

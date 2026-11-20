@@ -102,6 +102,7 @@ pub struct CodeForm {
 pub enum Overlay {
     Settings,
     Import(ImportForm),
+    PostmanMigration,
     EnvironmentEditor {
         environment_id: String,
     },

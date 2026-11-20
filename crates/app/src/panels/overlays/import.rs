@@ -1,7 +1,7 @@
 use eframe::egui::{Context, RichText, ScrollArea, TextEdit, Ui};
 
 use super::{button_row, dialog, TITLE_GAP};
-use crate::state::{Action, FolderPurpose, ImportForm};
+use crate::state::{Action, FolderPurpose, ImportForm, Overlay};
 use crate::widgets::action_button;
 
 const DIALOG_ID: &str = "import";
@@ -19,6 +19,8 @@ const PASTE_HINT: &str =
 const DOWNLOADING_TEXT: &str = "Downloading…";
 const IMPORT_TEXT_LABEL: &str = "Import";
 const CANCEL_LABEL: &str = "Cancel";
+const MIGRATION_TEXT: &str = "Moving a whole workspace?";
+const MIGRATION_LABEL: &str = "Import from Postman…";
 const PASTE_HEIGHT: f32 = 200.0;
 const PASTE_ROWS: usize = 8;
 const DIALOG_WIDTH: f32 = 560.0;
@@ -30,6 +32,7 @@ pub fn show(ctx: &Context, form: &mut ImportForm, actions: &mut Vec<Action>) -> 
         section_heading(ui, FILE_HEADING);
         file_row(ui, actions);
         ui.weak(DROP_HINT);
+        migration_row(ui, actions);
         ui.add_space(SECTION_GAP);
         section_heading(ui, PASTE_HEADING);
         paste_box(ui, &mut form.text);
@@ -89,4 +92,13 @@ fn file_row(ui: &mut Ui, actions: &mut Vec<Action>) {
 fn section_heading(ui: &mut Ui, text: &str) {
     ui.label(RichText::new(text).strong());
     ui.add_space(TITLE_GAP / 2.0);
+}
+
+fn migration_row(ui: &mut Ui, actions: &mut Vec<Action>) {
+    ui.horizontal(|ui| {
+        ui.weak(MIGRATION_TEXT);
+        if ui.link(MIGRATION_LABEL).clicked() {
+            actions.push(Action::Show(Overlay::PostmanMigration));
+        }
+    });
 }

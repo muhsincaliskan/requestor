@@ -4,6 +4,7 @@ use requestor_core::collection::RunStepOutcome;
 use requestor_core::graphql::GraphQlSchema;
 use requestor_core::history::HistoryEntry;
 use requestor_core::import::{ImportError, Imported};
+use requestor_core::migration::MigrationReport;
 use requestor_core::prepared::CodeLanguage;
 use requestor_core::response::HttpResponse;
 use requestor_core::transport::SocketEvent;
@@ -129,6 +130,13 @@ pub enum Action {
         imported: Box<Result<Imported, ImportError>>,
     },
     ChooseImportFile,
+    ImportFiles(Vec<PathBuf>),
+    FilesDropped(Vec<PathBuf>),
+    ChooseImportFiles,
+    MigrationFinished {
+        job: u64,
+        report: Box<MigrationReport>,
+    },
     ChooseCertificateFile(CertificateFile),
     CertificateFilePicked {
         file: CertificateFile,

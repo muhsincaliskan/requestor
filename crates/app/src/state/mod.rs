@@ -14,6 +14,8 @@ mod folders;
 mod history;
 mod inheritance;
 mod library;
+mod migration;
+mod migration_form;
 mod notice;
 mod overlay;
 mod persistence;
@@ -41,6 +43,7 @@ pub use exchange::Exchange;
 pub use export_format::ExportFormat;
 pub use folders::FolderPurpose;
 pub use inheritance::{Inheritance, InheritedAuth};
+pub use migration_form::{MigrationForm, MigrationOutcome};
 pub use notice::{Notice, NoticeLevel};
 pub use overlay::{
     CodeForm, DeleteConfirmation, ExportForm, ImportForm, LibraryTarget, Overlay, PaletteForm,
@@ -70,6 +73,7 @@ pub struct AppState {
     pub available_update: Option<Release>,
     pub code_panel: Option<CodePanel>,
     pub data_folder: Option<DataFolder>,
+    pub migration: MigrationForm,
     notices: Notices,
     store: WorkspaceStore,
     unsaved: UnsavedChanges,
@@ -89,6 +93,7 @@ impl AppState {
             available_update: None,
             code_panel: None,
             data_folder: None,
+            migration: MigrationForm::default(),
             notices: Notices::default(),
             store,
             unsaved: UnsavedChanges::default(),

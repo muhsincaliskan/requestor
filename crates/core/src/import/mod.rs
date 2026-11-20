@@ -11,7 +11,9 @@ use std::fmt;
 use crate::collection::{Collection, Item, Request, Url, UrlParts, SCHEME_SEPARATOR};
 use crate::environment::Environment;
 
-pub use detect::{download_address, import_address, import_file_text, import_text};
+pub use detect::{
+    download_address, import_address, import_file_text, import_text, MAX_IMPORT_FILE_BYTES,
+};
 pub use wsdl::is_wsdl_address;
 
 const DEFAULT_SCHEME: &str = "http";

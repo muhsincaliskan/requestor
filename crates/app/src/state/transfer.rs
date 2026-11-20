@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use requestor_core::collection::Collection;
 use requestor_core::environment::Environment;
 use requestor_core::import::wsdl::is_wsdl_address;
-use requestor_core::import::{import_file_text, import_text, ImportError, Imported};
+use requestor_core::import::{
+    import_file_text, import_text, ImportError, Imported, MAX_IMPORT_FILE_BYTES,
+};
 
 use super::export_format::ExportFormat;
 use super::overlay::{ImportForm, LibraryTarget, Overlay};
 use super::tab::RequestTab;
 use super::{Action, AppState, Effect};
-
-const MAX_IMPORT_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
 impl AppState {
     pub(super) fn dispatch_transfer_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
@@ -36,7 +36,7 @@ impl AppState {
                 suggested,
                 keep_credentials,
             }),
-            other => self.dispatch_folder_action(other, effects),
+            other => self.dispatch_migration_action(other, effects),
         }
     }
 
