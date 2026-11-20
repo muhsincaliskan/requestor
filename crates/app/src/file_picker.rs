@@ -11,8 +11,12 @@ const OPEN_FOLDER_TITLE: &str = "Open a collection folder";
 const DATA_FOLDER_TITLE: &str = "Choose where Requestor keeps its data";
 const POSTMAN_FILES_TITLE: &str = "Choose Postman export files";
 const POSTMAN_FOLDER_TITLE: &str = "Choose a folder of Postman exports";
-const JSON_FILTER_NAME: &str = "JSON";
-const JSON_EXTENSIONS: [&str; 1] = ["json"];
+const POSTMAN_FILTER_NAME: &str = "Postman exports";
+const POSTMAN_EXTENSIONS: [&str; 2] = ["json", "zip"];
+const ARCHIVE_TITLE: &str = "Export the workspace as a zip";
+const ARCHIVE_FILTER_NAME: &str = "Zip archive";
+const ARCHIVE_EXTENSIONS: [&str; 1] = ["zip"];
+const ARCHIVE_FILE_NAME: &str = "Requestor workspace.zip";
 const CERTIFICATE_TITLE: &str = "Choose a PEM certificate or key";
 const PEM_FILTER_NAME: &str = "PEM";
 const PEM_EXTENSIONS: [&str; 4] = ["pem", "crt", "cer", "key"];
@@ -24,8 +28,16 @@ pub fn import_file() -> Option<PathBuf> {
 pub fn postman_export_files() -> Option<Vec<PathBuf>> {
     FileDialog::new()
         .set_title(POSTMAN_FILES_TITLE)
-        .add_filter(JSON_FILTER_NAME, &JSON_EXTENSIONS)
+        .add_filter(POSTMAN_FILTER_NAME, &POSTMAN_EXTENSIONS)
         .pick_files()
+}
+
+pub fn workspace_archive_location() -> Option<PathBuf> {
+    FileDialog::new()
+        .set_title(ARCHIVE_TITLE)
+        .add_filter(ARCHIVE_FILTER_NAME, &ARCHIVE_EXTENSIONS)
+        .set_file_name(ARCHIVE_FILE_NAME)
+        .save_file()
 }
 
 pub fn certificate_file() -> Option<PathBuf> {

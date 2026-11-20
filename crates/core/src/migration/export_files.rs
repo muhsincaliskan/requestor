@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use super::export_archive::PostmanExportArchive;
 use super::MigrationReport;
 use crate::import::{import_file_text, MAX_IMPORT_FILE_BYTES};
 use crate::settings::BYTES_PER_MEGABYTE;
@@ -16,9 +17,43 @@ const TOO_MANY_FILES: &str = "Too many files; only this many were imported:";
 const TOO_LARGE: &str = "the file is too large to import";
 const OVER_TOTAL: &str = "skipped because the files together are too large";
 
+#[derive(Debug)]
+pub(super) struct ImportBudget {
+    remaining: u64,
+}
+
+impl ImportBudget {
+    pub(super) fn new() -> Self {
+        ImportBudget {
+            remaining: MAX_TOTAL_BYTES,
+        }
+    }
+
+    pub(super) fn next_file_limit(&self) -> u64 {
+        MAX_IMPORT_FILE_BYTES.min(self.remaining)
+    }
+
+    pub(super) fn check(&self, size: u64) -> Result<(), String> {
+        if size > MAX_IMPORT_FILE_BYTES {
+            return Err(TOO_LARGE.to_string());
+        }
+        if size > self.remaining {
+            return Err(OVER_TOTAL.to_string());
+        }
+        Ok(())
+    }
+
+    pub(super) fn spend(&mut self, size: u64) -> Result<(), String> {
+        self.check(size)?;
+        self.remaining -= size;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PostmanExportFiles {
     files: BTreeSet<PathBuf>,
+    archives: BTreeSet<PathBuf>,
     unreadable: Vec<(PathBuf, String)>,
     truncated: bool,
 }
@@ -29,6 +64,10 @@ impl PostmanExportFiles {
         for path in paths {
             if path.is_dir() {
                 found.scan_folder(path, 0);
+            } else if PostmanExportArchive::is_archive(path) {
+                found
+                    .archives
+                    .insert(fs::canonicalize(path).unwrap_or_else(|_| path.clone()));
             } else if !is_export_index(path) {
                 found.add(path);
             }
@@ -36,12 +75,16 @@ impl PostmanExportFiles {
         found
     }
 
+    pub fn is_archive(path: &Path) -> bool {
+        PostmanExportArchive::is_archive(path)
+    }
+
     pub fn len(&self) -> usize {
-        self.files.len()
+        self.files.len() + self.archives.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty()
+        self.len() == 0
     }
 
     pub fn import(&self) -> MigrationReport {
@@ -49,13 +92,16 @@ impl PostmanExportFiles {
         for (path, reason) in &self.unreadable {
             report.fail(&path.to_string_lossy(), reason.clone());
         }
-        let mut budget = MAX_TOTAL_BYTES;
+        let mut budget = ImportBudget::new();
         for path in &self.files {
             let source = path.to_string_lossy();
             match read_text(path, &mut budget) {
                 Ok(text) => report.record(&source, import_file_text(&text, path)),
                 Err(reason) => report.fail(&source, reason),
             }
+        }
+        for archive in &self.archives {
+            PostmanExportArchive::import_into(archive, &mut report, &mut budget);
         }
         if self.truncated {
             report
@@ -114,20 +160,23 @@ fn is_export_index(path: &Path) -> bool {
 }
 
 fn is_export_document(path: &Path) -> bool {
-    let is_json = path
-        .extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case(JSON_EXTENSION));
-    is_json && !is_export_index(path)
+    path.file_name()
+        .is_some_and(|name| is_export_name(&name.to_string_lossy()))
 }
 
-fn read_text(path: &Path, budget: &mut u64) -> Result<String, String> {
+pub(super) fn is_export_name(name: &str) -> bool {
+    let file_name = name.rsplit(['/', '\\']).next().unwrap_or(name);
+    let is_json = Path::new(file_name)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case(JSON_EXTENSION));
+    let hidden = name
+        .split(['/', '\\'])
+        .any(|segment| segment.starts_with(HIDDEN_PREFIX));
+    is_json && !hidden && !file_name.eq_ignore_ascii_case(EXPORT_INDEX_FILE)
+}
+
+fn read_text(path: &Path, budget: &mut ImportBudget) -> Result<String, String> {
     let size = fs::metadata(path).map_err(|error| error.to_string())?.len();
-    if size > MAX_IMPORT_FILE_BYTES {
-        return Err(TOO_LARGE.to_string());
-    }
-    if size > *budget {
-        return Err(OVER_TOTAL.to_string());
-    }
-    *budget -= size;
+    budget.spend(size)?;
     fs::read_to_string(path).map_err(|error| error.to_string())
 }

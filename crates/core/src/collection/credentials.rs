@@ -181,6 +181,14 @@ impl Collection {
             .sum::<usize>()
     }
 
+    pub fn shared(&self, keep_credentials: bool) -> Collection {
+        if keep_credentials {
+            self.clone()
+        } else {
+            self.without_literal_secrets()
+        }
+    }
+
     pub fn without_literal_secrets(&self) -> Collection {
         let mut stripped = self.clone();
         if let Some(auth) = stripped.auth.as_mut() {

@@ -134,6 +134,8 @@ pub enum Action {
     ChooseImportFile,
     ImportFiles(Vec<PathBuf>),
     FilesDropped(Vec<PathBuf>),
+    ChooseWorkspaceArchiveLocation,
+    ExportWorkspaceArchive(PathBuf),
     OpenPostmanMigration,
     PostmanKeyLoaded(Option<Secret>),
     ListPostmanWorkspaces,

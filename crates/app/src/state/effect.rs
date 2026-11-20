@@ -47,6 +47,11 @@ pub enum Effect {
     AbortSend(u64),
     PickImportFile,
     PickImportFiles,
+    PickWorkspaceArchiveLocation,
+    WriteArchive {
+        path: PathBuf,
+        contents: Vec<u8>,
+    },
     LoadPostmanKey,
     StorePostmanKey(Option<Secret>),
     ListPostmanWorkspaces {
@@ -85,6 +90,9 @@ impl Effect {
             Effect::DeleteFile(path) => PendingDelete::new(path)
                 .commit()
                 .map_err(|error| error.to_string()),
+            Effect::WriteArchive { path, contents } => PendingWrite::new(path, contents)
+                .commit()
+                .map_err(|error| error.to_string()),
             Effect::WriteFile { path, contents } => PendingWrite::new(path, contents)
                 .commit()
                 .map_err(|error| error.to_string()),
@@ -98,6 +106,7 @@ impl Effect {
             | Effect::AbortSend(_)
             | Effect::PickImportFile
             | Effect::PickImportFiles
+            | Effect::PickWorkspaceArchiveLocation
             | Effect::LoadPostmanKey
             | Effect::StorePostmanKey(_)
             | Effect::ListPostmanWorkspaces { .. }

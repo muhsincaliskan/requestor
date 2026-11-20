@@ -16,7 +16,7 @@ pub struct StoreError {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PendingWrite {
     path: PathBuf,
-    contents: String,
+    contents: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,8 +46,11 @@ impl StoreError {
 }
 
 impl PendingWrite {
-    pub fn new(path: PathBuf, contents: String) -> Self {
-        PendingWrite { path, contents }
+    pub fn new(path: PathBuf, contents: impl Into<Vec<u8>>) -> Self {
+        PendingWrite {
+            path,
+            contents: contents.into(),
+        }
     }
 
     pub fn path(&self) -> &Path {
@@ -60,7 +63,7 @@ impl PendingWrite {
             fs::create_dir_all(parent).map_err(failure)?;
         }
         let temporary = self.temporary_path();
-        let written = write_private(&temporary, self.contents.as_bytes())
+        let written = write_private(&temporary, &self.contents)
             .and_then(|()| fs::rename(&temporary, &self.path));
         if written.is_err() {
             let _ = fs::remove_file(&temporary);

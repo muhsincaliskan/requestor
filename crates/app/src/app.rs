@@ -124,6 +124,9 @@ impl RequestorApp {
                 } => self
                     .runner
                     .migrate_postman_workspace(job, key, workspace_id, &settings, ctx),
+                Effect::PickWorkspaceArchiveLocation => follow_ups.extend(
+                    file_picker::workspace_archive_location().map(Action::ExportWorkspaceArchive),
+                ),
                 Effect::PickImportFiles => {
                     follow_ups.extend(file_picker::postman_export_files().map(Action::ImportFiles));
                 }

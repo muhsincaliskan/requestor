@@ -1,12 +1,14 @@
 use std::path::PathBuf;
 
-use requestor_core::migration::MigrationReport;
+use requestor_core::migration::{MigrationReport, PostmanExportFiles, WorkspaceArchive};
 
 use super::overlay::Overlay;
 use super::tab::RequestTab;
 use super::{Action, AppState, Effect};
 
 pub(super) const ALREADY_RUNNING: &str = "An import is already running";
+const EXPORTED_TO: &str = "Saving the workspace zip to";
+const EXPORT_FAILED: &str = "Could not export the workspace:";
 
 impl AppState {
     pub(super) fn dispatch_migration_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
@@ -14,13 +16,17 @@ impl AppState {
             Action::FilesDropped(paths) => self.import_dropped(paths, effects),
             Action::ImportFiles(paths) => self.import_files(paths, effects),
             Action::ChooseImportFiles => effects.push(Effect::PickImportFiles),
+            Action::ChooseWorkspaceArchiveLocation => {
+                effects.push(Effect::PickWorkspaceArchiveLocation)
+            }
+            Action::ExportWorkspaceArchive(path) => self.export_workspace_archive(path, effects),
             Action::MigrationFinished { job, report } => self.finish_migration(job, *report),
             other => self.dispatch_postman_action(other, effects),
         }
     }
 
     fn import_dropped(&mut self, mut paths: Vec<PathBuf>, effects: &mut Vec<Effect>) {
-        if paths.len() == 1 && !paths[0].is_dir() {
+        if paths.len() == 1 && !paths[0].is_dir() && !PostmanExportFiles::is_archive(&paths[0]) {
             self.dispatch_transfer_action(Action::ImportFile(paths.remove(0)), effects);
         } else if !paths.is_empty() {
             self.import_files(paths, effects);
@@ -42,6 +48,16 @@ impl AppState {
             self.overlay = Some(Overlay::PostmanMigration);
         }
         effects.push(Effect::ImportFiles { job, paths });
+    }
+
+    fn export_workspace_archive(&mut self, path: PathBuf, effects: &mut Vec<Effect>) {
+        match WorkspaceArchive::of(&self.workspace, self.migration.include_credentials) {
+            Ok(contents) => {
+                self.inform(format!("{EXPORTED_TO} {}", path.display()));
+                effects.push(Effect::WriteArchive { path, contents });
+            }
+            Err(error) => self.report_error(format!("{EXPORT_FAILED} {error}")),
+        }
     }
 
     fn finish_migration(&mut self, job: u64, report: MigrationReport) {

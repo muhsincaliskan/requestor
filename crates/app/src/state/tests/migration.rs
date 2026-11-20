@@ -126,3 +126,36 @@ fn choosing_postman_exports_asks_for_files_or_a_folder() {
     );
     started_job(&effects);
 }
+
+#[test]
+fn a_dropped_zip_is_read_as_a_postman_export() {
+    let mut state = state_with(Workspace::default());
+    let effects = state.apply(Action::FilesDropped(vec![PathBuf::from("backup.zip")]), 0.0);
+    started_job(&effects);
+}
+
+#[test]
+fn the_workspace_exports_as_one_zip() {
+    let mut workspace = Workspace::default();
+    workspace.add_collection(Collection::new("Orders"));
+    let mut state = state_with(workspace);
+    let effects = state.apply(Action::ChooseWorkspaceArchiveLocation, 0.0);
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::PickWorkspaceArchiveLocation]
+    ));
+
+    let path = PathBuf::from("workspace.zip");
+    let effects = state.apply(Action::ExportWorkspaceArchive(path.clone()), 0.0);
+
+    match effects.as_slice() {
+        [Effect::WriteArchive {
+            path: written,
+            contents,
+        }] => {
+            assert_eq!(written, &path);
+            assert!(contents.starts_with(b"PK"));
+        }
+        other => panic!("expected an archive write, got {other:?}"),
+    }
+}
