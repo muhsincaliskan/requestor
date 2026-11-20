@@ -480,6 +480,7 @@ mod examples;
 mod folders;
 mod history;
 mod inheritance;
+mod migration;
 mod protected_send;
 mod request_settings;
 mod response_presentation;

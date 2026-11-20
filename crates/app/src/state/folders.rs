@@ -14,6 +14,7 @@ pub enum FolderPurpose {
     SaveCollection(String),
     OpenCollection,
     DataFolder,
+    PostmanExport,
 }
 
 impl AppState {
@@ -26,6 +27,7 @@ impl AppState {
                 }
                 FolderPurpose::OpenCollection => self.open_collection_folder(path, effects),
                 FolderPurpose::DataFolder => self.move_data_folder(path),
+                FolderPurpose::PostmanExport => self.import_files(vec![path], effects),
             },
             Action::ResetDataFolder => self.reset_data_folder(),
             Action::StopSavingToFolder(collection_id) => {

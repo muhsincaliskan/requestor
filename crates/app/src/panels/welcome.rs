@@ -11,6 +11,7 @@ const GUIDANCE: [&str; 2] = [
 ];
 const NEW_REQUEST_LABEL: &str = "New request";
 const IMPORT_LABEL: &str = "Import…";
+const MIGRATION_LABEL: &str = "Import from Postman…";
 const SHORTCUT_GRID_ID: &str = "welcome-shortcuts";
 const SHOWN_SHORTCUTS: usize = 4;
 const TOP_SHARE: f32 = 0.22;
@@ -42,6 +43,9 @@ fn buttons(ui: &mut Ui, actions: &mut Vec<Action>) {
         }
         if ui.button(IMPORT_LABEL).clicked() {
             actions.push(Action::Show(Overlay::Import(Default::default())));
+        }
+        if ui.button(MIGRATION_LABEL).clicked() {
+            actions.push(Action::Show(Overlay::PostmanMigration));
         }
     });
 }

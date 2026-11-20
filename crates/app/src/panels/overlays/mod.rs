@@ -6,6 +6,7 @@ mod environment_editor;
 mod folder_editor;
 mod import;
 mod palette;
+pub mod postman_migration;
 mod protected_send;
 mod settings;
 mod shared_fields;
@@ -27,6 +28,7 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
     let stays_open = match &mut overlay {
         Overlay::Settings => settings::show(ctx, state, actions),
         Overlay::Import(form) => import::show(ctx, form, actions),
+        Overlay::PostmanMigration => postman_migration::show(ctx, &state.migration, actions),
         Overlay::EnvironmentEditor { environment_id } => {
             environment_editor::show(ctx, state, environment_id, actions)
         }

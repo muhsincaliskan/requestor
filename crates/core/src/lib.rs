@@ -16,6 +16,7 @@ pub mod json_query;
 pub mod json_tree;
 pub mod media_type;
 pub mod method;
+pub mod migration;
 pub mod prepared;
 pub mod response;
 pub mod secret;

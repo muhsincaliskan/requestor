@@ -10,6 +10,7 @@ use crate::settings::BYTES_PER_MEGABYTE;
 use crate::transport::{DocumentTransport, HttpTransport};
 
 const COLLECTION_SCHEMA_POINTER: &str = "/info/schema";
+pub const MAX_IMPORT_FILE_BYTES: u64 = 64 * BYTES_PER_MEGABYTE as u64;
 const MAX_OPENAPI_INPUT_BYTES: usize = 10 * 1024 * 1024;
 const OPENAPI_KEY_MARKERS: [&str; 2] = ["\"openapi\"", "\"swagger\""];
 const YAML_OPENAPI_MARKERS: [&str; 2] = ["openapi:", "swagger:"];

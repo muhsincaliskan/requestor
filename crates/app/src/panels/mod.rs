@@ -8,9 +8,12 @@ mod tab_strip;
 mod toolbar;
 mod welcome;
 
+use std::path::PathBuf;
+
 use eframe::egui::{
     Align2, CentralPanel, Color32, FontId, Frame, Id, LayerId, Margin, Order, Panel, TextStyle, Ui,
 };
+
 use requestor_core::workspace::InterfaceSettings;
 
 use crate::state::{Action, AppState};
@@ -79,16 +82,17 @@ fn show_drop_hint(ui: &Ui) {
 }
 
 fn import_dropped_files(ui: &Ui, actions: &mut Vec<Action>) {
-    ui.input(|input| {
-        actions.extend(
-            input
-                .raw
-                .dropped_files
-                .iter()
-                .map(|file| file.path().to_path_buf())
-                .map(Action::ImportFile),
-        )
+    let paths: Vec<PathBuf> = ui.input(|input| {
+        input
+            .raw
+            .dropped_files
+            .iter()
+            .map(|file| file.path().to_path_buf())
+            .collect()
     });
+    if !paths.is_empty() {
+        actions.push(Action::FilesDropped(paths));
+    }
 }
 
 fn bar_frame(ui: &Ui) -> Frame {

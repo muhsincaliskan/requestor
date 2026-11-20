@@ -45,6 +45,11 @@ pub enum Effect {
     OpenUrl(String),
     AbortSend(u64),
     PickImportFile,
+    PickImportFiles,
+    ImportFiles {
+        job: u64,
+        paths: Vec<PathBuf>,
+    },
     DownloadImport {
         job: u64,
         address: String,
@@ -78,6 +83,8 @@ impl Effect {
             | Effect::OpenUrl(_)
             | Effect::AbortSend(_)
             | Effect::PickImportFile
+            | Effect::PickImportFiles
+            | Effect::ImportFiles { .. }
             | Effect::DownloadImport { .. }
             | Effect::PickExportLocation { .. }
             | Effect::PickFolder(_)

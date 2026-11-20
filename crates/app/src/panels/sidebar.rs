@@ -17,6 +17,8 @@ const TITLE: &str = "Collections";
 const NEW_LABEL: &str = "+";
 const IMPORT_LABEL: &str = "Import";
 const NEW_COLLECTION_LABEL: &str = "New collection";
+const MIGRATION_LABEL: &str = "⬇ Import from Postman";
+const MIGRATION_HINT: &str = "Bring collections and environments over from Postman";
 const CLEAR_LABEL: &str = "×";
 const CLEAR_HINT: &str = "Clear filter";
 const FILTER_HINT: &str = "Filter requests";
@@ -32,6 +34,7 @@ const ROW_PADDING: (f32, f32) = (6.0, 3.0);
 pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
     unsaved::show(ui, state, actions);
     header(ui, actions);
+    migration_button(ui, actions);
     let filter = filter_field(ui);
     ui.add_space(SECTION_GAP);
     ScrollArea::vertical()
@@ -58,6 +61,16 @@ fn header(ui: &mut Ui, actions: &mut Vec<Action>) {
             actions.push(Action::NewCollection);
         }
     });
+}
+
+fn migration_button(ui: &mut Ui, actions: &mut Vec<Action>) {
+    let clicked = ui
+        .small_button(MIGRATION_LABEL)
+        .on_hover_text(MIGRATION_HINT)
+        .clicked();
+    if clicked {
+        actions.push(Action::Show(Overlay::PostmanMigration));
+    }
 }
 
 fn trailing_add_button(ui: &mut Ui, hint: &str) -> bool {
