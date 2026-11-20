@@ -1,26 +1,30 @@
 use std::time::Duration;
 
 use super::*;
-use crate::header::ACCEPT;
+use crate::header::Header;
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
 use crate::transport::{HttpTransport, TransportError};
 
-struct FixedAnswer {
+struct LatestPage {
     status: u16,
-    body: &'static str,
+    location: &'static str,
 }
 
-impl HttpTransport for FixedAnswer {
+impl HttpTransport for LatestPage {
     fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError> {
-        assert_eq!(request.url, LATEST_RELEASE_URL);
-        assert_eq!(request.header(ACCEPT), Some(github::GITHUB_JSON));
+        let latest = request.url == LATEST_RELEASE_URL;
+        let (status, headers) = if latest {
+            (self.status, vec![Header::new(LOCATION, self.location)])
+        } else {
+            (NOT_FOUND, Vec::new())
+        };
         Ok(HttpResponse {
-            status: self.status,
+            status,
             reason: String::new(),
             version: String::new(),
-            headers: Vec::new(),
-            body: self.body.as_bytes().to_vec(),
+            headers,
+            body: Vec::new(),
             truncated: false,
             elapsed: Duration::ZERO,
             timing: None,
@@ -36,19 +40,22 @@ impl HttpTransport for Offline {
     }
 }
 
-fn client(status: u16, body: &'static str) -> GithubReleaseClient<FixedAnswer> {
-    GithubReleaseClient::new(FixedAnswer { status, body }, LATEST_RELEASE_URL)
+fn client(status: u16, location: &'static str) -> GithubReleaseClient<LatestPage> {
+    GithubReleaseClient::new(LatestPage { status, location }, LATEST_RELEASE_URL)
 }
 
 fn version(text: &str) -> Version {
     Version::parse(text).unwrap()
 }
 
-const RELEASE_0_2_0: &str = r#"{"tag_name":"v0.2.0","html_url":"https://github.com/muhsincaliskan/requestor/releases/tag/v0.2.0","draft":false,"prerelease":false,"assets":[]}"#;
+const LOCATION: &str = "Location";
+const FOUND: u16 = 302;
+const NOT_FOUND: u16 = 404;
+const RELEASE_0_2_0: &str = "https://github.com/muhsincaliskan/requestor/releases/tag/v0.2.0";
 
 #[test]
 fn a_newer_release_is_offered() {
-    let found = newer_release(&client(200, RELEASE_0_2_0), &version("0.1.0")).unwrap();
+    let found = newer_release(&client(FOUND, RELEASE_0_2_0), &version("0.1.0")).unwrap();
     let release = found.unwrap();
     assert_eq!(release.version, version("0.2.0"));
     assert!(release.page_url.ends_with("/v0.2.0"));
@@ -56,7 +63,7 @@ fn a_newer_release_is_offered() {
 
 #[test]
 fn the_same_or_an_older_release_is_not_offered() {
-    let latest = client(200, RELEASE_0_2_0);
+    let latest = client(FOUND, RELEASE_0_2_0);
     assert_eq!(newer_release(&latest, &version("0.2.0")).unwrap(), None);
     assert_eq!(newer_release(&latest, &version("1.0.0")).unwrap(), None);
 }
@@ -75,25 +82,40 @@ fn versions_compare_by_number_not_text() {
 }
 
 #[test]
-fn a_pre_release_or_draft_is_not_offered() {
-    let pre = r#"{"tag_name":"v9.0.0","html_url":"https://github.com/x/y","prerelease":true}"#;
-    let result = newer_release(&client(200, pre), &version("0.1.0"));
+fn no_published_release_is_reported() {
+    let none = client(
+        FOUND,
+        "https://github.com/muhsincaliskan/requestor/releases",
+    );
+    let result = newer_release(&none, &version("0.1.0"));
     assert_eq!(result, Err(UpdateError::NoStableRelease));
 }
 
 #[test]
-fn a_page_outside_github_is_refused() {
-    let odd = r#"{"tag_name":"v9.0.0","html_url":"file:///etc/passwd"}"#;
-    let result = newer_release(&client(200, odd), &version("0.1.0"));
-    assert_eq!(result, Err(UpdateError::InvalidResponse));
+fn a_redirect_outside_the_project_releases_is_refused() {
+    for odd in [
+        "file:///etc/passwd",
+        "https://github.com/other/repo/releases/tag/v9.0.0",
+        "https://github.com/muhsincaliskan/requestor/releases/tag/../v9.0.0",
+        "https://github.com/muhsincaliskan/requestor/releases/tag/v9.0.0\" /evil",
+    ] {
+        let result = newer_release(&client(FOUND, odd), &version("0.1.0"));
+        assert_eq!(result, Err(UpdateError::InvalidResponse), "{odd}");
+    }
 }
 
 #[test]
 fn failures_are_reported_without_an_offer() {
-    let missing = newer_release(&client(404, "{}"), &version("0.1.0"));
-    assert_eq!(missing, Err(UpdateError::Status(404)));
-    let garbled = newer_release(&client(200, "<html>"), &version("0.1.0"));
-    assert_eq!(garbled, Err(UpdateError::InvalidResponse));
+    let missing = newer_release(&client(NOT_FOUND, ""), &version("0.1.0"));
+    assert_eq!(missing, Err(UpdateError::Status(NOT_FOUND)));
+    let not_a_tag = newer_release(
+        &client(
+            FOUND,
+            "https://github.com/muhsincaliskan/requestor/releases/tag/latest",
+        ),
+        &version("0.1.0"),
+    );
+    assert_eq!(not_a_tag, Err(UpdateError::InvalidResponse));
     let offline = GithubReleaseClient::new(Offline, LATEST_RELEASE_URL);
     assert!(matches!(
         newer_release(&offline, &version("0.1.0")),
@@ -102,7 +124,7 @@ fn failures_are_reported_without_an_offer() {
 }
 
 #[test]
-fn update_checks_verify_tls_follow_redirects_and_time_out() {
+fn update_checks_verify_tls_read_redirects_and_time_out() {
     let relaxed = crate::settings::RequestSettings {
         verify_ssl: false,
         follow_redirects: false,
@@ -112,14 +134,8 @@ fn update_checks_verify_tls_follow_redirects_and_time_out() {
     };
     let checked = relaxed.for_update_check();
     assert!(checked.verify_ssl);
-    assert!(checked.follow_redirects);
+    assert!(!checked.follow_redirects);
+    assert!(relaxed.for_update_download().follow_redirects);
     assert!(checked.request_timeout_ms > 0);
     assert!(checked.connect_timeout_ms > 0);
-}
-
-#[test]
-fn a_page_with_unsafe_characters_is_refused() {
-    let odd = r#"{"tag_name":"v9.0.0","html_url":"https://github.com/x/y\" /evil"}"#;
-    let result = newer_release(&client(200, odd), &version("0.1.0"));
-    assert_eq!(result, Err(UpdateError::InvalidResponse));
 }
