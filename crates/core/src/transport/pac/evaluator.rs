@@ -3,6 +3,8 @@ mod macos;
 
 use std::sync::Arc;
 
+const IPV6_OPEN: char = '[';
+const IPV6_CLOSE: char = ']';
 const DEFAULT_PORTS: [(&str, u16); 2] = [("http", 80), ("https", 443)];
 
 pub trait PacEvaluator: Send + Sync {
@@ -22,15 +24,26 @@ impl PacTarget {
         let port = port.filter(|port| !DEFAULT_PORTS.contains(&(scheme.as_str(), *port)));
         PacTarget {
             scheme,
-            host: host.to_ascii_lowercase(),
+            host: host
+                .trim_start_matches(IPV6_OPEN)
+                .trim_end_matches(IPV6_CLOSE)
+                .to_ascii_lowercase(),
             port,
+        }
+    }
+
+    fn url_host(&self) -> String {
+        if self.host.contains(':') {
+            format!("{IPV6_OPEN}{}{IPV6_CLOSE}", self.host)
+        } else {
+            self.host.clone()
         }
     }
 
     pub fn script_url(&self) -> String {
         match self.port {
-            Some(port) => format!("{}://{}:{port}/", self.scheme, self.host),
-            None => format!("{}://{}/", self.scheme, self.host),
+            Some(port) => format!("{}://{}:{port}/", self.scheme, self.url_host()),
+            None => format!("{}://{}/", self.scheme, self.url_host()),
         }
     }
 }

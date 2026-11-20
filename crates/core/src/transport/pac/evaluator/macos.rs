@@ -53,5 +53,5 @@ fn finished_output(mut child: Child) -> Option<String> {
     }
     let mut output = String::new();
     child.stdout.take()?.read_to_string(&mut output).ok()?;
-    Some(output.trim().to_string())
+    Some(output.trim().to_string()).filter(|output| !output.is_empty())
 }

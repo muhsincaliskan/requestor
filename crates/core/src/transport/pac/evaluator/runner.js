@@ -30,19 +30,22 @@ function readScript(scriptUrl) {
   return ObjC.unwrap(text);
 }
 
+function firstIpv4(addresses, skipLoopback) {
+  for (var i = 0; i < addresses.length; i++) {
+    var address = addresses[i];
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(address) && !(skipLoopback && address.indexOf('127.') === 0)) {
+      return address;
+    }
+  }
+  return null;
+}
+
 function resolve(host) {
-  var address = $.NSHost.hostWithName(host).address;
-  return address && !address.isNil() ? ObjC.unwrap(address) : null;
+  return firstIpv4(ObjC.deepUnwrap($.NSHost.hostWithName(host).addresses) || [], false);
 }
 
 function localAddress() {
-  var addresses = ObjC.deepUnwrap($.NSHost.currentHost.addresses) || [];
-  for (var i = 0; i < addresses.length; i++) {
-    if (/^\d+\.\d+\.\d+\.\d+$/.test(addresses[i]) && addresses[i].indexOf('127.') !== 0) {
-      return addresses[i];
-    }
-  }
-  return '127.0.0.1';
+  return firstIpv4(ObjC.deepUnwrap($.NSHost.currentHost.addresses) || [], true) || '127.0.0.1';
 }
 
 function run(argv) {

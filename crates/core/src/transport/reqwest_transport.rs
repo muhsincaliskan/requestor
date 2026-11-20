@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use reqwest::blocking::{Client, ClientBuilder};
@@ -132,7 +133,7 @@ pub(super) fn configure(
     }
 }
 
-fn auto_configured_proxy(resolver: PacResolver) -> Proxy {
+fn auto_configured_proxy(resolver: Arc<PacResolver>) -> Proxy {
     Proxy::custom(move |url| {
         let target = PacTarget::new(url.scheme(), url.host_str()?, url.port());
         resolver

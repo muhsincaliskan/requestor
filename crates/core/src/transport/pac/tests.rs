@@ -19,15 +19,22 @@ const WORK_SETTINGS: &str = "<dictionary> {
 }";
 
 struct CountingEvaluator {
-    result: &'static str,
+    result: Option<&'static str>,
     calls: AtomicUsize,
 }
 
 impl PacEvaluator for CountingEvaluator {
     fn find_proxy(&self, _script_url: &str, _target: &PacTarget) -> Option<String> {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        Some(self.result.to_string())
+        self.result.map(str::to_string)
     }
+}
+
+fn counting(result: Option<&'static str>) -> Arc<CountingEvaluator> {
+    Arc::new(CountingEvaluator {
+        result,
+        calls: AtomicUsize::new(0),
+    })
 }
 
 fn config() -> PacConfig {
@@ -100,10 +107,7 @@ fn targets_leave_out_the_path_and_default_ports() {
 
 #[test]
 fn decisions_are_cached_per_target_and_exceptions_skip_the_script() {
-    let evaluator = Arc::new(CountingEvaluator {
-        result: "PROXY proxy.corp:8080",
-        calls: AtomicUsize::new(0),
-    });
+    let evaluator = counting(Some("PROXY proxy.corp:8080"));
     let resolver = PacResolver::new(config(), evaluator.clone());
     let target = PacTarget::new("https", "efes.example.com", None);
     for _ in 0..3 {
@@ -115,4 +119,44 @@ fn decisions_are_cached_per_target_and_exceptions_skip_the_script() {
     let local = PacTarget::new("http", "printer.local", None);
     assert_eq!(resolver.decide(&local), ProxyDecision::Direct);
     assert_eq!(evaluator.calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn scoped_interface_settings_do_not_override_the_top_level() {
+    let settings = "<dictionary> {
+  ExcludeSimpleHostnames : 1
+  ProxyAutoConfigEnable : 1
+  ProxyAutoConfigURLString : http://pac.corp/proxy.pac
+  __SCOPED__ : <dictionary> {
+    en0 : <dictionary> {
+      ExceptionsList : <array> {
+        0 : scoped.test
+      }
+      ProxyAutoConfigEnable : 0
+      ProxyAutoConfigURLString : http://other/proxy.pac
+    }
+  }
+}";
+    let config = PacConfig::from_system_settings(settings).unwrap();
+    assert_eq!(config.script_url, "http://pac.corp/proxy.pac");
+    assert!(config.exceptions.is_empty());
+    assert!(config.bypasses("intranet"));
+    assert!(!config.bypasses("scoped.test"));
+}
+
+#[test]
+fn an_unreachable_script_means_direct_without_a_long_memory() {
+    let evaluator = counting(None);
+    let resolver = PacResolver::new(config(), evaluator.clone());
+    let target = PacTarget::new("https", "efes.example.com", None);
+    assert_eq!(resolver.decide(&target), ProxyDecision::Direct);
+    assert_eq!(resolver.decide(&target), ProxyDecision::Direct);
+    assert_eq!(evaluator.calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn ipv6_hosts_lose_their_brackets_but_keep_them_in_the_url() {
+    let target = PacTarget::new("http", "[::1]", Some(8080));
+    assert_eq!(target.host, "::1");
+    assert_eq!(target.script_url(), "http://[::1]:8080/");
 }
