@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use reqwest::blocking::{Client, ClientBuilder};
@@ -5,6 +6,7 @@ use reqwest::redirect::Policy;
 use reqwest::{Method, NoProxy, Proxy};
 
 use super::certified::CertifiedClients;
+use super::pac::{PacResolver, PacTarget};
 use super::reading::{read_response, ReadWatch};
 use super::timing::MeasuredClient;
 use super::{Cancellation, HttpTransport, StreamProgress, TransportError};
@@ -124,8 +126,21 @@ pub(super) fn configure(
     match (&settings.proxy, settings.use_system_proxy) {
         (Some(proxy), _) => Ok(builder.proxy(build_proxy(proxy)?)),
         (None, false) => Ok(builder.no_proxy()),
-        (None, true) => Ok(builder),
+        (None, true) => Ok(match PacResolver::system() {
+            Some(resolver) => builder.proxy(auto_configured_proxy(resolver)),
+            None => builder,
+        }),
     }
+}
+
+fn auto_configured_proxy(resolver: Arc<PacResolver>) -> Proxy {
+    Proxy::custom(move |url| {
+        let target = PacTarget::new(url.scheme(), url.host_str()?, url.port());
+        resolver
+            .decide(&target)
+            .proxy_url()
+            .and_then(|proxy| reqwest::Url::parse(proxy).ok())
+    })
 }
 
 fn redirect_policy(settings: &RequestSettings) -> Policy {
