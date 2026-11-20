@@ -2,12 +2,15 @@ use std::time::Duration;
 
 use eframe::egui::{Align, Color32, Layout, Ui};
 
-use crate::state::{Action, AppState, NoticeLevel, SaveStatus};
+use crate::state::{Action, AppState, NoticeLevel, SaveStatus, UpdateStage};
 use crate::widgets::icon_button;
 
 const DISMISS_LABEL: &str = "×";
 const DISMISS_HINT: &str = "Dismiss";
 const UPDATE_HINT: &str = "Open the download page";
+const INSTALL_HINT: &str = "Download, check and install the new version";
+const RESTART_LABEL: &str = "Restart to finish updating";
+const RELEASE_NOTES_LABEL: &str = "What's new";
 
 pub fn show(ui: &mut Ui, state: &AppState, now: f64, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
@@ -35,11 +38,42 @@ fn update_link(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
         return;
     };
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-        let text = format!("Requestor {} is available", release.version);
-        if ui.link(text).on_hover_text(UPDATE_HINT).clicked() {
+        if !state.can_install_updates {
+            let text = format!("Requestor {} is available", release.version);
+            if ui.link(text).on_hover_text(UPDATE_HINT).clicked() {
+                actions.push(Action::OpenReleasePage);
+            }
+            return;
+        }
+        if ui
+            .link(RELEASE_NOTES_LABEL)
+            .on_hover_text(UPDATE_HINT)
+            .clicked()
+        {
             actions.push(Action::OpenReleasePage);
         }
+        install_control(ui, state, &release.version.to_string(), actions);
     });
+}
+
+fn install_control(ui: &mut Ui, state: &AppState, version: &str, actions: &mut Vec<Action>) {
+    match state.update_stage {
+        UpdateStage::Installing => {
+            ui.weak(format!("Updating to {version}…"));
+            ui.spinner();
+        }
+        UpdateStage::Installed => {
+            if ui.small_button(RESTART_LABEL).clicked() {
+                actions.push(Action::RestartForUpdate);
+            }
+        }
+        UpdateStage::Idle | UpdateStage::Failed(_) => {
+            let label = format!("Update to {version}");
+            if ui.small_button(label).on_hover_text(INSTALL_HINT).clicked() {
+                actions.push(Action::InstallUpdate);
+            }
+        }
+    }
 }
 
 fn level_color(ui: &Ui, level: NoticeLevel) -> Color32 {

@@ -38,6 +38,7 @@ jobs:
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
           gh release upload "$RELEASE_TAG" target/bundle/*.dmg target/bundle/Requestor-macos.zip target/bundle/requestor-cli-macos-universal.tar.gz --clobber
+          scripts/release-checksums.sh "$RELEASE_TAG"
 
   linux:
     runs-on: ubuntu-latest
@@ -76,3 +77,12 @@ jobs:
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes
           gh release upload "$RELEASE_TAG" requestor-windows-x86_64.zip --clobber
+
+  checksums:
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/') }}
+    needs: [macos, linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish SHA256SUMS
+        run: scripts/release-checksums.sh "$RELEASE_TAG"

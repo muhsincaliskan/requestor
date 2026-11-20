@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::secret::Secret;
 use requestor_core::settings::RequestSettings;
+use requestor_core::update::Release;
 use requestor_core::workspace::{PendingDelete, PendingWrite, StoreWrite};
 
 use super::certificates::CertificateFile;
@@ -44,6 +45,11 @@ pub enum Effect {
     },
     CopyText(String),
     OpenUrl(String),
+    InstallUpdate {
+        release: Box<Release>,
+        settings: Box<RequestSettings>,
+    },
+    Relaunch,
     AbortSend(u64),
     PickImportFile,
     PickImportFiles,
@@ -103,6 +109,8 @@ impl Effect {
             | Effect::FetchSchema { .. }
             | Effect::CopyText(_)
             | Effect::OpenUrl(_)
+            | Effect::InstallUpdate { .. }
+            | Effect::Relaunch
             | Effect::AbortSend(_)
             | Effect::PickImportFile
             | Effect::PickImportFiles
