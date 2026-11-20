@@ -11,7 +11,7 @@ const SECTION_GAP: f32 = 16.0;
 const DETAILS_HEIGHT: f32 = 200.0;
 const DETAILS_ID: &str = "postman-migration-details";
 const FILES_HEADING: &str = "From Postman exports";
-const FILES_TEXT: &str = "Pick collection and environment files, a folder of them, or the folder from Postman's \"Export data\". Everything is imported at once, with folders kept.";
+const FILES_TEXT: &str = "Pick collection and environment files, a folder of them, or the zip from Postman's \"Export data\". Everything is imported at once, with folders kept.";
 const CHOOSE_FILES_LABEL: &str = "Choose files…";
 const CHOOSE_FOLDER_LABEL: &str = "Choose folder…";
 const DROP_HINT: &str = "You can also drop files or folders anywhere on the window.";
@@ -19,11 +19,16 @@ const WORKING_TEXT: &str = "Importing…";
 const FAILURES_HEADING: &str = "Not imported";
 const WARNINGS_HEADING: &str = "Warnings";
 const CLOSE_LABEL: &str = "Close";
+const EXPORT_HEADING: &str = "Back to Postman";
+const EXPORT_TEXT: &str = "Export every collection and environment as one zip of Postman files.";
+const EXPORT_LABEL: &str = "Export workspace as zip…";
+const CREDENTIALS_LABEL: &str = "Include credentials";
+const CREDENTIALS_HINT: &str = "Keeps tokens, passwords and secret values in the exported files";
 
 pub fn show(
     ctx: &Context,
     account: &mut PostmanAccountForm,
-    form: &MigrationForm,
+    form: &mut MigrationForm,
     actions: &mut Vec<Action>,
 ) -> bool {
     dialog(ctx, DIALOG_ID, TITLE, |ui| {
@@ -33,6 +38,10 @@ pub fn show(
         ui.separator();
         ui.add_space(SECTION_GAP);
         files_section(ui, form, actions);
+        ui.add_space(SECTION_GAP);
+        ui.separator();
+        ui.add_space(SECTION_GAP);
+        export_section(ui, form, actions);
         ui.add_space(SECTION_GAP);
         if form.is_working() && account.progress.is_none() {
             ui.horizontal(|ui| {
@@ -61,6 +70,19 @@ fn files_section(ui: &mut Ui, form: &MigrationForm, actions: &mut Vec<Action>) {
         });
     });
     ui.label(RichText::new(DROP_HINT).weak().small());
+}
+
+fn export_section(ui: &mut Ui, form: &mut MigrationForm, actions: &mut Vec<Action>) {
+    section_heading(ui, EXPORT_HEADING);
+    ui.weak(EXPORT_TEXT);
+    ui.add_space(TITLE_GAP);
+    ui.horizontal(|ui| {
+        if ui.button(EXPORT_LABEL).clicked() {
+            actions.push(Action::ChooseWorkspaceArchiveLocation);
+        }
+        ui.checkbox(&mut form.include_credentials, CREDENTIALS_LABEL)
+            .on_hover_text(CREDENTIALS_HINT);
+    });
 }
 
 fn outcome_section(ui: &mut Ui, outcome: &MigrationOutcome) {

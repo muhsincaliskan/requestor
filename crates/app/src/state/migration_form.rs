@@ -4,6 +4,7 @@ use requestor_core::migration::{MigrationFailure, MigrationReport};
 pub struct MigrationForm {
     job: Option<u64>,
     pub outcome: Option<MigrationOutcome>,
+    pub include_credentials: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

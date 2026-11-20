@@ -30,7 +30,7 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) {
         Overlay::Settings => settings::show(ctx, state, actions),
         Overlay::Import(form) => import::show(ctx, form, actions),
         Overlay::PostmanMigration => {
-            postman_migration::show(ctx, &mut state.postman, &state.migration, actions)
+            postman_migration::show(ctx, &mut state.postman, &mut state.migration, actions)
         }
         Overlay::EnvironmentEditor { environment_id } => {
             environment_editor::show(ctx, state, environment_id, actions)
