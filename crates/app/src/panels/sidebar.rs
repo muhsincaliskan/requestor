@@ -1,4 +1,5 @@
 mod drag;
+mod empty;
 mod environments;
 mod examples;
 mod history;
@@ -9,23 +10,18 @@ mod unsaved;
 
 use eframe::egui::{vec2, Align, Id, Layout, ScrollArea, TextEdit, Ui};
 
-use crate::state::{Action, AppState, Overlay};
+use crate::state::{Action, AppState};
 use crate::widgets::icon_button;
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
 
 const TITLE: &str = "Collections";
 const NEW_LABEL: &str = "+";
-const IMPORT_LABEL: &str = "Import";
 const NEW_COLLECTION_LABEL: &str = "New collection";
-const MIGRATION_LABEL: &str = "⬇ Import from Postman";
-const MIGRATION_HINT: &str = "Bring collections and environments over from Postman";
 const CLEAR_LABEL: &str = "×";
 const CLEAR_HINT: &str = "Clear filter";
 const FILTER_HINT: &str = "Filter requests";
 const FILTER_ID: &str = "sidebar-filter";
 const SCROLL_ID: &str = "sidebar-scroll";
-const EMPTY_TEXT: &str =
-    "No collections yet. Create one or import from Postman, OpenAPI, WSDL, cURL or a raw HTTP request.";
 const SECTION_GAP: f32 = 8.0;
 const ROW_GAP: f32 = 2.0;
 const ROW_HEIGHT: f32 = 24.0;
@@ -34,8 +30,13 @@ const ROW_PADDING: (f32, f32) = (6.0, 3.0);
 pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
     unsaved::show(ui, state, actions);
     header(ui, actions);
-    migration_button(ui, actions);
-    let filter = filter_field(ui);
+    let has_content =
+        !state.workspace.collections.is_empty() || !state.workspace.history.is_empty();
+    let filter = if has_content {
+        filter_field(ui)
+    } else {
+        String::new()
+    };
     ui.add_space(SECTION_GAP);
     ScrollArea::vertical()
         .id_salt(SCROLL_ID)
@@ -43,7 +44,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
         .show(ui, |ui| {
             compact_rows(ui);
             if state.workspace.collections.is_empty() {
-                empty_state(ui, actions);
+                empty::show(ui, actions);
             } else {
                 tree::show(ui, state, &filter, actions);
             }
@@ -57,20 +58,13 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
 fn header(ui: &mut Ui, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         ui.strong(TITLE);
-        if trailing_add_button(ui, NEW_COLLECTION_LABEL) {
-            actions.push(Action::NewCollection);
-        }
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if icon_button(ui, NEW_LABEL, NEW_COLLECTION_LABEL).clicked() {
+                actions.push(Action::NewCollection);
+            }
+            menus::import(ui, actions);
+        });
     });
-}
-
-fn migration_button(ui: &mut Ui, actions: &mut Vec<Action>) {
-    let clicked = ui
-        .small_button(MIGRATION_LABEL)
-        .on_hover_text(MIGRATION_HINT)
-        .clicked();
-    if clicked {
-        actions.push(Action::OpenPostmanMigration);
-    }
 }
 
 fn trailing_add_button(ui: &mut Ui, hint: &str) -> bool {
@@ -108,16 +102,4 @@ fn filter_field(ui: &mut Ui) -> String {
         ui.data_mut(|data| data.insert_temp(id, text.clone()));
     }
     text.trim().to_string()
-}
-
-fn empty_state(ui: &mut Ui, actions: &mut Vec<Action>) {
-    ui.weak(EMPTY_TEXT);
-    ui.horizontal(|ui| {
-        if ui.button(NEW_COLLECTION_LABEL).clicked() {
-            actions.push(Action::NewCollection);
-        }
-        if ui.button(IMPORT_LABEL).clicked() {
-            actions.push(Action::Show(Overlay::Import(Default::default())));
-        }
-    });
 }

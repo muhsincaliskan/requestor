@@ -6,6 +6,7 @@ use crate::state::{Action, AppState};
 const ENVIRONMENT_PREFIX: &str = "Use environment: ";
 const NO_ENVIRONMENT_TITLE: &str = "Use no environment";
 const THEME_PREFIX: &str = "Theme: ";
+const MIGRATION_TITLE: &str = "Import from Postman";
 
 pub enum Target {
     Command(&'static Shortcut),
@@ -15,6 +16,7 @@ pub enum Target {
     },
     Environment(Option<String>),
     Theme(ThemeName),
+    Migration,
 }
 
 pub struct Entry {
@@ -31,6 +33,7 @@ pub struct Query {
 impl Entry {
     pub fn all(state: &AppState) -> Vec<Entry> {
         let mut entries: Vec<Entry> = shortcuts::ALL.iter().map(Entry::command).collect();
+        entries.push(Entry::plain(MIGRATION_TITLE.to_string(), Target::Migration));
         entries.extend(Entry::requests(state));
         entries.extend(Entry::environments(state));
         entries.extend(ThemeName::ALL.into_iter().map(Entry::theme));
@@ -59,6 +62,7 @@ impl Entry {
                 state.workspace.settings.interface.theme = *theme;
                 actions.push(Action::SettingsEdited);
             }
+            Target::Migration => actions.push(Action::OpenPostmanMigration),
         }
     }
 
