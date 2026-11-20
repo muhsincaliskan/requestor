@@ -116,6 +116,10 @@ pub enum Action {
         parent_id: Option<String>,
         index: usize,
     },
+    MoveCollection {
+        collection_id: String,
+        index: usize,
+    },
     Rename {
         target: LibraryTarget,
         name: String,

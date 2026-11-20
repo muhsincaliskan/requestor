@@ -6,6 +6,10 @@ use crate::state::Action;
 const DROP_STROKE_WIDTH: f32 = 1.5;
 const DROP_CORNER_RADIUS: f32 = 2.0;
 
+pub(super) struct DragCollection {
+    collection_id: String,
+}
+
 pub(super) struct DragItem {
     collection_id: String,
     item_id: String,
@@ -58,13 +62,7 @@ pub(super) fn accept(
         .dnd_hover_payload::<DragItem>()
         .is_some_and(|payload| payload.collection_id == collection.id());
     if hovering {
-        let stroke = Stroke::new(DROP_STROKE_WIDTH, ui.visuals().selection.bg_fill);
-        ui.painter().rect_stroke(
-            response.rect,
-            DROP_CORNER_RADIUS,
-            stroke,
-            StrokeKind::Inside,
-        );
+        highlight(ui, response);
     }
     let Some(payload) = response.dnd_release_payload::<DragItem>() else {
         return;
@@ -72,6 +70,41 @@ pub(super) fn accept(
     if payload.collection_id == collection.id() && !slot.is_item(&payload.item_id) {
         actions.extend(slot.move_action(collection, &payload.item_id));
     }
+}
+
+pub(super) fn begin_collection(response: &Response, collection_id: &str) {
+    if response.drag_started() {
+        response.dnd_set_drag_payload(DragCollection {
+            collection_id: collection_id.to_string(),
+        });
+    }
+}
+
+pub(super) fn accept_collection(
+    ui: &Ui,
+    response: &Response,
+    target_index: usize,
+    actions: &mut Vec<Action>,
+) {
+    if response.dnd_hover_payload::<DragCollection>().is_some() {
+        highlight(ui, response);
+    }
+    if let Some(payload) = response.dnd_release_payload::<DragCollection>() {
+        actions.push(Action::MoveCollection {
+            collection_id: payload.collection_id.clone(),
+            index: target_index,
+        });
+    }
+}
+
+fn highlight(ui: &Ui, response: &Response) {
+    let stroke = Stroke::new(DROP_STROKE_WIDTH, ui.visuals().selection.bg_fill);
+    ui.painter().rect_stroke(
+        response.rect,
+        DROP_CORNER_RADIUS,
+        stroke,
+        StrokeKind::Inside,
+    );
 }
 
 #[cfg(test)]
