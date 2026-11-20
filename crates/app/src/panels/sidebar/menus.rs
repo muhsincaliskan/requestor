@@ -1,12 +1,13 @@
 use std::path::Path;
 
-use eframe::egui::{Response, Ui};
+use eframe::egui::{Popup, Response, Ui};
 use requestor_core::collection::{Collection, Item};
 use requestor_core::environment::Environment;
 
 use crate::state::{
     Action, DeleteConfirmation, ExportForm, FolderPurpose, LibraryTarget, Overlay, RenameForm,
 };
+use crate::widgets::icon_button;
 
 const OPEN_LABEL: &str = "Open";
 const ADD_REQUEST_LABEL: &str = "Add request";
@@ -20,6 +21,22 @@ const DELETE_LABEL: &str = "Delete";
 const SAVE_TO_FOLDER_LABEL: &str = "Save to folder…";
 const STOP_FOLDER_LABEL: &str = "Stop saving to folder";
 const CLEAR_HISTORY_LABEL: &str = "Clear history";
+const IMPORT_GLYPH: &str = "⬇";
+const IMPORT_HINT: &str = "Import";
+const IMPORT_FILES_LABEL: &str = "Import file or text…";
+const MIGRATION_LABEL: &str = "Import from Postman…";
+
+pub(super) fn import(ui: &mut Ui, actions: &mut Vec<Action>) {
+    let button = icon_button(ui, IMPORT_GLYPH, IMPORT_HINT);
+    Popup::menu(&button).show(|ui| {
+        entry(ui, MIGRATION_LABEL, actions, || {
+            Action::OpenPostmanMigration
+        });
+        entry(ui, IMPORT_FILES_LABEL, actions, || {
+            Action::Show(Overlay::Import(Default::default()))
+        });
+    });
+}
 
 pub(super) fn collection(
     response: &Response,

@@ -37,6 +37,9 @@ fn rows(ui: &mut Ui, state: &AppState, actions: &mut Vec<Action>) {
     let active = state.workspace.session.active_environment.as_deref();
     if state.workspace.environments.is_empty() {
         ui.weak(EMPTY_TEXT);
+        if ui.link(NEW_ENVIRONMENT_LABEL).clicked() {
+            actions.push(Action::NewEnvironment);
+        }
     }
     for environment in &state.workspace.environments {
         let Some(id) = environment.id.as_deref() else {
