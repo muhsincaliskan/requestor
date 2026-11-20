@@ -156,18 +156,11 @@ impl AppState {
     ) {
         let format = ExportFormat::of(&file_path);
         let settings = &self.workspace.settings.request;
-        let shareable = |collection: Collection| {
-            if keep_credentials {
-                collection
-            } else {
-                collection.without_literal_secrets()
-            }
-        };
         let document = match target {
             LibraryTarget::Collection { collection_id } => self
                 .workspace
                 .collection(collection_id)
-                .map(|collection| format.render(&shareable(collection.clone()), settings)),
+                .map(|collection| format.render(&collection.shared(keep_credentials), settings)),
             LibraryTarget::Item {
                 collection_id,
                 item_id,
@@ -176,18 +169,15 @@ impl AppState {
                 .collection(collection_id)
                 .and_then(|collection| collection.find_item(item_id))
                 .map(|item| {
-                    format.render(&shareable(Collection::containing(item.clone())), settings)
+                    format.render(
+                        &Collection::containing(item.clone()).shared(keep_credentials),
+                        settings,
+                    )
                 }),
             LibraryTarget::Environment { environment_id } => self
                 .workspace
                 .environment(environment_id)
-                .map(|environment| {
-                    if keep_credentials {
-                        environment.to_export_json()
-                    } else {
-                        environment.without_unmarked_secrets().to_export_json()
-                    }
-                }),
+                .map(|environment| environment.shared(keep_credentials).to_export_json()),
         };
         match document {
             Some(Ok(contents)) => {

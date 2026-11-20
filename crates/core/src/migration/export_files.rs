@@ -23,7 +23,7 @@ pub(super) struct ImportBudget {
 }
 
 impl ImportBudget {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         ImportBudget {
             remaining: MAX_TOTAL_BYTES,
         }
@@ -33,13 +33,18 @@ impl ImportBudget {
         MAX_IMPORT_FILE_BYTES.min(self.remaining)
     }
 
-    pub(super) fn spend(&mut self, size: u64) -> Result<(), String> {
+    pub(super) fn check(&self, size: u64) -> Result<(), String> {
         if size > MAX_IMPORT_FILE_BYTES {
             return Err(TOO_LARGE.to_string());
         }
         if size > self.remaining {
             return Err(OVER_TOTAL.to_string());
         }
+        Ok(())
+    }
+
+    pub(super) fn spend(&mut self, size: u64) -> Result<(), String> {
+        self.check(size)?;
         self.remaining -= size;
         Ok(())
     }
@@ -60,7 +65,9 @@ impl PostmanExportFiles {
             if path.is_dir() {
                 found.scan_folder(path, 0);
             } else if PostmanExportArchive::is_archive(path) {
-                found.archives.insert(path.clone());
+                found
+                    .archives
+                    .insert(fs::canonicalize(path).unwrap_or_else(|_| path.clone()));
             } else if !is_export_index(path) {
                 found.add(path);
             }

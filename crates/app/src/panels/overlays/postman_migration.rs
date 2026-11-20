@@ -23,7 +23,7 @@ const EXPORT_HEADING: &str = "Back to Postman";
 const EXPORT_TEXT: &str = "Export every collection and environment as one zip of Postman files.";
 const EXPORT_LABEL: &str = "Export workspace as zip…";
 const CREDENTIALS_LABEL: &str = "Include credentials";
-const CREDENTIALS_HINT: &str = "Keeps tokens, passwords and secret values in the exported files";
+const CREDENTIALS_HINT: &str = "Keeps tokens and passwords written into requests and environments. Values marked as secret are always left out.";
 
 pub fn show(
     ctx: &Context,

@@ -16,6 +16,7 @@ const ENVIRONMENT_SUFFIX: &str = ".postman_environment.json";
 const UNSAFE_NAME_CHARACTERS: [char; 9] = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
 const SAFE_REPLACEMENT: &str = "_";
 const UNTITLED: &str = "untitled";
+const HIDDEN_PREFIX: char = '.';
 const FIRST_DUPLICATE: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,23 +57,19 @@ impl WorkspaceArchive {
     }
 
     fn add_collection(&mut self, collection: &Collection) -> Result<(), ArchiveError> {
-        let shared = if self.keep_credentials {
-            collection.clone()
-        } else {
-            collection.without_literal_secrets()
-        };
-        let json = shared.to_export_json().map_err(failed)?;
+        let json = collection
+            .shared(self.keep_credentials)
+            .to_export_json()
+            .map_err(failed)?;
         let path = self.unique_path(COLLECTIONS_FOLDER, &collection.info.name, COLLECTION_SUFFIX);
         self.add(&path, &json)
     }
 
     fn add_environment(&mut self, environment: &Environment) -> Result<(), ArchiveError> {
-        let shared = if self.keep_credentials {
-            environment.clone()
-        } else {
-            environment.without_unmarked_secrets()
-        };
-        let json = shared.to_export_json().map_err(failed)?;
+        let json = environment
+            .shared(self.keep_credentials)
+            .to_export_json()
+            .map_err(failed)?;
         let path = self.unique_path(ENVIRONMENTS_FOLDER, &environment.name, ENVIRONMENT_SUFFIX);
         self.add(&path, &json)
     }
@@ -86,6 +83,7 @@ impl WorkspaceArchive {
     fn unique_path(&mut self, folder: &str, name: &str, suffix: &str) -> String {
         let cleaned = name
             .trim()
+            .trim_start_matches(HIDDEN_PREFIX)
             .replace(UNSAFE_NAME_CHARACTERS, SAFE_REPLACEMENT);
         let stem = if cleaned.is_empty() {
             UNTITLED

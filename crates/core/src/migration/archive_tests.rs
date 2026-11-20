@@ -117,3 +117,65 @@ fn a_file_that_is_not_a_zip_is_reported() {
     assert_eq!(report.failures.len(), 1);
     fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn names_that_would_hide_or_break_a_file_are_made_safe() {
+    let mut workspace = Workspace::default();
+    for name in [".env", "a/b:c", "   ", "Orders", "ORDERS"] {
+        let mut collection = Collection::new(name);
+        collection.ensure_ids();
+        workspace.add_collection(collection);
+    }
+    let bytes = WorkspaceArchive::of(&workspace, false).unwrap();
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let mut names: Vec<String> = (0..archive.len())
+        .map(|index| {
+            archive
+                .by_index(index)
+                .unwrap()
+                .name()
+                .unwrap()
+                .into_owned()
+        })
+        .collect();
+    names.sort();
+
+    assert_eq!(
+        names,
+        [
+            "collections/ORDERS 2.postman_collection.json",
+            "collections/Orders.postman_collection.json",
+            "collections/a_b_c.postman_collection.json",
+            "collections/env.postman_collection.json",
+            "collections/untitled.postman_collection.json",
+        ]
+    );
+}
+
+#[test]
+fn unknown_fields_survive_the_archive_round_trip() {
+    let mut workspace = Workspace::default();
+    let mut collection = Collection::new("Orders");
+    collection
+        .info
+        .extra
+        .insert("custom".to_string(), serde_json::json!("kept"));
+    workspace.add_collection(collection);
+    let path = scratch_file("unknown", &WorkspaceArchive::of(&workspace, false).unwrap());
+
+    let report = PostmanExportFiles::discover(std::slice::from_ref(&path)).import();
+
+    assert_eq!(report.collections[0].info.extra["custom"], "kept");
+    fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
+fn the_same_zip_by_two_spellings_is_read_once() {
+    let path = scratch_file("twice", &zip_of(&[("c.json", COLLECTION)]));
+    let other = path.parent().unwrap().join(".").join("twice.zip");
+
+    let report = PostmanExportFiles::discover(&[path.clone(), other]).import();
+
+    assert_eq!(report.collections.len(), 1);
+    fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}

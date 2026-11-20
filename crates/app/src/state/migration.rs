@@ -7,7 +7,7 @@ use super::tab::RequestTab;
 use super::{Action, AppState, Effect};
 
 pub(super) const ALREADY_RUNNING: &str = "An import is already running";
-const EXPORTED_TO: &str = "Exported the workspace to";
+const EXPORTED_TO: &str = "Saving the workspace zip to";
 const EXPORT_FAILED: &str = "Could not export the workspace:";
 
 impl AppState {

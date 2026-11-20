@@ -97,6 +97,14 @@ impl Environment {
             .count()
     }
 
+    pub fn shared(&self, keep_credentials: bool) -> Environment {
+        if keep_credentials {
+            self.clone()
+        } else {
+            self.without_unmarked_secrets()
+        }
+    }
+
     pub fn without_unmarked_secrets(&self) -> Environment {
         let mut stripped = self.clone();
         stripped

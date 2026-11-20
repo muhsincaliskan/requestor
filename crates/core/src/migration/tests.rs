@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::export_files::{MAX_FILES, MAX_FOLDER_DEPTH};
+use super::export_files::{ImportBudget, MAX_FILES, MAX_FOLDER_DEPTH};
 use super::{MigrationReport, PostmanExportFiles};
 use crate::import::import_text;
+use crate::import::MAX_IMPORT_FILE_BYTES;
 
 const COLLECTION: &str = r#"{"info":{"name":"Orders","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"item":[{"name":"Admin","item":[{"name":"List","request":{"method":"GET","url":"https://h/orders"}}]}]}"#;
 const ENVIRONMENT: &str = r#"{"name":"Staging","values":[{"key":"host","value":"h"}]}"#;
@@ -150,4 +151,17 @@ fn folders_deeper_than_the_limit_are_not_scanned() {
         1
     );
     fs::remove_dir_all(folder).unwrap();
+}
+
+#[test]
+fn the_budget_refuses_one_huge_file_and_a_too_large_total() {
+    let mut budget = ImportBudget::new();
+    assert!(budget.check(MAX_IMPORT_FILE_BYTES + 1).is_err());
+    let mut spent = 0;
+    while budget.spend(MAX_IMPORT_FILE_BYTES).is_ok() {
+        spent += 1;
+    }
+    assert!(spent > 1);
+    assert_eq!(budget.next_file_limit(), 0);
+    assert!(budget.check(1).is_err());
 }

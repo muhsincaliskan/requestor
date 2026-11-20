@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+use zip::read::ZipFile;
 use zip::ZipArchive;
 
 use super::export_files::{is_export_name, ImportBudget, MAX_FILES};
@@ -43,34 +44,55 @@ impl PostmanExportArchive {
     ) {
         let mut imported = 0;
         for index in 0..archive.len() {
-            let Ok(entry) = archive.by_index(index) else {
-                continue;
-            };
-            let Ok(name) = entry.name().map(|name| name.into_owned()) else {
-                continue;
-            };
-            if entry.is_dir() || !is_export_name(&name) {
-                continue;
-            }
             if imported == MAX_FILES {
                 report
                     .warnings
-                    .push(format!("{TOO_MANY_ENTRIES} {MAX_FILES}"));
+                    .push(format!("{TOO_MANY_ENTRIES} {MAX_FILES} ({source})"));
                 return;
             }
-            imported += 1;
-            let label = format!("{source}{ENTRY_SEPARATOR}{name}");
-            match read_entry(entry, budget) {
-                Ok(text) => report.record(&label, import_text(&text)),
-                Err(reason) => report.fail(&label, reason),
+            match archive.by_index(index) {
+                Ok(entry) => imported += Self::import_entry(source, entry, report, budget),
+                Err(error) => {
+                    report.fail(
+                        &format!("{source}{ENTRY_SEPARATOR}{index}"),
+                        error.to_string(),
+                    );
+                    imported += 1;
+                }
             }
         }
     }
+
+    fn import_entry(
+        source: &str,
+        entry: ZipFile<'_, File>,
+        report: &mut MigrationReport,
+        budget: &mut ImportBudget,
+    ) -> usize {
+        let name = match entry.name() {
+            Ok(name) => name.into_owned(),
+            Err(error) => {
+                report.fail(source, error.to_string());
+                return 1;
+            }
+        };
+        if entry.is_dir() || !is_export_name(&name) {
+            return 0;
+        }
+        let label = format!("{source}{ENTRY_SEPARATOR}{name}");
+        match read_entry(entry, budget) {
+            Ok(text) => report.record(&label, import_text(&text)),
+            Err(reason) => report.fail(&label, reason),
+        }
+        1
+    }
 }
 
-fn read_entry(entry: impl Read, budget: &mut ImportBudget) -> Result<String, String> {
+fn read_entry(entry: ZipFile<'_, File>, budget: &mut ImportBudget) -> Result<String, String> {
+    let declared = entry.size();
+    budget.check(declared)?;
     let limit = budget.next_file_limit();
-    let mut bytes = Vec::new();
+    let mut bytes = Vec::with_capacity(usize::try_from(declared.min(limit)).unwrap_or_default());
     entry
         .take(limit + 1)
         .read_to_end(&mut bytes)
