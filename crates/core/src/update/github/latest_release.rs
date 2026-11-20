@@ -1,69 +1,40 @@
-use serde::Deserialize;
+use crate::update::{Release, UpdateError, Version};
 
-use crate::update::{Release, ReleaseAsset, UpdateError, Version};
-
-const RELEASE_PAGE_PREFIX: &str = "https://github.com/";
+const TAG_PAGE_PREFIX: &str = "https://github.com/muhsincaliskan/requestor/releases/tag/";
 const DOWNLOAD_PREFIX: &str = "https://github.com/muhsincaliskan/requestor/releases/download/";
-const PARENT_SEGMENT: &str = "..";
-const UNSAFE_URL_CHARACTERS: [char; 10] = ['"', '\'', '\\', '<', '>', '`', '^', '|', '{', '}'];
+const DOWNLOAD_SEPARATOR: char = '/';
+const TAG_PUNCTUATION: [char; 4] = ['.', '-', '+', '_'];
 
-#[derive(Debug, Deserialize)]
-pub(super) struct LatestReleaseResponse {
-    tag_name: String,
-    html_url: String,
-    #[serde(default)]
-    draft: bool,
-    #[serde(default)]
-    prerelease: bool,
-    #[serde(default)]
-    assets: Vec<AssetResponse>,
+pub(super) struct LatestReleaseRedirect<'a> {
+    location: Option<&'a str>,
 }
 
-#[derive(Debug, Deserialize)]
-struct AssetResponse {
-    name: String,
-    browser_download_url: String,
-}
-
-impl AssetResponse {
-    fn to_domain(&self) -> Option<ReleaseAsset> {
-        let trusted = self.browser_download_url.starts_with(DOWNLOAD_PREFIX)
-            && is_safe_url(&self.browser_download_url)
-            && !self.browser_download_url.contains(PARENT_SEGMENT);
-        trusted.then(|| ReleaseAsset {
-            name: self.name.clone(),
-            download_url: self.browser_download_url.clone(),
-        })
+impl<'a> LatestReleaseRedirect<'a> {
+    pub(super) fn new(location: Option<&'a str>) -> Self {
+        LatestReleaseRedirect { location }
     }
-}
 
-impl LatestReleaseResponse {
     pub(super) fn to_domain(&self) -> Result<Release, UpdateError> {
-        if self.draft || self.prerelease {
+        let location = self.location.ok_or(UpdateError::InvalidResponse)?;
+        let tag = location
+            .strip_prefix(TAG_PAGE_PREFIX)
+            .filter(|tag| is_safe_tag(tag))
+            .ok_or(UpdateError::InvalidResponse)?;
+        let version = Version::parse(tag).ok_or(UpdateError::InvalidResponse)?;
+        if !version.is_stable() {
             return Err(UpdateError::NoStableRelease);
         }
-        if !self.is_release_page() {
-            return Err(UpdateError::InvalidResponse);
-        }
-        let version = Version::parse(&self.tag_name).ok_or(UpdateError::InvalidResponse)?;
         Ok(Release {
             version,
-            page_url: self.html_url.clone(),
-            assets: self
-                .assets
-                .iter()
-                .filter_map(AssetResponse::to_domain)
-                .collect(),
+            page_url: location.to_string(),
+            downloads_url: format!("{DOWNLOAD_PREFIX}{tag}{DOWNLOAD_SEPARATOR}"),
         })
-    }
-
-    fn is_release_page(&self) -> bool {
-        self.html_url.starts_with(RELEASE_PAGE_PREFIX) && is_safe_url(&self.html_url)
     }
 }
 
-fn is_safe_url(url: &str) -> bool {
-    url.chars().all(|character| {
-        character.is_ascii_graphic() && !UNSAFE_URL_CHARACTERS.contains(&character)
-    })
+fn is_safe_tag(tag: &str) -> bool {
+    !tag.is_empty()
+        && tag.chars().all(|character| {
+            character.is_ascii_alphanumeric() || TAG_PUNCTUATION.contains(&character)
+        })
 }

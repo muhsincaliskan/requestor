@@ -36,6 +36,10 @@ impl Version {
         })
     }
 
+    pub fn is_stable(&self) -> bool {
+        self.stable
+    }
+
     pub fn current() -> Self {
         Version::parse(env!("CARGO_PKG_VERSION")).unwrap_or(Version {
             major: 0,

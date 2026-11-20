@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use super::github::GITHUB_JSON;
 use super::*;
+use crate::header::{Header, LOCATION};
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
 use crate::transport::{HttpTransport, TransportError};
 
 const DOWNLOADS: &str = "https://github.com/muhsincaliskan/requestor/releases/download/v9.0.0/";
+const RELEASE_PAGE: &str = "https://github.com/muhsincaliskan/requestor/releases/tag/v9.0.0";
 const PACKAGE: &str = "Requestor-macos.zip";
 const PACKAGE_BYTES: &[u8] = b"abc";
 const ABC_DIGEST: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -16,34 +17,25 @@ struct Files(HashMap<String, Vec<u8>>);
 
 impl HttpTransport for Files {
     fn send(&self, request: PreparedRequest) -> Result<HttpResponse, TransportError> {
-        let body = if request.url == LATEST_RELEASE_URL {
-            assert_eq!(request.header("Accept"), Some(GITHUB_JSON));
-            release_json().into_bytes()
+        let (status, headers, body) = if request.url == LATEST_RELEASE_URL {
+            (302, vec![Header::new(LOCATION, RELEASE_PAGE)], Vec::new())
         } else {
-            self.0.get(&request.url).cloned().unwrap_or_default()
+            match self.0.get(&request.url) {
+                Some(body) => (200, Vec::new(), body.clone()),
+                None => (404, Vec::new(), Vec::new()),
+            }
         };
         Ok(HttpResponse {
-            status: if body.is_empty() { 404 } else { 200 },
+            status,
             reason: String::new(),
             version: String::new(),
-            headers: Vec::new(),
+            headers,
             body,
             truncated: false,
             elapsed: Duration::ZERO,
             timing: None,
         })
     }
-}
-
-fn release_json() -> String {
-    format!(
-        r#"{{"tag_name":"v9.0.0","html_url":"https://github.com/muhsincaliskan/requestor/releases/tag/v9.0.0","assets":[
-            {{"name":"{PACKAGE}","browser_download_url":"{DOWNLOADS}{PACKAGE}"}},
-            {{"name":"SHA256SUMS","browser_download_url":"{DOWNLOADS}SHA256SUMS"}},
-            {{"name":"elsewhere.zip","browser_download_url":"https://example.com/elsewhere.zip"}},
-            {{"name":"escaped.zip","browser_download_url":"{DOWNLOADS}../../../../other/repo/escaped.zip"}}
-        ]}}"#
-    )
 }
 
 fn client(checksums: Option<&str>) -> GithubReleaseClient<Files> {
@@ -96,17 +88,6 @@ fn sha256_matches_the_published_test_vectors() {
 }
 
 #[test]
-fn only_release_downloads_from_the_project_are_kept() {
-    let release = client(None).latest_release().unwrap();
-    let names: Vec<&str> = release
-        .assets
-        .iter()
-        .map(|asset| asset.name.as_str())
-        .collect();
-    assert_eq!(names, [PACKAGE, CHECKSUMS_ASSET]);
-}
-
-#[test]
 fn a_package_is_returned_only_when_its_checksum_matches() {
     let listed = format!("{ABC_DIGEST}  {PACKAGE}\n");
     let good = client(Some(&listed));
@@ -128,19 +109,16 @@ fn a_package_is_returned_only_when_its_checksum_matches() {
 
 #[test]
 fn missing_packages_or_checksum_lists_are_refused() {
-    let client = client(None);
-    let release = client.latest_release().unwrap();
+    let unlisted = client(None);
+    let release = unlisted.latest_release().unwrap();
     assert_eq!(
-        download_package(&client, &release, "Requestor-linux.tar.gz"),
-        Err(UpdateError::NoPackage)
+        download_package(&unlisted, &release, PACKAGE),
+        Err(UpdateError::Status(404))
     );
-    let mut without_list = release.clone();
-    without_list
-        .assets
-        .retain(|asset| asset.name != CHECKSUMS_ASSET);
+    let listed = client(Some(&format!("{ABC_DIGEST}  {PACKAGE}\n")));
     assert_eq!(
-        download_package(&client, &without_list, PACKAGE),
-        Err(UpdateError::NoChecksums)
+        download_package(&listed, &release, "Requestor-linux.tar.gz"),
+        Err(UpdateError::Status(404))
     );
 }
 
@@ -159,12 +137,16 @@ fn checksum_lists_accept_binary_marks_and_ignore_junk() {
 fn the_published_release_package_verifies() {
     use crate::settings::RequestSettings;
     use crate::transport::ReqwestTransport;
-    let settings = RequestSettings::default().for_update_download();
-    let client = GithubReleaseClient::new(
-        ReqwestTransport::new(&settings).unwrap(),
+    let settings = RequestSettings::default();
+    let checker = GithubReleaseClient::new(
+        ReqwestTransport::new(&settings.for_update_check()).unwrap(),
         LATEST_RELEASE_URL,
     );
-    let release = client.latest_release().unwrap();
-    let package = download_package(&client, &release, PACKAGE).unwrap();
+    let release = checker.latest_release().unwrap();
+    let downloader = GithubReleaseClient::new(
+        ReqwestTransport::new(&settings.for_update_download()).unwrap(),
+        LATEST_RELEASE_URL,
+    );
+    let package = download_package(&downloader, &release, PACKAGE).unwrap();
     assert!(package.bytes.len() > 1_000_000);
 }

@@ -5,6 +5,7 @@ use crate::variables::VariableScope;
 pub const CONTENT_TYPE: &str = "Content-Type";
 pub const ACCEPT: &str = "Accept";
 pub const COOKIE: &str = "Cookie";
+pub const LOCATION: &str = "Location";
 
 const COOKIE_SEPARATOR: &str = "; ";
 const VALUE_SEPARATOR: &str = ", ";

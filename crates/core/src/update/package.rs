@@ -22,13 +22,9 @@ pub fn download_package(
     release: &Release,
     name: &str,
 ) -> Result<UpdatePackage, UpdateError> {
-    let package = release.asset(name).ok_or(UpdateError::NoPackage)?;
-    let checksums = release
-        .asset(CHECKSUMS_ASSET)
-        .ok_or(UpdateError::NoChecksums)?;
-    let listed = client.download(&checksums.download_url)?;
+    let listed = client.download(&release.download_url(CHECKSUMS_ASSET))?;
     let checksums = ChecksumList::parse(&String::from_utf8_lossy(&listed));
-    let bytes = client.download(&package.download_url)?;
+    let bytes = client.download(&release.download_url(name))?;
     if !checksums.verifies(name, &bytes) {
         return Err(UpdateError::ChecksumMismatch);
     }

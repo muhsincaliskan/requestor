@@ -1,16 +1,14 @@
 mod latest_release;
 
-use latest_release::LatestReleaseResponse;
+use latest_release::LatestReleaseRedirect;
 
 use super::{Release, ReleaseClient, UpdateError};
-use crate::header::{Header, ACCEPT};
+use crate::header::{Header, ACCEPT, LOCATION};
 use crate::prepared::PreparedRequest;
-use crate::response::StatusClass;
+use crate::response::{HttpResponse, StatusClass};
 use crate::transport::HttpTransport;
 
-pub const LATEST_RELEASE_URL: &str =
-    "https://api.github.com/repos/muhsincaliskan/requestor/releases/latest";
-pub(super) const GITHUB_JSON: &str = "application/vnd.github+json";
+pub const LATEST_RELEASE_URL: &str = "https://github.com/muhsincaliskan/requestor/releases/latest";
 const ANY_MEDIA_TYPE: &str = "*/*";
 
 pub struct GithubReleaseClient<T> {
@@ -28,31 +26,35 @@ impl<T: HttpTransport> GithubReleaseClient<T> {
 }
 
 impl<T: HttpTransport> GithubReleaseClient<T> {
-    fn fetch(&self, url: &str, accept: &str) -> Result<Vec<u8>, UpdateError> {
-        let request = PreparedRequest::get(url, vec![Header::new(ACCEPT, accept)]);
-        let response = self
-            .transport
+    fn get(&self, url: &str) -> Result<HttpResponse, UpdateError> {
+        let request = PreparedRequest::get(url, vec![Header::new(ACCEPT, ANY_MEDIA_TYPE)]);
+        self.transport
             .send(request)
-            .map_err(UpdateError::Unreachable)?;
-        if StatusClass::of(response.status) != StatusClass::Success {
-            return Err(UpdateError::Status(response.status));
+            .map_err(UpdateError::Unreachable)
+    }
+
+    fn expect(response: &HttpResponse, class: StatusClass) -> Result<(), UpdateError> {
+        if response.status_class() == class {
+            Ok(())
+        } else {
+            Err(UpdateError::Status(response.status))
         }
-        if response.truncated {
-            return Err(UpdateError::Incomplete);
-        }
-        Ok(response.body)
     }
 }
 
 impl<T: HttpTransport> ReleaseClient for GithubReleaseClient<T> {
     fn latest_release(&self) -> Result<Release, UpdateError> {
-        let body = self.fetch(&self.url, GITHUB_JSON)?;
-        serde_json::from_slice::<LatestReleaseResponse>(&body)
-            .map_err(|_| UpdateError::InvalidResponse)?
-            .to_domain()
+        let response = self.get(&self.url)?;
+        Self::expect(&response, StatusClass::Redirect)?;
+        LatestReleaseRedirect::new(response.header(LOCATION)).to_domain()
     }
 
     fn download(&self, url: &str) -> Result<Vec<u8>, UpdateError> {
-        self.fetch(url, ANY_MEDIA_TYPE)
+        let response = self.get(url)?;
+        Self::expect(&response, StatusClass::Success)?;
+        if response.truncated {
+            return Err(UpdateError::Incomplete);
+        }
+        Ok(response.body)
     }
 }

@@ -11,7 +11,7 @@ pub use checksums::{ChecksumList, CHECKSUMS_ASSET};
 pub use error::UpdateError;
 pub use github::{GithubReleaseClient, LATEST_RELEASE_URL};
 pub use package::{download_package, UpdatePackage};
-pub use release::{Release, ReleaseAsset};
+pub use release::Release;
 pub use sha256::Sha256Digest;
 pub use version::Version;
 
