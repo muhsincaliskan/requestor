@@ -54,7 +54,7 @@ impl AppState {
         include_secrets: bool,
     ) -> Option<Result<String, CoreError>> {
         let (request, scope) = self.sendable(id)?;
-        let settings = self.request_settings(id);
+        let settings = self.request_settings(id).without_generated_headers();
         let prepared = match PreparedRequest::referencing_files(&request, &scope, &settings) {
             Ok(prepared) => prepared,
             Err(error) => return Some(Err(error)),

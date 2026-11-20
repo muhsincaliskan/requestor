@@ -1,5 +1,5 @@
 use super::{FormField, FormValue};
-use crate::collection::{Body, JSON_OPENERS};
+use crate::collection::{Body, Param, JSON_OPENERS};
 use crate::header::Header;
 use crate::secret::{is_secret_name, mask_pairs, Redactor, REDACTED};
 use serde_json::Value;
@@ -54,6 +54,17 @@ impl SecretExposure<'_> {
                 content_type.as_deref(),
             ),
         }
+    }
+
+    pub(super) fn form_pair(self, field: &Param) -> String {
+        let key = field.key.as_deref().unwrap_or_default();
+        let value = field.value.as_deref().unwrap_or_default();
+        let shown = if self.masks() && is_secret_name(key) {
+            REDACTED.to_string()
+        } else {
+            self.text(value)
+        };
+        format!("{}={shown}", self.text(key))
     }
 
     pub(super) fn inline_body(self, body: &str, content_type: Option<&str>) -> String {

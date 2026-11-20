@@ -99,6 +99,11 @@ impl Param {
         )
     }
 
+    pub fn has_plain_form_key(&self) -> bool {
+        let key = self.key.as_deref().unwrap_or_default();
+        !key.is_empty() && percent_encode(key) == key
+    }
+
     pub fn from_form_text(text: &str) -> Option<Vec<Param>> {
         text.split(FORM_PAIR_SEPARATOR)
             .map(|pair| {

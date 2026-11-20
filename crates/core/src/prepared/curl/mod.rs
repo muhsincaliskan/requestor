@@ -3,13 +3,19 @@ mod tests;
 
 use super::exposure::SecretExposure;
 use super::{BodySource, PreparedRequest};
+use crate::collection::{Body, Param};
 use crate::curl_command::{shell_quote, COMMAND_NAME};
 use crate::header::CONTENT_TYPE;
 use crate::method::HttpMethod;
 use crate::secret::Redactor;
 
-const CONTINUATION: &str = " \\\n  ";
-const HEAD_FLAG: &str = "-I";
+const CONTINUATION: &str = " \\\n";
+const FOLLOW_FLAG: &str = "--location";
+const HEAD_FLAG: &str = "--head";
+const METHOD_FLAG: &str = "--request";
+const HEADER_FLAG: &str = "--header";
+const RAW_DATA_FLAG: &str = "--data-raw";
+const ENCODED_DATA_FLAG: &str = "--data-urlencode";
 const FILE_MARK: char = '@';
 
 impl PreparedRequest {
@@ -22,9 +28,10 @@ impl PreparedRequest {
     }
 
     pub(super) fn curl_command(&self, exposure: SecretExposure) -> String {
-        let mut parts = vec![COMMAND_NAME.to_string()];
-        parts.extend(self.method_flag());
-        parts.push(shell_quote(&exposure.url(&self.url)));
+        let mut command = vec![COMMAND_NAME.to_string(), FOLLOW_FLAG.to_string()];
+        command.extend(self.method_flag());
+        command.push(shell_quote(&exposure.url(&self.url)));
+        let mut parts = vec![command.join(" ")];
         parts.extend(self.header_flags(exposure));
         parts.extend(self.body_flags(exposure));
         parts.join(CONTINUATION)
@@ -39,7 +46,7 @@ impl PreparedRequest {
         } else {
             HttpMethod::Get
         };
-        (self.method != implied).then(|| format!("-X {}", self.method.as_str()))
+        (self.method != implied).then(|| format!("{METHOD_FLAG} {}", self.method.as_str()))
     }
 
     fn header_flags(&self, exposure: SecretExposure) -> Vec<String> {
@@ -49,7 +56,7 @@ impl PreparedRequest {
             .filter(|header| !(multipart && header.is_named(CONTENT_TYPE)))
             .map(|header| {
                 let line = format!("{}: {}", header.name, exposure.header_value(header));
-                format!("-H {}", shell_quote(&line))
+                format!("{HEADER_FLAG} {}", shell_quote(&line))
             })
             .collect()
     }
@@ -69,15 +76,32 @@ impl PreparedRequest {
                     format!("{flag} {}", shell_quote(&exposure.text(&argument)))
                 })
                 .collect(),
-            BodySource::Inline => self
-                .body
+            BodySource::Inline => self.inline_body_flags(exposure),
+        }
+    }
+
+    fn inline_body_flags(&self, exposure: SecretExposure) -> Vec<String> {
+        let Some(body) = &self.body else {
+            return Vec::new();
+        };
+        let text = String::from_utf8_lossy(body);
+        let content_type = self.header(CONTENT_TYPE);
+        let fields = content_type
+            .filter(|kind| Body::is_form_content_type(kind))
+            .and_then(|_| Param::from_form_text(&text))
+            .filter(|fields| fields.iter().all(Param::has_plain_form_key));
+        match fields {
+            Some(fields) => fields
                 .iter()
-                .map(|body| {
-                    let text = String::from_utf8_lossy(body);
-                    let shown = exposure.inline_body(&text, self.header(CONTENT_TYPE));
-                    format!("--data-raw {}", shell_quote(&shown))
+                .map(|field| {
+                    let pair = exposure.form_pair(field);
+                    format!("{ENCODED_DATA_FLAG} {}", shell_quote(&pair))
                 })
                 .collect(),
+            None => {
+                let shown = exposure.inline_body(&text, content_type);
+                vec![format!("{RAW_DATA_FLAG} {}", shell_quote(&shown))]
+            }
         }
     }
 }

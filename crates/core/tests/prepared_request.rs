@@ -207,6 +207,9 @@ fn default_headers_follow_settings() {
     assert!(with.header("Postman-Token").is_some());
     let without = PreparedRequest::from_request(&request, &scope(), &quiet_settings()).unwrap();
     assert!(without.headers.is_empty());
+    let snippet_settings = RequestSettings::default().without_generated_headers();
+    let snippet = PreparedRequest::from_request(&request, &scope(), &snippet_settings).unwrap();
+    assert!(snippet.headers.is_empty());
 }
 
 #[test]
