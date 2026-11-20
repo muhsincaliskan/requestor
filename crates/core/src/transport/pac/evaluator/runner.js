@@ -30,22 +30,29 @@ function readScript(scriptUrl) {
   return ObjC.unwrap(text);
 }
 
-function firstIpv4(addresses, skipLoopback) {
-  for (var i = 0; i < addresses.length; i++) {
-    var address = addresses[i];
-    if (/^\d+\.\d+\.\d+\.\d+$/.test(address) && !(skipLoopback && address.indexOf('127.') === 0)) {
-      return address;
-    }
-  }
-  return null;
+var IPV4 = /^\d+\.\d+\.\d+\.\d+$/;
+var LOOPBACK_PREFIX = '127.';
+var LOOPBACK = '127.0.0.1';
+
+function hostClass() {
+  return $.NSClassFromString('NSHost');
+}
+
+function ipv4Addresses(host) {
+  var addresses = ObjC.deepUnwrap(host.addresses) || [];
+  return addresses.filter(function (address) { return IPV4.test(address); });
 }
 
 function resolve(host) {
-  return firstIpv4(ObjC.deepUnwrap($.NSHost.hostWithName(host).addresses) || [], false);
+  var found = ipv4Addresses(hostClass().hostWithName(host));
+  return found.length > 0 ? found[0] : null;
 }
 
 function localAddress() {
-  return firstIpv4(ObjC.deepUnwrap($.NSHost.currentHost.addresses) || [], true) || '127.0.0.1';
+  var external = ipv4Addresses(hostClass().currentHost).filter(function (address) {
+    return address.indexOf(LOOPBACK_PREFIX) !== 0;
+  });
+  return external.length > 0 ? external[0] : LOOPBACK;
 }
 
 function run(argv) {
@@ -60,5 +67,6 @@ function run(argv) {
   context.evaluateScript(source);
   var call = 'String(FindProxyForURL(' + JSON.stringify(url) + ', ' + JSON.stringify(host) + '))';
   var result = context.evaluateScript(call);
-  return ObjC.unwrap(result.toString);
+  if (!context.exception.isNil()) { return ''; }
+  return ObjC.unwrap(result.toObject);
 }
