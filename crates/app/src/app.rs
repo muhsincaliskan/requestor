@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use eframe::egui::{Context, Ui};
+use eframe::egui::{Context, Ui, ViewportCommand};
 use requestor_core::workspace::{DataFolder, WorkspaceStore};
 
 use crate::browser;
@@ -12,6 +12,7 @@ use crate::saver::Saver;
 use crate::shortcuts;
 use crate::state::{Action, AppState, Effect};
 use crate::theme::Look;
+use crate::updater;
 
 pub struct RequestorApp {
     state: AppState,
@@ -30,6 +31,7 @@ impl RequestorApp {
     ) -> Self {
         let loaded = store.load();
         let mut state = AppState::new(loaded, store);
+        state.can_install_updates = updater::can_install();
         if let Some((folder, settled)) = data_folder {
             state = state.with_data_folder(folder, settled);
         }
@@ -94,6 +96,15 @@ impl RequestorApp {
                     }
                 }
                 Effect::AbortSend(job) => self.runner.abort(job),
+                Effect::InstallUpdate { release, settings } => {
+                    self.runner.install_update(*release, &settings, ctx)
+                }
+                Effect::Relaunch => match updater::relaunch() {
+                    Ok(()) => ctx.send_viewport_cmd(ViewportCommand::Close),
+                    Err(reason) => self
+                        .state
+                        .report_error(format!("Could not restart Requestor: {reason}")),
+                },
                 Effect::DownloadImport {
                     job,
                     address,

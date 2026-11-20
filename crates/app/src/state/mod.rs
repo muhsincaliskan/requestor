@@ -58,6 +58,7 @@ pub use sections::{EditorSection, ResponseSection};
 pub use socket::{SocketPhase, SocketSession};
 pub use stream::{LiveStream, StreamUpdate};
 pub use tab::{ItemBinding, RequestTab, TabId};
+pub use updates::UpdateStage;
 
 use requestor_core::update::Release;
 use requestor_core::variables::VariableScope;
@@ -74,6 +75,8 @@ pub struct AppState {
     pub active_tab: Option<TabId>,
     pub overlay: Option<Overlay>,
     pub available_update: Option<Release>,
+    pub update_stage: UpdateStage,
+    pub can_install_updates: bool,
     pub code_panel: Option<CodePanel>,
     pub data_folder: Option<DataFolder>,
     pub migration: MigrationForm,
@@ -95,6 +98,8 @@ impl AppState {
             active_tab: None,
             overlay: None,
             available_update: None,
+            update_stage: UpdateStage::default(),
+            can_install_updates: false,
             code_panel: None,
             data_folder: None,
             migration: MigrationForm::default(),
@@ -202,9 +207,7 @@ impl AppState {
             Action::DismissNotice => self.notices.dismiss(),
             Action::CopyText(text) => effects.push(Effect::CopyText(text)),
             Action::SettingsEdited => self.unsaved.touch_settings(self.now),
-            Action::UpdateAvailable(release) => self.available_update = Some(release),
-            Action::OpenReleasePage => effects.extend(self.release_page()),
-            other => self.dispatch_tab_action(other, effects),
+            other => self.dispatch_update_action(other, effects),
         }
     }
 

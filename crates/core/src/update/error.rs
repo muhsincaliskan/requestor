@@ -9,6 +9,10 @@ pub enum UpdateError {
     Status(u16),
     InvalidResponse,
     NoStableRelease,
+    NoPackage,
+    NoChecksums,
+    ChecksumMismatch,
+    Incomplete,
 }
 
 impl fmt::Display for UpdateError {
@@ -22,6 +26,17 @@ impl fmt::Display for UpdateError {
                 write!(formatter, "update check returned an unexpected answer")
             }
             UpdateError::NoStableRelease => write!(formatter, "no stable release is published"),
+            UpdateError::NoPackage => {
+                write!(formatter, "the release has no package for this platform")
+            }
+            UpdateError::NoChecksums => write!(formatter, "the release has no checksum list"),
+            UpdateError::ChecksumMismatch => {
+                write!(
+                    formatter,
+                    "the downloaded package did not match its checksum"
+                )
+            }
+            UpdateError::Incomplete => write!(formatter, "the download was cut short"),
         }
     }
 }

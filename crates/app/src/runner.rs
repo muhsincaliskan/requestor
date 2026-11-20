@@ -13,13 +13,17 @@ use eframe::egui::Context;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::settings::RequestSettings;
 use requestor_core::transport::{Cancellation, ReqwestTransport};
-use requestor_core::update::{newer_release, GithubReleaseClient, Version, LATEST_RELEASE_URL};
+use requestor_core::update::{
+    download_package, newer_release, GithubReleaseClient, Release, Version, LATEST_RELEASE_URL,
+};
 
 use crate::state::{Action, StreamUpdate, TabId};
+use crate::updater;
 use sockets::SocketWorkers;
 
 const WORKER_NAME: &str = "requestor-send";
 const UPDATE_WORKER_NAME: &str = "requestor-update-check";
+const INSTALL_WORKER_NAME: &str = "requestor-update-install";
 const CACHED_TRANSPORTS: usize = 4;
 
 struct SharedTransport {
@@ -129,6 +133,21 @@ impl Runner {
             .ok();
     }
 
+    pub fn install_update(&self, release: Release, settings: &RequestSettings, wake: &Context) {
+        let settings = settings.for_update_download();
+        let report = self.report.clone();
+        let wake = wake.clone();
+        thread::Builder::new()
+            .name(INSTALL_WORKER_NAME.to_string())
+            .spawn(move || {
+                let result = download_and_install(&release, &settings);
+                if report.send(Action::UpdateInstalled(result)).is_ok() {
+                    wake.request_repaint();
+                }
+            })
+            .ok();
+    }
+
     pub fn abort(&mut self, job: u64) {
         if let Some(cancellation) = self.running.remove(&job) {
             cancellation.cancel();
@@ -175,4 +194,12 @@ impl Runner {
             unreachable!("the runner owns the receiving end");
         }
     }
+}
+
+fn download_and_install(release: &Release, settings: &RequestSettings) -> Result<(), String> {
+    let name = updater::PACKAGE_NAME.ok_or(updater::UNSUPPORTED)?;
+    let transport = ReqwestTransport::new(settings).map_err(|error| error.to_string())?;
+    let client = GithubReleaseClient::new(transport, LATEST_RELEASE_URL);
+    let package = download_package(&client, release, name).map_err(|error| error.to_string())?;
+    updater::install(&package)
 }

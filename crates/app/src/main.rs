@@ -12,6 +12,7 @@ mod saver;
 mod shortcuts;
 mod state;
 mod theme;
+mod updater;
 mod widgets;
 
 use std::sync::Arc;
