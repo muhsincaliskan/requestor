@@ -99,6 +99,14 @@ impl Param {
         )
     }
 
+    pub fn form_text(params: &[Param]) -> String {
+        params
+            .iter()
+            .map(Param::form_pair)
+            .collect::<Vec<_>>()
+            .join(FORM_PAIR_SEPARATOR)
+    }
+
     pub fn has_plain_form_key(&self) -> bool {
         let key = self.key.as_deref().unwrap_or_default();
         !key.is_empty() && percent_encode(key) == key

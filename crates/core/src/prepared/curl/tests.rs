@@ -218,4 +218,9 @@ fn form_keys_that_need_encoding_fall_back_to_raw_data() {
     assert!(prepared
         .to_curl(&Redactor::default())
         .contains("--data-raw 'a%20b=1'"));
+    for lossy in ["k=%E9", "k=%zz"] {
+        prepared.body = Some(lossy.as_bytes().to_vec());
+        let curl = prepared.to_curl_with_secrets();
+        assert!(curl.contains(&format!("--data-raw '{lossy}'")), "{curl}");
+    }
 }

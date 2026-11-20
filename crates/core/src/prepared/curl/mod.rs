@@ -89,7 +89,8 @@ impl PreparedRequest {
         let fields = content_type
             .filter(|kind| Body::is_form_content_type(kind))
             .and_then(|_| Param::from_form_text(&text))
-            .filter(|fields| fields.iter().all(Param::has_plain_form_key));
+            .filter(|fields| fields.iter().all(Param::has_plain_form_key))
+            .filter(|fields| Param::form_text(fields) == text);
         match fields {
             Some(fields) => fields
                 .iter()
