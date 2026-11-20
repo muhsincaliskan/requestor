@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use requestor_core::collection::Collection;
 use requestor_core::identity::random_uuid;
 use requestor_core::workspace::{StoreWrite, Workspace};
 
@@ -158,4 +159,22 @@ fn choosing_a_data_folder_takes_effect_after_a_restart() {
     assert_eq!(folder.next_location(), synced.0);
     state.apply(Action::ResetDataFolder, 0.0);
     assert!(state.data_folder.as_ref().unwrap().is_default());
+}
+
+#[test]
+fn a_moved_collection_order_is_saved_with_the_session() {
+    let mut workspace = Workspace::default();
+    workspace.add_collection(Collection::new("First"));
+    let second = workspace.add_collection(Collection::new("Second"));
+    let mut state = state_with(workspace);
+    state.apply(
+        Action::MoveCollection {
+            collection_id: second.clone(),
+            index: 0,
+        },
+        0.0,
+    );
+    state.flush();
+    assert_eq!(state.workspace.collections[0].id(), second);
+    assert_eq!(state.workspace.session.collection_order[0], second);
 }

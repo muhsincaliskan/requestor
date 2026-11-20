@@ -60,6 +60,7 @@ fn everything_written_is_read_back() {
         }],
         active_tab: Some(0),
         active_environment: Some(environment_id.clone()),
+        collection_order: vec![collection_id.clone()],
     };
     let request = Request::new("GET", Url::Raw("https://example.com/ping".to_string()));
     workspace

@@ -1,4 +1,5 @@
 mod accent;
+mod collection_order;
 mod data_folder;
 mod extracted;
 mod folder;
@@ -180,6 +181,7 @@ impl Workspace {
         if !known_environment {
             self.session.active_environment = None;
         }
+        self.restore_collection_order();
     }
 }
 

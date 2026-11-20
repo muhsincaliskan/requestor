@@ -31,6 +31,10 @@ impl AppState {
                 parent_id,
                 index,
             } => self.move_item(&collection_id, &item_id, parent_id.as_deref(), index),
+            Action::MoveCollection {
+                collection_id,
+                index,
+            } => self.move_collection(&collection_id, index),
             Action::Rename { target, name } => self.rename(&target, name),
             Action::Delete(target) => self.delete(&target, effects),
             Action::CollectionEdited(id) => self.unsaved.touch_collection(&id, self.now),
@@ -121,6 +125,12 @@ impl AppState {
             .is_some_and(|collection| collection.move_item(item_id, parent_id, index));
         if moved {
             self.unsaved.touch_collection(collection_id, self.now);
+        }
+    }
+
+    fn move_collection(&mut self, collection_id: &str, index: usize) {
+        if self.workspace.move_collection(collection_id, index) {
+            self.unsaved.touch_session(self.now);
         }
     }
 

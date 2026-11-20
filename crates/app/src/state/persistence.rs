@@ -138,6 +138,7 @@ impl AppState {
             tabs: self.tabs.iter().map(RequestTab::to_session).collect(),
             active_tab: self.active_tab.and_then(|id| self.position_of(id)),
             active_environment: self.workspace.session.active_environment.clone(),
+            collection_order: self.workspace.collection_order(),
         }
     }
 }

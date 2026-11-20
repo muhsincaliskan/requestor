@@ -36,7 +36,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
         .filter_map(|tab| tab.binding.as_ref())
         .collect();
     let mut shown_any = false;
-    for collection in &state.workspace.collections {
+    for (index, collection) in state.workspace.collections.iter().enumerate() {
         if collection.matches_filter(filter) {
             shown_any = true;
             let mut view = TreeView {
@@ -49,7 +49,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
                 revealed,
                 actions: &mut *actions,
             };
-            collection_node(ui, &mut view);
+            collection_node(ui, &mut view, index);
         }
     }
     if !shown_any {
@@ -81,7 +81,7 @@ pub(super) fn branch(
     header.inner
 }
 
-fn collection_node(ui: &mut Ui, view: &mut TreeView) {
+fn collection_node(ui: &mut Ui, view: &mut TreeView, index: usize) {
     let collection = view.collection;
     let folder = view.folder;
     let id = Id::new((COLLECTION_NODE_ID, collection.id()));
@@ -92,7 +92,11 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView) {
         !view.filter.is_empty(),
         |ui| {
             let name = RichText::new(&collection.info.name).strong();
-            let label = ui.add(Label::new(name).sense(Sense::click()));
+            let label = ui.add(
+                Label::new(name)
+                    .selectable(false)
+                    .sense(Sense::click_and_drag()),
+            );
             added = add_menu::show(ui, collection.id(), None);
             match folder {
                 Some(folder) => {
@@ -105,6 +109,8 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView) {
     );
     view.actions.extend(added);
     menus::collection(&response, collection, folder, view.actions);
+    drag::begin_collection(&response, collection.id());
+    drag::accept_collection(ui, &response, index, view.actions);
     drag::accept(
         ui,
         &response,

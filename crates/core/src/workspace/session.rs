@@ -32,6 +32,8 @@ pub struct Session {
     pub active_tab: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active_environment: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub collection_order: Vec<String>,
 }
 
 impl SessionTab {
