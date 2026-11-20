@@ -1,4 +1,5 @@
 const BLOCK_BYTES: usize = 64;
+const WORD_BYTES: usize = 4;
 const LENGTH_BYTES: usize = 8;
 const PADDING_MARK: u8 = 0x80;
 const BITS_PER_BYTE: u64 = 8;
@@ -24,13 +25,13 @@ pub struct Sha256Digest([u8; 32]);
 impl Sha256Digest {
     pub fn of(data: &[u8]) -> Sha256Digest {
         let mut state = INITIAL_STATE;
-        let blocks = data.chunks_exact(BLOCK_BYTES);
-        let tail = final_blocks(blocks.remainder(), data.len());
-        for block in blocks.chain(tail.chunks_exact(BLOCK_BYTES)) {
+        let (blocks, remainder) = data.as_chunks::<BLOCK_BYTES>();
+        let tail = final_blocks(remainder, data.len());
+        for block in blocks.iter().chain(tail.as_chunks::<BLOCK_BYTES>().0) {
             compress(&mut state, block);
         }
         let mut digest = [0u8; 32];
-        for (bytes, word) in digest.chunks_exact_mut(4).zip(state) {
+        for (bytes, word) in digest.as_chunks_mut::<WORD_BYTES>().0.iter_mut().zip(state) {
             bytes.copy_from_slice(&word.to_be_bytes());
         }
         Sha256Digest(digest)
@@ -53,10 +54,10 @@ fn final_blocks(remainder: &[u8], total_length: usize) -> Vec<u8> {
     message
 }
 
-fn schedule(block: &[u8]) -> [u32; SCHEDULE_WORDS] {
+fn schedule(block: &[u8; BLOCK_BYTES]) -> [u32; SCHEDULE_WORDS] {
     let mut words = [0u32; SCHEDULE_WORDS];
-    for (word, bytes) in words.iter_mut().zip(block.chunks_exact(4)) {
-        *word = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+    for (word, bytes) in words.iter_mut().zip(block.as_chunks::<WORD_BYTES>().0) {
+        *word = u32::from_be_bytes(*bytes);
     }
     for index in 16..SCHEDULE_WORDS {
         let previous = words[index - 2];
@@ -71,7 +72,7 @@ fn schedule(block: &[u8]) -> [u32; SCHEDULE_WORDS] {
     words
 }
 
-fn compress(state: &mut [u32; 8], block: &[u8]) {
+fn compress(state: &mut [u32; 8], block: &[u8; BLOCK_BYTES]) {
     let words = schedule(block);
     let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
     for (word, constant) in words.iter().zip(ROUND_CONSTANTS) {
