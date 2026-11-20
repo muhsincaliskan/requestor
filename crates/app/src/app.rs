@@ -5,6 +5,7 @@ use requestor_core::workspace::{DataFolder, WorkspaceStore};
 
 use crate::browser;
 use crate::file_picker;
+use crate::keychain::PostmanKeychain;
 use crate::panels;
 use crate::runner::Runner;
 use crate::saver::Saver;
@@ -99,6 +100,30 @@ impl RequestorApp {
                     settings,
                 } => self.runner.download_import(job, address, &settings, ctx),
                 Effect::ImportFiles { job, paths } => self.runner.import_files(job, paths, ctx),
+                Effect::LoadPostmanKey => match PostmanKeychain::load() {
+                    Ok(key) => follow_ups.push(Action::PostmanKeyLoaded(key)),
+                    Err(error) => self.state.warn(format!(
+                        "Could not read the Postman key from the keychain: {error}"
+                    )),
+                },
+                Effect::StorePostmanKey(key) => {
+                    if let Err(error) = PostmanKeychain::store(key.as_ref()) {
+                        self.state.warn(format!(
+                            "Could not update the Postman key in the keychain: {error}"
+                        ));
+                    }
+                }
+                Effect::ListPostmanWorkspaces { job, key, settings } => self
+                    .runner
+                    .list_postman_workspaces(job, key, &settings, ctx),
+                Effect::MigratePostmanWorkspace {
+                    job,
+                    key,
+                    workspace_id,
+                    settings,
+                } => self
+                    .runner
+                    .migrate_postman_workspace(job, key, workspace_id, &settings, ctx),
                 Effect::PickImportFiles => {
                     follow_ups.extend(file_picker::postman_export_files().map(Action::ImportFiles));
                 }

@@ -6,6 +6,8 @@ use keyring::{Entry, Error};
 use requestor_core::secret::Secret;
 use requestor_core::vault::{VaultError, VaultSlot, VaultStore};
 
+pub use postman_key::PostmanKeychain;
+
 const SERVICE: &str = "Requestor";
 const SLOT_SEPARATOR: char = '#';
 
@@ -75,5 +77,6 @@ impl VaultStore for KeychainVaultStore {
     }
 }
 
+mod postman_key;
 #[cfg(test)]
 mod tests;

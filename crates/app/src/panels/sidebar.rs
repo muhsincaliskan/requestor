@@ -69,7 +69,7 @@ fn migration_button(ui: &mut Ui, actions: &mut Vec<Action>) {
         .on_hover_text(MIGRATION_HINT)
         .clicked();
     if clicked {
-        actions.push(Action::Show(Overlay::PostmanMigration));
+        actions.push(Action::OpenPostmanMigration);
     }
 }
 

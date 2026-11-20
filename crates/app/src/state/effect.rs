@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use requestor_core::prepared::PreparedRequest;
+use requestor_core::secret::Secret;
 use requestor_core::settings::RequestSettings;
 use requestor_core::workspace::{PendingDelete, PendingWrite, StoreWrite};
 
@@ -46,6 +47,19 @@ pub enum Effect {
     AbortSend(u64),
     PickImportFile,
     PickImportFiles,
+    LoadPostmanKey,
+    StorePostmanKey(Option<Secret>),
+    ListPostmanWorkspaces {
+        job: u64,
+        key: Secret,
+        settings: Box<RequestSettings>,
+    },
+    MigratePostmanWorkspace {
+        job: u64,
+        key: Secret,
+        workspace_id: String,
+        settings: Box<RequestSettings>,
+    },
     ImportFiles {
         job: u64,
         paths: Vec<PathBuf>,
@@ -84,6 +98,10 @@ impl Effect {
             | Effect::AbortSend(_)
             | Effect::PickImportFile
             | Effect::PickImportFiles
+            | Effect::LoadPostmanKey
+            | Effect::StorePostmanKey(_)
+            | Effect::ListPostmanWorkspaces { .. }
+            | Effect::MigratePostmanWorkspace { .. }
             | Effect::ImportFiles { .. }
             | Effect::DownloadImport { .. }
             | Effect::PickExportLocation { .. }

@@ -1,7 +1,8 @@
 use eframe::egui::{Context, RichText, ScrollArea, Ui};
 
+use super::postman_account;
 use super::{button_row, dialog, TITLE_GAP};
-use crate::state::{Action, FolderPurpose, MigrationForm, MigrationOutcome};
+use crate::state::{Action, FolderPurpose, MigrationForm, MigrationOutcome, PostmanAccountForm};
 
 const DIALOG_ID: &str = "postman-migration";
 pub const TITLE: &str = "Import from Postman";
@@ -19,12 +20,21 @@ const FAILURES_HEADING: &str = "Not imported";
 const WARNINGS_HEADING: &str = "Warnings";
 const CLOSE_LABEL: &str = "Close";
 
-pub fn show(ctx: &Context, form: &MigrationForm, actions: &mut Vec<Action>) -> bool {
+pub fn show(
+    ctx: &Context,
+    account: &mut PostmanAccountForm,
+    form: &MigrationForm,
+    actions: &mut Vec<Action>,
+) -> bool {
     dialog(ctx, DIALOG_ID, TITLE, |ui| {
         ui.set_width(DIALOG_WIDTH);
+        postman_account::show(ui, account, form, actions);
+        ui.add_space(SECTION_GAP);
+        ui.separator();
+        ui.add_space(SECTION_GAP);
         files_section(ui, form, actions);
         ui.add_space(SECTION_GAP);
-        if form.is_working() {
+        if form.is_working() && account.progress.is_none() {
             ui.horizontal(|ui| {
                 ui.spinner();
                 ui.label(WORKING_TEXT);

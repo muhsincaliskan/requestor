@@ -5,8 +5,10 @@ use requestor_core::graphql::GraphQlSchema;
 use requestor_core::history::HistoryEntry;
 use requestor_core::import::{ImportError, Imported};
 use requestor_core::migration::MigrationReport;
+use requestor_core::postman_cloud::{CloudWorkspace, MigrationProgress};
 use requestor_core::prepared::CodeLanguage;
 use requestor_core::response::HttpResponse;
+use requestor_core::secret::Secret;
 use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
 
@@ -132,6 +134,18 @@ pub enum Action {
     ChooseImportFile,
     ImportFiles(Vec<PathBuf>),
     FilesDropped(Vec<PathBuf>),
+    OpenPostmanMigration,
+    PostmanKeyLoaded(Option<Secret>),
+    ListPostmanWorkspaces,
+    PostmanWorkspacesListed {
+        job: u64,
+        listed: Result<Vec<CloudWorkspace>, String>,
+    },
+    MigratePostmanWorkspace,
+    MigrationProgressed {
+        job: u64,
+        progress: MigrationProgress,
+    },
     ChooseImportFiles,
     MigrationFinished {
         job: u64,
@@ -182,7 +196,10 @@ impl Action {
     pub fn may_change_request_code(&self) -> bool {
         !matches!(
             self,
-            Action::StreamProgress { .. } | Action::SocketEvent { .. } | Action::DismissNotice
+            Action::StreamProgress { .. }
+                | Action::SocketEvent { .. }
+                | Action::MigrationProgressed { .. }
+                | Action::DismissNotice
         )
     }
 }

@@ -1,5 +1,6 @@
 mod collection_run;
 mod import;
+mod postman;
 mod schema;
 mod sockets;
 

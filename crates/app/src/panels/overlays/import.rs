@@ -1,7 +1,7 @@
 use eframe::egui::{Context, RichText, ScrollArea, TextEdit, Ui};
 
 use super::{button_row, dialog, TITLE_GAP};
-use crate::state::{Action, FolderPurpose, ImportForm, Overlay};
+use crate::state::{Action, FolderPurpose, ImportForm};
 use crate::widgets::action_button;
 
 const DIALOG_ID: &str = "import";
@@ -98,7 +98,7 @@ fn migration_row(ui: &mut Ui, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         ui.weak(MIGRATION_TEXT);
         if ui.link(MIGRATION_LABEL).clicked() {
-            actions.push(Action::Show(Overlay::PostmanMigration));
+            actions.push(Action::OpenPostmanMigration);
         }
     });
 }

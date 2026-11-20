@@ -481,6 +481,7 @@ mod folders;
 mod history;
 mod inheritance;
 mod migration;
+mod postman_migration;
 mod protected_send;
 mod request_settings;
 mod response_presentation;
