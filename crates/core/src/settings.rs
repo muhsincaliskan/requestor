@@ -144,6 +144,14 @@ impl RequestSettings {
         }
     }
 
+    pub fn without_generated_headers(&self) -> RequestSettings {
+        RequestSettings {
+            send_no_cache_header: false,
+            send_postman_token_header: false,
+            ..self.clone()
+        }
+    }
+
     pub fn request_timeout(&self) -> Option<Duration> {
         Self::optional_duration(self.request_timeout_ms)
     }

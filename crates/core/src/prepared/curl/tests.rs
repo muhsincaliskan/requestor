@@ -19,15 +19,15 @@ fn request(method: HttpMethod, url: &str) -> PreparedRequest {
 #[test]
 fn head_requests_use_the_head_flag() {
     let curl = request(HttpMethod::Head, "https://x.test").to_curl(&Redactor::default());
-    assert!(curl.contains("-I"));
-    assert!(!curl.contains("-X"));
+    assert!(curl.contains("--head"));
+    assert!(!curl.contains("--request"));
 }
 
 #[test]
 fn plain_get_has_no_method_flag() {
     assert_eq!(
         request(HttpMethod::Get, "https://x.test").to_curl(&Redactor::default()),
-        "curl \\\n  'https://x.test'"
+        "curl --location 'https://x.test'"
     );
 }
 
@@ -177,4 +177,50 @@ fn secret_variable_values_are_masked_wherever_they_appear() {
     let masked = prepared.to_curl(&redactor);
     assert!(!masked.contains("SUPER-SECRET"), "{masked}");
     assert!(prepared.to_curl_with_secrets().contains("SUPER-SECRET"));
+}
+
+#[test]
+fn url_encoded_bodies_list_each_field_like_postman() {
+    let mut prepared = request(HttpMethod::Put, "https://x.test");
+    prepared.headers = vec![
+        Header::new("Content-Type", "application/x-www-form-urlencoded"),
+        Header::new("Accept", "*/*"),
+    ];
+    prepared.body = Some(b"method=login&msisdn=5%2B1&password=p1".to_vec());
+    let masked = prepared.to_curl(&Redactor::default());
+    assert_eq!(
+        masked,
+        "curl --location --request PUT 'https://x.test' \\\n\
+         --header 'Content-Type: application/x-www-form-urlencoded' \\\n\
+         --header 'Accept: */*' \\\n\
+         --data-urlencode 'method=login' \\\n\
+         --data-urlencode 'msisdn=5+1' \\\n\
+         --data-urlencode 'password=<redacted>'"
+    );
+    assert!(prepared
+        .to_curl_with_secrets()
+        .contains("--data-urlencode 'password=p1'"));
+    let Ok(Imported::Request(imported)) = import_text(&prepared.to_curl_with_secrets()) else {
+        panic!("expected a request");
+    };
+    let fields = imported.request.body.unwrap().urlencoded.unwrap();
+    assert_eq!(fields[1].value.as_deref(), Some("5+1"));
+}
+
+#[test]
+fn form_keys_that_need_encoding_fall_back_to_raw_data() {
+    let mut prepared = request(HttpMethod::Post, "https://x.test");
+    prepared.headers = vec![Header::new(
+        "Content-Type",
+        "application/x-www-form-urlencoded",
+    )];
+    prepared.body = Some(b"a%20b=1".to_vec());
+    assert!(prepared
+        .to_curl(&Redactor::default())
+        .contains("--data-raw 'a%20b=1'"));
+    for lossy in ["k=%E9", "k=%zz"] {
+        prepared.body = Some(lossy.as_bytes().to_vec());
+        let curl = prepared.to_curl_with_secrets();
+        assert!(curl.contains(&format!("--data-raw '{lossy}'")), "{curl}");
+    }
 }
