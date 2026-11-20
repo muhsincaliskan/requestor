@@ -6,7 +6,7 @@ use super::overlay::Overlay;
 use super::tab::RequestTab;
 use super::{Action, AppState, Effect};
 
-const ALREADY_RUNNING: &str = "An import is already running";
+pub(super) const ALREADY_RUNNING: &str = "An import is already running";
 
 impl AppState {
     pub(super) fn dispatch_migration_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
@@ -15,7 +15,7 @@ impl AppState {
             Action::ImportFiles(paths) => self.import_files(paths, effects),
             Action::ChooseImportFiles => effects.push(Effect::PickImportFiles),
             Action::MigrationFinished { job, report } => self.finish_migration(job, *report),
-            other => self.dispatch_folder_action(other, effects),
+            other => self.dispatch_postman_action(other, effects),
         }
     }
 
@@ -46,6 +46,7 @@ impl AppState {
 
     fn finish_migration(&mut self, job: u64, report: MigrationReport) {
         self.migration.finish(job, &report);
+        self.postman.progress = None;
         let summary = self
             .migration
             .outcome

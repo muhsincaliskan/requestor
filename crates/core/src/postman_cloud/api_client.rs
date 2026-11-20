@@ -97,23 +97,23 @@ impl<T: HttpTransport> PostmanApiClient<T> {
 impl<T: HttpTransport> PostmanCloudClient for PostmanApiClient<T> {
     fn workspaces(&self) -> Result<Vec<CloudWorkspace>, PostmanCloudError> {
         self.fetch::<WorkspacesResponse>(WORKSPACES_PATH)
-            .map(WorkspacesResponse::to_domain)
+            .map(WorkspacesResponse::into_domain)
     }
 
     fn workspace(&self, id: &str) -> Result<WorkspaceContents, PostmanCloudError> {
         let path = format!("{WORKSPACES_PATH}/{}", path_segment(id)?);
         self.fetch::<WorkspaceResponse>(&path)
-            .map(WorkspaceResponse::to_domain)
+            .map(WorkspaceResponse::into_domain)
     }
 
     fn collection(&self, uid: &str) -> Result<Collection, PostmanCloudError> {
         let path = format!("{COLLECTIONS_PATH}/{}", path_segment(uid)?);
-        self.fetch::<CollectionResponse>(&path)?.to_domain()
+        self.fetch::<CollectionResponse>(&path)?.into_domain()
     }
 
     fn environment(&self, uid: &str) -> Result<Environment, PostmanCloudError> {
         let path = format!("{ENVIRONMENTS_PATH}/{}", path_segment(uid)?);
-        self.fetch::<EnvironmentResponse>(&path)?.to_domain()
+        self.fetch::<EnvironmentResponse>(&path)?.into_domain()
     }
 }
 

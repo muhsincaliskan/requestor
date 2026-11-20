@@ -45,6 +45,10 @@ impl MigrationForm {
         self.job.is_some()
     }
 
+    pub fn runs(&self, job: u64) -> bool {
+        self.job == Some(job)
+    }
+
     pub fn start(&mut self, job: u64) {
         self.job = Some(job);
         self.outcome = None;

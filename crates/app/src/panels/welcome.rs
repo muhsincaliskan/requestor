@@ -45,7 +45,7 @@ fn buttons(ui: &mut Ui, actions: &mut Vec<Action>) {
             actions.push(Action::Show(Overlay::Import(Default::default())));
         }
         if ui.button(MIGRATION_LABEL).clicked() {
-            actions.push(Action::Show(Overlay::PostmanMigration));
+            actions.push(Action::OpenPostmanMigration);
         }
     });
 }

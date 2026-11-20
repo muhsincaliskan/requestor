@@ -19,6 +19,8 @@ mod migration_form;
 mod notice;
 mod overlay;
 mod persistence;
+mod postman_account;
+mod postman_migration;
 mod schema_view;
 mod schemas;
 mod sections;
@@ -50,6 +52,7 @@ pub use overlay::{
     RenameForm, SaveTabForm,
 };
 pub use persistence::SaveStatus;
+pub use postman_account::PostmanAccountForm;
 pub use schema_view::{SchemaLookup, SchemaView};
 pub use sections::{EditorSection, ResponseSection};
 pub use socket::{SocketPhase, SocketSession};
@@ -74,6 +77,7 @@ pub struct AppState {
     pub code_panel: Option<CodePanel>,
     pub data_folder: Option<DataFolder>,
     pub migration: MigrationForm,
+    pub postman: PostmanAccountForm,
     notices: Notices,
     store: WorkspaceStore,
     unsaved: UnsavedChanges,
@@ -94,6 +98,7 @@ impl AppState {
             code_panel: None,
             data_folder: None,
             migration: MigrationForm::default(),
+            postman: PostmanAccountForm::default(),
             notices: Notices::default(),
             store,
             unsaved: UnsavedChanges::default(),

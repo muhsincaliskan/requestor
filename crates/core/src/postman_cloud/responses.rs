@@ -50,7 +50,7 @@ pub(super) struct EnvironmentResponse {
 }
 
 impl WorkspacesResponse {
-    pub(super) fn to_domain(self) -> Vec<CloudWorkspace> {
+    pub(super) fn into_domain(self) -> Vec<CloudWorkspace> {
         self.workspaces
             .into_iter()
             .map(|entry| CloudWorkspace {
@@ -63,16 +63,16 @@ impl WorkspacesResponse {
 }
 
 impl WorkspaceResponse {
-    pub(super) fn to_domain(self) -> WorkspaceContents {
+    pub(super) fn into_domain(self) -> WorkspaceContents {
         WorkspaceContents {
-            collections: ItemEntry::all_to_domain(self.workspace.collections),
-            environments: ItemEntry::all_to_domain(self.workspace.environments),
+            collections: ItemEntry::all_into_domain(self.workspace.collections),
+            environments: ItemEntry::all_into_domain(self.workspace.environments),
         }
     }
 }
 
 impl ItemEntry {
-    fn all_to_domain(entries: Vec<ItemEntry>) -> Vec<CloudItem> {
+    fn all_into_domain(entries: Vec<ItemEntry>) -> Vec<CloudItem> {
         entries
             .into_iter()
             .map(|entry| CloudItem {
@@ -84,14 +84,14 @@ impl ItemEntry {
 }
 
 impl CollectionResponse {
-    pub(super) fn to_domain(self) -> Result<Collection, PostmanCloudError> {
+    pub(super) fn into_domain(self) -> Result<Collection, PostmanCloudError> {
         serde_json::from_value(self.collection)
             .map_err(|error| PostmanCloudError::InvalidResponse(error.to_string()))
     }
 }
 
 impl EnvironmentResponse {
-    pub(super) fn to_domain(mut self) -> Result<Environment, PostmanCloudError> {
+    pub(super) fn into_domain(mut self) -> Result<Environment, PostmanCloudError> {
         for key in ACCOUNT_METADATA {
             self.environment.remove(key);
         }
