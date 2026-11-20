@@ -53,6 +53,9 @@ fn key_row(ui: &mut Ui, form: &mut PostmanAccountForm, actions: &mut Vec<Action>
             .hint_text(KEY_HINT)
             .desired_width(KEY_WIDTH);
         let response = ui.add(field);
+        if response.changed() {
+            form.key_edited();
+        }
         let submitted = response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
         let clicked = ui
             .add_enabled(form.can_list(), Button::new(LIST_LABEL))
@@ -85,7 +88,7 @@ fn workspace_row(
                 }
             });
     });
-    let enabled = form.selected_workspace().is_some() && !migration.is_working();
+    let enabled = form.can_migrate() && !migration.is_working();
     let clicked = ui
         .add_enabled_ui(enabled, |ui| action_button::primary(ui, IMPORT_LABEL))
         .inner

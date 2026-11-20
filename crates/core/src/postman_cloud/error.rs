@@ -12,6 +12,8 @@ pub enum PostmanCloudError {
     Status(u16),
     InvalidResponse(String),
     InvalidIdentifier(String),
+    TooLarge,
+    Setup(String),
 }
 
 impl PostmanCloudError {
@@ -42,6 +44,12 @@ impl fmt::Display for PostmanCloudError {
             }
             PostmanCloudError::InvalidResponse(reason) => {
                 write!(formatter, "Postman sent an unexpected answer: {reason}")
+            }
+            PostmanCloudError::TooLarge => {
+                write!(formatter, "it is larger than Requestor imports at once")
+            }
+            PostmanCloudError::Setup(reason) => {
+                write!(formatter, "could not prepare the connection: {reason}")
             }
             PostmanCloudError::InvalidIdentifier(id) => {
                 write!(formatter, "Postman sent an unusable identifier: {id}")

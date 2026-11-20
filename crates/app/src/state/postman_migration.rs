@@ -11,7 +11,9 @@ impl AppState {
             Action::PostmanKeyLoaded(key) => self.postman.accept_saved_key(key),
             Action::ListPostmanWorkspaces => self.list_postman_workspaces(effects),
             Action::PostmanWorkspacesListed { job, listed } => {
-                self.postman.finish_listing(job, listed)
+                if self.postman.finish_listing(job, listed) {
+                    effects.push(Effect::StorePostmanKey(self.postman.kept_key()));
+                }
             }
             Action::MigratePostmanWorkspace => self.migrate_postman_workspace(effects),
             Action::MigrationProgressed { job, progress } => self.show_progress(job, progress),
@@ -33,7 +35,6 @@ impl AppState {
         self.next_job += 1;
         let job = self.next_job;
         self.postman.start_listing(job);
-        effects.push(Effect::StorePostmanKey(self.postman.kept_key()));
         effects.push(Effect::ListPostmanWorkspaces {
             job,
             key,

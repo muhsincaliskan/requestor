@@ -70,8 +70,8 @@ fn client(script: &Script) -> (PostmanApiClient<Script>, Arc<Mutex<Vec<Duration>
 
 const WORKSPACES: &str = r#"{"workspaces":[{"id":"w-1","name":"My Workspace","type":"personal","visibility":"personal"}]}"#;
 const WORKSPACE: &str = r#"{"workspace":{"id":"w-1","name":"My Workspace","collections":[{"id":"c","name":"Orders","uid":"1-c"}],"environments":[{"id":"e","name":"Staging","uid":"1-e"}]}}"#;
-const COLLECTION: &str = r#"{"collection":{"info":{"_postman_id":"c","name":"Orders","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"item":[{"name":"Admin","item":[{"name":"List","request":{"method":"GET","url":"https://h/orders"}}]}]}}"#;
-const ENVIRONMENT: &str = r#"{"environment":{"id":"e","name":"Staging","owner":"42","createdAt":"2020","updatedAt":"2021","isPublic":false,"values":[{"key":"host","value":"h","enabled":true,"type":"default"}]}}"#;
+const COLLECTION: &str = r#"{"collection":{"info":{"_postman_id":"c","name":"Orders","uid":"1-c","createdAt":"2020","custom":"kept","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"item":[{"name":"Admin","item":[{"name":"List","request":{"method":"GET","url":"https://h/orders"}}]}]}}"#;
+const ENVIRONMENT: &str = r#"{"environment":{"id":"e","name":"Staging","owner":"42","createdAt":"2020","updatedAt":"2021","isPublic":false,"custom":"kept","values":[{"key":"host","value":"h","enabled":true,"type":"default"}]}}"#;
 
 #[test]
 fn workspaces_are_listed_with_the_api_key() {
@@ -100,6 +100,10 @@ fn a_workspace_moves_with_folders_and_without_account_metadata() {
     let environment = &report.environments[0];
     assert_eq!(environment.name, "Staging");
     assert!(!environment.extra.contains_key("owner"));
+    assert!(environment.extra.contains_key("custom"));
+    let info = &report.collections[0].info.extra;
+    assert!(!info.contains_key("uid") && !info.contains_key("createdAt"));
+    assert!(info.contains_key("custom"));
     assert_eq!(steps.len(), 2);
     assert_eq!((steps[1].done, steps[1].total), (1, 2));
     assert_eq!(
@@ -184,4 +188,42 @@ fn identifiers_that_would_change_the_path_are_refused() {
         Err(PostmanCloudError::InvalidIdentifier(_))
     ));
     assert!(script.seen().is_empty());
+}
+
+#[test]
+fn a_rejected_key_mid_way_skips_the_rest_and_says_why() {
+    let script = Script::default().answer(200, WORKSPACE).answer(401, "{}");
+    let (client, _) = client(&script);
+
+    let report = migrate_workspace(&client, "w-1", &mut |_| {}).unwrap();
+
+    assert_eq!(report.failures.len(), 2);
+    assert!(report.failures[1].reason.contains("rejected"));
+    assert_eq!(script.seen().len(), 2);
+}
+
+#[test]
+fn a_missing_workspace_fails_the_whole_move() {
+    let script = Script::default().answer(404, "{}");
+    let (client, _) = client(&script);
+
+    assert_eq!(
+        migrate_workspace(&client, "w-1", &mut |_| {}),
+        Err(PostmanCloudError::NotFound)
+    );
+}
+
+#[test]
+fn an_unreadable_retry_after_falls_back_to_the_next_header() {
+    let wait = vec![
+        Header::new("Retry-After", "Wed, 21 Oct 2026 07:28:00 GMT"),
+        Header::new("X-RateLimit-RetryAfter", "3"),
+    ];
+    let script = Script::default()
+        .answer_with(429, wait, "{}")
+        .answer(200, WORKSPACES);
+    let (client, pauses) = client(&script);
+
+    client.workspaces().unwrap();
+    assert_eq!(*pauses.lock().unwrap(), vec![Duration::from_secs(3)]);
 }

@@ -18,6 +18,12 @@ pub struct MigrationReport {
 }
 
 impl MigrationReport {
+    pub fn failed(source: &str, reason: impl Into<String>) -> Self {
+        let mut report = MigrationReport::default();
+        report.fail(source, reason);
+        report
+    }
+
     pub fn record(&mut self, source: &str, imported: Result<Imported, ImportError>) {
         match imported {
             Ok(imported) => {

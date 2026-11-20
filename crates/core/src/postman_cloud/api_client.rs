@@ -14,9 +14,11 @@ use crate::header::{Header, ACCEPT};
 use crate::prepared::PreparedRequest;
 use crate::response::HttpResponse;
 use crate::secret::Secret;
-use crate::transport::HttpTransport;
+use crate::settings::{RequestSettings, BYTES_PER_MEGABYTE};
+use crate::transport::{DocumentTransport, HttpTransport};
 
 pub const POSTMAN_API_URL: &str = "https://api.getpostman.com";
+const MAX_RESPONSE_BYTES: usize = 64 * BYTES_PER_MEGABYTE;
 const API_KEY_HEADER: &str = "X-Api-Key";
 const JSON: &str = "application/json";
 const UNAUTHORIZED: u16 = 401;
@@ -33,6 +35,20 @@ pub struct PostmanApiClient<T> {
     base_url: String,
     key: Secret,
     pause: Pause,
+}
+
+impl PostmanApiClient<DocumentTransport> {
+    pub fn connect(key: Secret, settings: &RequestSettings) -> Result<Self, PostmanCloudError> {
+        let guarded = RequestSettings {
+            verify_ssl: true,
+            follow_redirects: false,
+            client_certificates: Vec::new(),
+            ..settings.clone()
+        };
+        DocumentTransport::new(&guarded, MAX_RESPONSE_BYTES)
+            .map(|transport| PostmanApiClient::new(transport, POSTMAN_API_URL, key))
+            .map_err(|error| PostmanCloudError::Setup(error.to_string()))
+    }
 }
 
 impl<T: HttpTransport> PostmanApiClient<T> {
@@ -57,6 +73,7 @@ impl<T: HttpTransport> PostmanApiClient<T> {
             NOT_FOUND => return Err(PostmanCloudError::NotFound),
             TOO_MANY_REQUESTS => return Err(PostmanCloudError::RateLimited),
             _ if !response.is_success() => return Err(PostmanCloudError::Status(response.status)),
+            _ if response.truncated => return Err(PostmanCloudError::TooLarge),
             _ => {}
         }
         serde_json::from_slice(&response.body)
@@ -108,7 +125,8 @@ impl<T: HttpTransport> PostmanCloudClient for PostmanApiClient<T> {
 
     fn collection(&self, uid: &str) -> Result<Collection, PostmanCloudError> {
         let path = format!("{COLLECTIONS_PATH}/{}", path_segment(uid)?);
-        self.fetch::<CollectionResponse>(&path)?.into_domain()
+        self.fetch::<CollectionResponse>(&path)
+            .map(CollectionResponse::into_domain)
     }
 
     fn environment(&self, uid: &str) -> Result<Environment, PostmanCloudError> {

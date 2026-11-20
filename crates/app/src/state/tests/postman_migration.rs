@@ -51,20 +51,57 @@ fn opening_the_dialog_looks_up_a_saved_key_once() {
 }
 
 #[test]
-fn listing_keeps_or_forgets_the_key_as_asked_and_picks_the_first_workspace() {
+fn listing_picks_the_first_workspace() {
     let state = listed_state();
     assert_eq!(state.postman.selected.as_deref(), Some("a"));
     assert_eq!(state.postman.workspaces.len(), 2);
+}
 
+#[test]
+fn the_key_is_kept_or_forgotten_only_after_postman_accepts_it() {
     let mut state = state_with(Workspace::default());
     state.postman.api_key = KEY.to_string();
     state.postman.remember_key = false;
     let effects = state.apply(Action::ListPostmanWorkspaces, 0.0);
-    assert!(matches!(effects[0], Effect::StorePostmanKey(None)));
-    let Effect::ListPostmanWorkspaces { key, .. } = &effects[1] else {
-        panic!("listing starts");
+    let [Effect::ListPostmanWorkspaces { job, key, .. }] = effects.as_slice() else {
+        panic!("only the listing starts, got {effects:?}");
     };
     assert_eq!(key.expose(), KEY);
+
+    let effects = state.apply(
+        Action::PostmanWorkspacesListed {
+            job: *job,
+            listed: Ok(vec![workspace("a")]),
+        },
+        0.0,
+    );
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::StorePostmanKey(None)]
+    ));
+}
+
+#[test]
+fn a_late_listing_is_ignored() {
+    let mut state = listed_state();
+    let effects = state.apply(
+        Action::PostmanWorkspacesListed {
+            job: 99,
+            listed: Ok(Vec::new()),
+        },
+        0.0,
+    );
+    assert!(effects.is_empty());
+    assert_eq!(state.postman.workspaces.len(), 2);
+}
+
+#[test]
+fn editing_the_key_forgets_the_listed_workspaces() {
+    let mut state = listed_state();
+    state.postman.key_edited();
+    assert!(state.postman.workspaces.is_empty());
+    assert!(!state.postman.can_migrate());
+    assert!(state.apply(Action::MigratePostmanWorkspace, 0.0).is_empty());
 }
 
 #[test]
@@ -122,6 +159,20 @@ fn moving_a_workspace_shows_progress_and_imports_the_result() {
         0.0,
     );
     assert_eq!(state.workspace.collections.len(), 1);
+    assert!(state.postman.progress.is_none());
+
+    let late = MigrationProgress {
+        done: 1,
+        total: 2,
+        current: "Staging".to_string(),
+    };
+    state.apply(
+        Action::MigrationProgressed {
+            job,
+            progress: late,
+        },
+        0.0,
+    );
     assert!(state.postman.progress.is_none());
 }
 

@@ -1,7 +1,7 @@
 use super::{CloudItem, PostmanCloudClient, PostmanCloudError};
 use crate::migration::MigrationReport;
 
-const SKIPPED: &str = "skipped because Postman stopped answering";
+const SKIPPED: &str = "skipped because the import stopped:";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MigrationProgress {
@@ -29,22 +29,20 @@ pub fn migrate_workspace(
                 .map(|item| (item, Kind::Environment)),
         )
         .enumerate();
-    for (done, (item, kind)) in steps.by_ref() {
+    while let Some((done, (item, kind))) = steps.next() {
         progress(MigrationProgress {
             done,
             total,
             current: item.name.clone(),
         });
         if let Err(error) = kind.fetch_into(client, item, &mut report) {
-            let stops = error.stops_migration();
             report.fail(&item.name, error.to_string());
-            if stops {
-                break;
+            if error.stops_migration() {
+                for (_, (skipped, _)) in steps.by_ref() {
+                    report.fail(&skipped.name, format!("{SKIPPED} {error}"));
+                }
             }
         }
-    }
-    for (_, (item, _)) in steps {
-        report.fail(&item.name, SKIPPED);
     }
     Ok(report)
 }

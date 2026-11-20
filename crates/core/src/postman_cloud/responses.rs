@@ -5,7 +5,8 @@ use super::{CloudItem, CloudWorkspace, PostmanCloudError, WorkspaceContents};
 use crate::collection::Collection;
 use crate::environment::Environment;
 
-const ACCOUNT_METADATA: [&str; 4] = ["owner", "createdAt", "updatedAt", "isPublic"];
+const ENVIRONMENT_ACCOUNT_FIELDS: [&str; 4] = ["owner", "createdAt", "updatedAt", "isPublic"];
+const COLLECTION_ACCOUNT_FIELDS: [&str; 4] = ["createdAt", "updatedAt", "lastUpdatedBy", "uid"];
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WorkspacesResponse {
@@ -41,7 +42,7 @@ struct ItemEntry {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct CollectionResponse {
-    collection: Value,
+    collection: Collection,
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,15 +85,17 @@ impl ItemEntry {
 }
 
 impl CollectionResponse {
-    pub(super) fn into_domain(self) -> Result<Collection, PostmanCloudError> {
-        serde_json::from_value(self.collection)
-            .map_err(|error| PostmanCloudError::InvalidResponse(error.to_string()))
+    pub(super) fn into_domain(mut self) -> Collection {
+        for key in COLLECTION_ACCOUNT_FIELDS {
+            self.collection.info.extra.remove(key);
+        }
+        self.collection
     }
 }
 
 impl EnvironmentResponse {
     pub(super) fn into_domain(mut self) -> Result<Environment, PostmanCloudError> {
-        for key in ACCOUNT_METADATA {
+        for key in ENVIRONMENT_ACCOUNT_FIELDS {
             self.environment.remove(key);
         }
         serde_json::from_value(Value::Object(self.environment))

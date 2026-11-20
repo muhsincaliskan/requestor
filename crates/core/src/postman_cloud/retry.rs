@@ -14,8 +14,7 @@ impl RetryWait {
     pub(super) fn after(response: &HttpResponse) -> Option<Duration> {
         let announced = WAIT_HEADERS
             .iter()
-            .find_map(|name| response.header(name))
-            .and_then(|value| value.trim().parse::<u64>().ok())
+            .find_map(|name| response.header(name)?.trim().parse::<u64>().ok())
             .map(Duration::from_secs)
             .unwrap_or(DEFAULT_WAIT);
         (announced <= LONGEST_WAIT).then_some(announced)

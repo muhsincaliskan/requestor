@@ -75,9 +75,13 @@ impl PostmanAccountForm {
         self.error = None;
     }
 
-    pub fn finish_listing(&mut self, job: u64, listed: Result<Vec<CloudWorkspace>, String>) {
+    pub fn finish_listing(
+        &mut self,
+        job: u64,
+        listed: Result<Vec<CloudWorkspace>, String>,
+    ) -> bool {
         if self.listing != Some(job) {
-            return;
+            return false;
         }
         self.listing = None;
         match listed {
@@ -90,9 +94,23 @@ impl PostmanAccountForm {
                     self.selected = workspaces.first().map(|workspace| workspace.id.clone());
                 }
                 self.workspaces = workspaces;
+                true
             }
-            Err(reason) => self.error = Some(reason),
+            Err(reason) => {
+                self.error = Some(reason);
+                false
+            }
         }
+    }
+
+    pub fn key_edited(&mut self) {
+        self.workspaces.clear();
+        self.selected = None;
+        self.error = None;
+    }
+
+    pub fn can_migrate(&self) -> bool {
+        self.key().is_some() && self.selected_workspace().is_some()
     }
 
     pub fn selected_workspace(&self) -> Option<&CloudWorkspace> {

@@ -2,39 +2,15 @@ use std::thread;
 
 use eframe::egui::Context;
 use requestor_core::migration::MigrationReport;
-use requestor_core::postman_cloud::{
-    migrate_workspace, PostmanApiClient, PostmanCloudClient, PostmanCloudError, POSTMAN_API_URL,
-};
+use requestor_core::postman_cloud::{migrate_workspace, PostmanApiClient, PostmanCloudClient};
 use requestor_core::secret::Secret;
-use requestor_core::settings::{RequestSettings, BYTES_PER_MEGABYTE};
-use requestor_core::transport::DocumentTransport;
+use requestor_core::settings::RequestSettings;
 
 use super::Runner;
 use crate::state::Action;
 
 const POSTMAN_WORKER_NAME: &str = "requestor-postman";
-const MAX_POSTMAN_RESPONSE_BYTES: usize = 64 * BYTES_PER_MEGABYTE;
 const WORKSPACE_SOURCE: &str = "Postman workspace";
-
-type Client = PostmanApiClient<DocumentTransport>;
-
-fn client(key: Secret, settings: &RequestSettings) -> Result<Client, PostmanCloudError> {
-    DocumentTransport::new(settings, MAX_POSTMAN_RESPONSE_BYTES)
-        .map(|transport| PostmanApiClient::new(transport, POSTMAN_API_URL, key))
-        .map_err(PostmanCloudError::Unreachable)
-}
-
-fn finished(job: u64, migrated: Result<MigrationReport, String>) -> Action {
-    let report = migrated.unwrap_or_else(|reason| {
-        let mut failed = MigrationReport::default();
-        failed.fail(WORKSPACE_SOURCE, reason);
-        failed
-    });
-    Action::MigrationFinished {
-        job,
-        report: Box::new(report),
-    }
-}
 
 impl Runner {
     pub fn list_postman_workspaces(
@@ -50,7 +26,7 @@ impl Runner {
             listed: Err(reason),
         };
         self.spawn_postman_worker(wake, failed, move || {
-            let listed = client(key, &settings)
+            let listed = PostmanApiClient::connect(key, &settings)
                 .and_then(|client| client.workspaces())
                 .map_err(|error| error.to_string());
             Action::PostmanWorkspacesListed { job, listed }
@@ -70,7 +46,10 @@ impl Runner {
         let progress_wake = wake.clone();
         self.spawn_postman_worker(
             wake,
-            move |reason| finished(job, Err(reason)),
+            move |reason| Action::MigrationFinished {
+                job,
+                report: Box::new(MigrationReport::failed(WORKSPACE_SOURCE, reason)),
+            },
             move || {
                 let mut progressed = |progress| {
                     if progress_report
@@ -80,10 +59,15 @@ impl Runner {
                         progress_wake.request_repaint();
                     }
                 };
-                let migrated = client(key, &settings)
+                let migrated = PostmanApiClient::connect(key, &settings)
                     .and_then(|client| migrate_workspace(&client, &workspace_id, &mut progressed))
-                    .map_err(|error| error.to_string());
-                finished(job, migrated)
+                    .unwrap_or_else(|error| {
+                        MigrationReport::failed(WORKSPACE_SOURCE, error.to_string())
+                    });
+                Action::MigrationFinished {
+                    job,
+                    report: Box::new(migrated),
+                }
             },
         );
     }
