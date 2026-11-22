@@ -34,6 +34,7 @@ mod tab_closing;
 mod tabs;
 mod transfer;
 mod updates;
+mod variables;
 
 pub use action::Action;
 pub use certificates::{CertificateFile, CertificatePart};
@@ -61,7 +62,6 @@ pub use tab::{ItemBinding, RequestTab, TabId};
 pub use updates::UpdateStage;
 
 use requestor_core::update::Release;
-use requestor_core::variables::VariableScope;
 use requestor_core::workspace::{
     DataFolder, InterfaceSettings, LoadedWorkspace, Workspace, WorkspaceStore,
 };
@@ -171,14 +171,6 @@ impl AppState {
             return Vec::new();
         }
         self.tabs_awaiting_save().collect()
-    }
-
-    pub fn variable_scope(&self, tab: TabId) -> VariableScope {
-        let binding = self.tab(tab).and_then(RequestTab::scope);
-        self.workspace.scope_for(
-            binding.map(|bound| bound.collection_id.as_str()),
-            binding.map(|bound| bound.item_id.as_str()),
-        )
     }
 
     pub fn notice(&self, now: f64) -> Option<&Notice> {

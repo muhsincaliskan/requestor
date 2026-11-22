@@ -22,7 +22,8 @@ pub fn show(ui: &mut Ui, state: &mut AppState, tab: TabId, actions: &mut Vec<Act
     let hints = VariableHints::new(
         state.variable_scope(tab),
         state.interface().variable_autocomplete,
-    );
+    )
+    .editable(state.variable_homes(tab));
     let code_panel_open = state.code_panel.is_some();
     let protected = state.sends_to_protected_environment();
     let global = state.workspace.settings.request.clone();

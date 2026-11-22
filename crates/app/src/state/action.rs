@@ -11,6 +11,7 @@ use requestor_core::response::HttpResponse;
 use requestor_core::secret::Secret;
 use requestor_core::transport::SocketEvent;
 use requestor_core::update::Release;
+use requestor_core::workspace::VariableAssignment;
 
 use super::certificates::CertificateFile;
 use super::examples::ExampleRef;
@@ -129,6 +130,7 @@ pub enum Action {
     NewEnvironment,
     SelectEnvironment(Option<String>),
     EnvironmentEdited(String),
+    AssignVariable(VariableAssignment),
     ImportText(String),
     ImportFile(PathBuf),
     ImportDownloaded {

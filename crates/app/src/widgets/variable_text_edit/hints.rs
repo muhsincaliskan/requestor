@@ -1,9 +1,11 @@
 use requestor_core::variables::{VariablePreview, VariableScope};
+use requestor_core::workspace::{VariableHome, VariableHomes};
 
 pub struct VariableHints {
     scope: VariableScope,
     names: Vec<String>,
     suggest: bool,
+    homes: Option<VariableHomes>,
 }
 
 impl VariableHints {
@@ -13,7 +15,21 @@ impl VariableHints {
             scope,
             names,
             suggest,
+            homes: None,
         }
+    }
+
+    pub fn editable(mut self, homes: VariableHomes) -> Self {
+        self.homes = Some(homes);
+        self
+    }
+
+    pub fn home_of(&self, name: &str) -> Option<&VariableHome> {
+        self.homes.as_ref()?.home_of(name)
+    }
+
+    pub fn stored_value(&self, name: &str) -> Option<&str> {
+        self.scope.lookup(name)
     }
 
     pub fn names(&self) -> &[String] {

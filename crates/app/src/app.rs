@@ -13,6 +13,7 @@ use crate::shortcuts;
 use crate::state::{Action, AppState, Effect};
 use crate::theme::Look;
 use crate::updater;
+use crate::widgets::variable_text_edit;
 
 pub struct RequestorApp {
     state: AppState,
@@ -215,6 +216,11 @@ impl eframe::App for RequestorApp {
         shortcuts::collect(&ctx, &mut self.state, &mut actions);
         let now = self.now();
         panels::show(ui, &mut self.state, now, &mut actions);
+        actions.extend(
+            variable_text_edit::take_committed(&ctx)
+                .into_iter()
+                .map(Action::AssignVariable),
+        );
         self.apply(actions, &ctx);
     }
 

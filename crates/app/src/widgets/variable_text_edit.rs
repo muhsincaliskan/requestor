@@ -1,6 +1,7 @@
 mod completion;
 mod hints;
 mod hover_preview;
+mod inline_editor;
 mod placeholder_layout;
 mod popup;
 
@@ -11,6 +12,7 @@ use eframe::egui::{
 
 use completion::step_selection;
 pub use hints::VariableHints;
+pub use inline_editor::take_committed;
 use placeholder_layout::PlaceholderLayout;
 use popup::{draw_popup, PopupState, Suggestion, POPUP_STATE_SALT};
 
@@ -92,10 +94,15 @@ impl<'a> VariableTextEdit<'a> {
             edit = edit.layouter(&mut layouter);
         }
         let output = edit.show(ui);
+        if let Some(hints) = highlighted {
+            let name = hover_preview::placeholder_under_pointer(self.text, &output);
+            inline_editor::open_on_double_click(&ctx, id, &output.response.response, name, hints);
+        }
         let mut response = match highlighted {
             Some(hints) => hover_preview::attach(hints, self.text, &output),
             None => output.response.response,
         };
+        inline_editor::show(&ctx, id);
         changed |= self.show_popup(&ctx, id, &response, &mut state);
         ctx.data_mut(|data| data.insert_temp(state_id, state));
         if changed {
