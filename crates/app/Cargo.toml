@@ -9,14 +9,14 @@ repository.workspace = true
 [dependencies]
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
-requestor-core = { version = "0.5.3", path = "../core" }
+requestor-core = { version = "0.5.4", path = "../core" }
 rfd = "0.18.0"
 
 [build-dependencies]
 embed-resource = "3.0.12"
 
 [dev-dependencies]
-requestor-core = { version = "0.5.3", path = "../core", features = ["test-support"] }
+requestor-core = { version = "0.5.4", path = "../core", features = ["test-support"] }
 serde_json = "1.0.154"
 
 [lints]

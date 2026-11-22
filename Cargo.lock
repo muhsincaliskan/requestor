@@ -3155,7 +3155,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "requestor-app"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "eframe",
  "embed-resource",
@@ -3167,14 +3167,14 @@ dependencies = [
 
 [[package]]
 name = "requestor-cli"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "requestor-core",
 ]
 
 [[package]]
 name = "requestor-core"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "reqwest",
  "roxmltree",
