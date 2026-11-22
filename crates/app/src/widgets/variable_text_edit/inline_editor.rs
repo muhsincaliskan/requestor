@@ -1,4 +1,6 @@
-use eframe::egui::{pos2, Area, Context, Frame, Id, Key, Order, Pos2, Response, TextEdit, Ui};
+use eframe::egui::{
+    pos2, Area, Context, Frame, Id, Key, Modifiers, Order, Pos2, Response, TextEdit, Ui,
+};
 use requestor_core::variables::VariablePreview;
 use requestor_core::workspace::{VariableAssignment, VariableHome};
 
@@ -27,6 +29,7 @@ struct InlineEdit {
     defined: bool,
     home: VariableHome,
     fresh: bool,
+    drawn_in: u64,
 }
 
 enum Outcome {
@@ -61,6 +64,7 @@ pub fn open_on_double_click(
         defined: preview != VariablePreview::Undefined,
         home: home.clone(),
         fresh: true,
+        drawn_in: ctx.cumulative_pass_nr(),
     };
     ctx.data_mut(|data| data.insert_temp(Id::new(EDITOR_SALT), edit));
 }
@@ -76,6 +80,7 @@ pub fn show(ctx: &Context, field: Id) {
     match draw(ctx, &mut edit) {
         Outcome::Keep => {
             edit.fresh = false;
+            edit.drawn_in = ctx.cumulative_pass_nr();
             ctx.data_mut(|data| data.insert_temp(id, edit));
         }
         Outcome::Save => {
@@ -94,8 +99,18 @@ pub fn show(ctx: &Context, field: Id) {
 }
 
 pub fn take_committed(ctx: &Context) -> Vec<VariableAssignment> {
-    ctx.data_mut(|data| data.remove_temp(Id::new(COMMITTED_SALT)))
-        .unwrap_or_default()
+    let pass = ctx.cumulative_pass_nr();
+    ctx.data_mut(|data| {
+        let editor = Id::new(EDITOR_SALT);
+        let hidden = data
+            .get_temp::<InlineEdit>(editor)
+            .is_some_and(|edit| edit.drawn_in != pass);
+        if hidden {
+            data.remove::<InlineEdit>(editor);
+        }
+        data.remove_temp(Id::new(COMMITTED_SALT))
+            .unwrap_or_default()
+    })
 }
 
 fn draw(ctx: &Context, edit: &mut InlineEdit) -> Outcome {
@@ -108,7 +123,7 @@ fn draw(ctx: &Context, edit: &mut InlineEdit) -> Outcome {
                 .inner
         });
     let dismissed = !edit.fresh && area.response.clicked_elsewhere();
-    let escaped = ctx.input(|input| input.key_pressed(Key::Escape));
+    let escaped = ctx.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape));
     match area.inner {
         Outcome::Keep if dismissed || escaped => Outcome::Cancel,
         outcome => outcome,

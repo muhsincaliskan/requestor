@@ -126,3 +126,50 @@ fn a_request_outside_collections_without_an_environment_has_no_home() {
         None
     );
 }
+
+#[test]
+fn disabled_or_valueless_entries_do_not_claim_a_variable() {
+    let mut sample = sample();
+    let id = activate(
+        &mut sample.workspace,
+        r#"[{"key":"host"},{"key":"url","value":"old","enabled":false}]"#,
+    );
+    let homes = sample
+        .workspace
+        .variable_homes(Some(&sample.collection_id), Some(&sample.request_id));
+    assert!(matches!(
+        homes.home_of("host"),
+        Some(VariableHome::Collection { .. })
+    ));
+    let home = homes.home_of("url").unwrap().clone();
+    assert!(assign(&mut sample.workspace, &home, "url", "new"));
+    let environment = sample.workspace.environment(&id).unwrap();
+    let urls: Vec<_> = environment
+        .values
+        .iter()
+        .filter(|entry| entry.key == "url")
+        .map(|entry| (entry.value_text(), entry.is_enabled()))
+        .collect();
+    assert_eq!(
+        urls,
+        [("old".to_string(), false), ("new".to_string(), true)]
+    );
+}
+
+#[test]
+fn the_winning_duplicate_is_the_one_edited() {
+    let mut sample = sample();
+    let id = activate(
+        &mut sample.workspace,
+        r#"[{"key":"url","value":"first"},{"key":"url","value":"winner"}]"#,
+    );
+    let home = VariableHome::Environment {
+        id,
+        name: "Staging".to_string(),
+    };
+    assert!(assign(&mut sample.workspace, &home, "url", "edited"));
+    let scope = sample
+        .workspace
+        .scope_for(Some(&sample.collection_id), Some(&sample.request_id));
+    assert_eq!(scope.resolve("{{url}}").text, "edited");
+}
