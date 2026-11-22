@@ -58,6 +58,7 @@ fn one_broken_file_is_reported_without_stopping_the_rest() {
 
     assert_eq!(report.collections.len(), 1);
     assert_eq!(report.failures.len(), 2);
+    let broken = broken.canonicalize().unwrap();
     assert!(report
         .failures
         .iter()

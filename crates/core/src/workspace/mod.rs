@@ -10,6 +10,9 @@ mod session;
 mod settings;
 mod store;
 mod store_write;
+mod variable_home;
+#[cfg(test)]
+mod variable_home_tests;
 mod vault_write;
 
 pub use accent::AccentName;
@@ -23,6 +26,7 @@ pub use session::{Session, SessionTab};
 pub use settings::{AppSettings, InterfaceSettings, ThemeName};
 pub use store::{LoadedWorkspace, WorkspaceStore};
 pub use store_write::StoreWrite;
+pub use variable_home::{VariableAssignment, VariableHome, VariableHomes};
 pub use vault_write::VaultWrite;
 
 use crate::collection::{Collection, Request, Variable};

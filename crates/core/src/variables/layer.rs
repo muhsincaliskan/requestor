@@ -3,7 +3,6 @@ use std::fmt;
 
 use crate::collection::Variable;
 use crate::environment::Environment;
-use crate::text::scalar_text;
 
 #[derive(Clone, Default, PartialEq)]
 pub struct VariableLayer {
@@ -25,22 +24,18 @@ impl VariableLayer {
         environment
             .values
             .iter()
-            .filter(|entry| entry.is_enabled())
-            .filter_map(|entry| {
-                let value = scalar_text(entry.value.as_ref()?)?;
-                let secret = entry.is_secret();
-                Some((entry.key.clone(), value, secret))
-            })
+            .filter(|entry| entry.provides_value())
+            .map(|entry| (entry.key.clone(), entry.value_text(), entry.is_secret()))
             .collect()
     }
 
     pub fn from_variables(variables: &[Variable]) -> Self {
         variables
             .iter()
-            .filter(|variable| variable.is_enabled())
-            .filter_map(|variable| {
-                let secret = variable.is_secret();
-                Some((variable.key.clone()?, variable.text_value()?, secret))
+            .filter(|variable| variable.provides_value())
+            .map(|variable| {
+                let key = variable.key_text().to_string();
+                (key, variable.value_text(), variable.is_secret())
             })
             .collect()
     }

@@ -38,6 +38,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
         String::new()
     };
     ui.add_space(SECTION_GAP);
+    reserve_scroll_bar_space(ui);
     ScrollArea::vertical()
         .id_salt(SCROLL_ID)
         .auto_shrink(false)
@@ -53,6 +54,11 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
             ui.add_space(SECTION_GAP);
             history::show(ui, state, &filter, actions);
         });
+}
+
+fn reserve_scroll_bar_space(ui: &mut Ui) {
+    let scroll = &mut ui.spacing_mut().scroll;
+    scroll.floating_allocated_width = scroll.bar_width + scroll.bar_inner_margin;
 }
 
 fn header(ui: &mut Ui, actions: &mut Vec<Action>) {

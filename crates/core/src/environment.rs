@@ -48,6 +48,10 @@ impl EnvironmentValue {
         self.kind.as_deref() == Some(SECRET_KIND)
     }
 
+    pub fn provides_value(&self) -> bool {
+        self.is_enabled() && self.value.as_ref().and_then(scalar_text).is_some()
+    }
+
     pub fn set_secret(&mut self, secret: bool) {
         let kind = if secret { SECRET_KIND } else { DEFAULT_KIND };
         self.kind = Some(kind.to_string());
@@ -133,6 +137,29 @@ impl Environment {
         let entry = &mut self.values[index];
         entry.set_value_text(text);
         entry.set_enabled(true);
+    }
+
+    pub fn assign(&mut self, key: &str, text: &str) {
+        match self
+            .values
+            .iter_mut()
+            .rev()
+            .find(|entry| entry.key == key && entry.provides_value())
+        {
+            Some(entry) => entry.set_value_text(text),
+            None => self.values.push(EnvironmentValue {
+                key: key.to_string(),
+                value: Some(Value::String(text.to_string())),
+                ..EnvironmentValue::blank()
+            }),
+        }
+    }
+
+    pub fn provided_keys(&self) -> impl Iterator<Item = &str> {
+        self.values
+            .iter()
+            .filter(|entry| entry.provides_value())
+            .map(|entry| entry.key.as_str())
     }
 
     pub fn value_of(&self, key: &str) -> Option<String> {

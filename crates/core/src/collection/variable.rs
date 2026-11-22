@@ -56,6 +56,29 @@ impl Variable {
         }
     }
 
+    pub fn assign_in(variables: &mut Option<Vec<Variable>>, key: &str, text: &str) {
+        let variables = variables.get_or_insert_with(Vec::new);
+        match variables
+            .iter_mut()
+            .rev()
+            .find(|variable| variable.key_text() == key && variable.provides_value())
+        {
+            Some(variable) => variable.set_value_text(text),
+            None => variables.push(Variable::text(key, text)),
+        }
+    }
+
+    pub fn provided_keys(variables: &[Variable]) -> impl Iterator<Item = &str> {
+        variables
+            .iter()
+            .filter(|variable| variable.provides_value())
+            .map(Variable::key_text)
+    }
+
+    pub fn provides_value(&self) -> bool {
+        self.is_enabled() && self.key.is_some() && self.text_value().is_some()
+    }
+
     pub fn is_secret(&self) -> bool {
         self.kind.as_deref() == Some(SECRET_KIND)
     }
