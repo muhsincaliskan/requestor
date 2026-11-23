@@ -2,7 +2,7 @@ use requestor_core::update::{Release, Version};
 use requestor_core::workspace::Workspace;
 
 use super::state_with;
-use crate::state::{Action, Effect, NoticeLevel, UpdateCheckOrigin, UpdateStage};
+use crate::state::{Action, Effect, UpdateCheckOrigin, UpdateStage, UpdateStatus};
 
 const PAGE: &str = "https://github.com/muhsincaliskan/requestor/releases/tag/v9.0.0";
 
@@ -69,18 +69,15 @@ fn a_failed_update_can_be_retried_and_installs_need_support() {
     assert_eq!(state.apply(Action::InstallUpdate, 0.0).len(), 1);
 }
 
-fn notice_level(state: &crate::state::AppState) -> Option<NoticeLevel> {
-    state.notice(0.0).map(|notice| notice.level)
-}
-
 #[test]
 fn the_startup_check_follows_the_setting_and_stays_quiet() {
     let mut state = state_with(Workspace::default());
     let effects = state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Startup), 0.0);
     assert!(matches!(effects.as_slice(), [Effect::CheckForUpdate(_)]));
+    assert_eq!(state.update_status(), UpdateStatus::Checking);
     state.apply(Action::UpdateChecked(Ok(None)), 0.0);
     assert!(state.notice(0.0).is_none());
-    assert!(!state.is_checking_for_updates());
+    assert_eq!(state.update_status(), UpdateStatus::UpToDate);
 
     state.workspace.settings.interface.check_for_updates = false;
     let skipped = state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Startup), 0.0);
@@ -88,36 +85,52 @@ fn the_startup_check_follows_the_setting_and_stays_quiet() {
 }
 
 #[test]
-fn a_manual_check_runs_even_when_startup_checks_are_off_and_reports_the_outcome() {
+fn a_failed_startup_check_is_not_shown() {
+    let mut state = state_with(Workspace::default());
+    state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Startup), 0.0);
+    state.apply(Action::UpdateChecked(Err("offline".to_string())), 0.0);
+    assert_eq!(state.update_status(), UpdateStatus::NotChecked);
+}
+
+#[test]
+fn a_manual_check_runs_even_when_startup_checks_are_off() {
     let mut state = state_with(Workspace::default());
     state.workspace.settings.interface.check_for_updates = false;
     let effects = state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Manual), 0.0);
     assert!(matches!(effects.as_slice(), [Effect::CheckForUpdate(_)]));
-    assert!(state.is_checking_for_updates());
     assert!(state
         .apply(Action::CheckForUpdates(UpdateCheckOrigin::Manual), 0.0)
         .is_empty());
     state.apply(Action::UpdateChecked(Ok(None)), 0.0);
-    assert_eq!(notice_level(&state), Some(NoticeLevel::Info));
-    assert!(state.available_update.is_none());
+    assert_eq!(state.update_status(), UpdateStatus::UpToDate);
 }
 
 #[test]
-fn a_manual_check_during_the_startup_check_reports_its_result() {
+fn a_manual_check_during_the_startup_check_shows_its_failure() {
     let mut state = state_with(Workspace::default());
     state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Startup), 0.0);
     let joined = state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Manual), 0.0);
     assert!(joined.is_empty());
-    state.apply(Action::UpdateChecked(Ok(Some(release()))), 0.0);
-    assert_eq!(notice_level(&state), Some(NoticeLevel::Info));
-    assert_eq!(state.available_update, Some(release()));
+    state.apply(Action::UpdateChecked(Err("offline".to_string())), 0.0);
+    assert_eq!(
+        state.update_status(),
+        UpdateStatus::CheckFailed("offline".to_string())
+    );
 }
 
 #[test]
-fn a_failed_manual_check_reports_an_error() {
+fn a_found_release_follows_the_install_stage() {
     let mut state = state_with(Workspace::default());
+    state.can_install_updates = true;
     state.apply(Action::CheckForUpdates(UpdateCheckOrigin::Manual), 0.0);
-    state.apply(Action::UpdateChecked(Err("offline".to_string())), 0.0);
-    assert_eq!(notice_level(&state), Some(NoticeLevel::Error));
-    assert!(!state.is_checking_for_updates());
+    state.apply(Action::UpdateChecked(Ok(Some(release()))), 0.0);
+    let available = |stage| UpdateStatus::Available {
+        version: release().version,
+        stage,
+    };
+    assert_eq!(state.update_status(), available(UpdateStage::Idle));
+    state.apply(Action::InstallUpdate, 0.0);
+    assert_eq!(state.update_status(), available(UpdateStage::Installing));
+    state.apply(Action::UpdateInstalled(Ok(())), 0.0);
+    assert_eq!(state.update_status(), available(UpdateStage::Installed));
 }

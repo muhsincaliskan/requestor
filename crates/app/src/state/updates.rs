@@ -1,7 +1,7 @@
 use requestor_core::update::{Release, Version};
 use requestor_core::workspace::InterfaceSettings;
 
-use super::{Action, AppState, Effect, NoticeLevel};
+use super::{Action, AppState, Effect};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum UpdateStage {
@@ -29,28 +29,23 @@ impl UpdateCheckOrigin {
         self == UpdateCheckOrigin::Manual || interface.check_for_updates
     }
 
-    fn reports_outcome(self) -> bool {
+    fn takes_over(self) -> bool {
         self == UpdateCheckOrigin::Manual
     }
 }
 
 pub type UpdateCheckResult = Result<Option<Release>, String>;
 
-fn update_check_notice(result: &UpdateCheckResult) -> (NoticeLevel, String) {
-    match result {
-        Ok(Some(release)) => (
-            NoticeLevel::Info,
-            format!("Requestor {} is available.", release.version),
-        ),
-        Ok(None) => (
-            NoticeLevel::Info,
-            format!("Requestor {} is up to date.", Version::current()),
-        ),
-        Err(reason) => (
-            NoticeLevel::Error,
-            format!("Could not check for updates: {reason}"),
-        ),
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UpdateStatus {
+    NotChecked,
+    Checking,
+    UpToDate,
+    CheckFailed(String),
+    Available {
+        version: Version,
+        stage: UpdateStage,
+    },
 }
 
 impl AppState {
@@ -70,8 +65,21 @@ impl AppState {
         }
     }
 
-    pub fn is_checking_for_updates(&self) -> bool {
-        self.update_check.is_some()
+    pub fn update_status(&self) -> UpdateStatus {
+        if let Some(release) = &self.available_update {
+            return UpdateStatus::Available {
+                version: release.version,
+                stage: self.update_stage.clone(),
+            };
+        }
+        if self.update_check.is_some() {
+            return UpdateStatus::Checking;
+        }
+        match &self.last_update_check {
+            None => UpdateStatus::NotChecked,
+            Some(Ok(())) => UpdateStatus::UpToDate,
+            Some(Err(reason)) => UpdateStatus::CheckFailed(reason.clone()),
+        }
     }
 
     fn check_for_updates(&mut self, origin: UpdateCheckOrigin) -> Option<Effect> {
@@ -79,7 +87,7 @@ impl AppState {
             return None;
         }
         if self.update_check.is_some() {
-            if origin.reports_outcome() {
+            if origin.takes_over() {
                 self.update_check = Some(origin);
             }
             return None;
@@ -91,16 +99,14 @@ impl AppState {
     }
 
     fn finish_update_check(&mut self, result: UpdateCheckResult) {
-        let reports = self
-            .update_check
-            .take()
-            .is_some_and(UpdateCheckOrigin::reports_outcome);
-        if reports {
-            let (level, text) = update_check_notice(&result);
-            self.notices.raise(level, text, self.now);
-        }
-        if let Ok(Some(release)) = result {
-            self.available_update = Some(release);
+        let origin = self.update_check.take();
+        match result {
+            Ok(Some(release)) => self.available_update = Some(release),
+            Ok(None) => self.last_update_check = Some(Ok(())),
+            Err(reason) if origin.is_some_and(UpdateCheckOrigin::takes_over) => {
+                self.last_update_check = Some(Err(reason))
+            }
+            Err(_) => {}
         }
     }
 

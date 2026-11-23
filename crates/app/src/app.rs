@@ -194,7 +194,7 @@ impl eframe::App for RequestorApp {
             pending.extend(self.state.active_tab.map(Action::Send));
         }
         let menu = self.menu.get_or_insert_with(|| AppMenu::install(ctx));
-        pending.extend(menu.actions());
+        pending.extend(menu.actions(ctx));
         if std::mem::take(&mut self.update_check_pending) {
             pending.push(Action::CheckForUpdates(UpdateCheckOrigin::Startup));
         }
