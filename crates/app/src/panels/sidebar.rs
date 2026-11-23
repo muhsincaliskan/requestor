@@ -6,6 +6,7 @@ mod examples;
 mod history;
 mod menus;
 mod reveal;
+mod sort_menu;
 mod tree;
 mod unsaved;
 
@@ -33,7 +34,7 @@ pub fn show(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) {
     unsaved::show(ui, state, actions);
     header(ui, actions);
     let filter = if state.workspace.has_requests() {
-        filter_field(ui)
+        filter_row(ui, state, actions)
     } else {
         String::new()
     };
@@ -87,12 +88,15 @@ fn compact_rows(ui: &mut Ui) {
     spacing.button_padding = vec2(ROW_PADDING.0, ROW_PADDING.1);
 }
 
-fn filter_field(ui: &mut Ui) -> String {
+fn filter_row(ui: &mut Ui, state: &mut AppState, actions: &mut Vec<Action>) -> String {
     let id = Id::new(FILTER_ID);
     let mut text: String = ui.data(|data| data.get_temp(id)).unwrap_or_default();
     let mut changed = false;
     ui.horizontal(|ui| {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if sort_menu::show(ui, &mut state.workspace.settings.interface.sidebar_order) {
+                actions.push(Action::SettingsEdited);
+            }
             if !text.is_empty() && icon_button(ui, CLEAR_LABEL, CLEAR_HINT).clicked() {
                 text.clear();
                 changed = true;

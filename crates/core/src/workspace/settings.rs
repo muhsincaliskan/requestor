@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::AccentName;
+use super::{AccentName, SidebarOrder};
 use crate::prepared::CodeLanguage;
 use crate::secret::Secret;
 use crate::settings::RequestSettings;
@@ -41,6 +41,7 @@ pub struct InterfaceSettings {
     pub sidebars_swapped: bool,
     pub check_for_updates: bool,
     pub code_language: CodeLanguage,
+    pub sidebar_order: SidebarOrder,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -89,6 +90,7 @@ impl Default for InterfaceSettings {
             sidebars_swapped: false,
             check_for_updates: true,
             code_language: CodeLanguage::default(),
+            sidebar_order: SidebarOrder::default(),
         }
     }
 }
