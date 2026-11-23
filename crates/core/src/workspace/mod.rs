@@ -8,6 +8,9 @@ mod secrets;
 mod secured_write;
 mod session;
 mod settings;
+mod sidebar_order;
+#[cfg(test)]
+mod sidebar_order_tests;
 mod store;
 mod store_write;
 mod variable_home;
@@ -24,6 +27,7 @@ pub use secrets::{SecretRestore, UnsecuredSecrets};
 pub use secured_write::SecuredWrite;
 pub use session::{Session, SessionTab};
 pub use settings::{AppSettings, InterfaceSettings, ThemeName};
+pub use sidebar_order::{SidebarOrder, SidebarSort};
 pub use store::{LoadedWorkspace, WorkspaceStore};
 pub use store_write::StoreWrite;
 pub use variable_home::{VariableAssignment, VariableHome, VariableHomes};

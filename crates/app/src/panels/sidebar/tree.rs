@@ -3,6 +3,7 @@ use std::path::Path;
 use eframe::egui::collapsing_header::CollapsingState;
 use eframe::egui::{Align, Button, Id, Label, Response, RichText, Sense, Ui, WidgetText};
 use requestor_core::collection::{Collection, Item};
+use requestor_core::workspace::SidebarOrder;
 
 use super::drag::{self, DropSlot};
 use super::{add_menu, examples, menus, reveal};
@@ -21,6 +22,7 @@ struct TreeView<'a> {
     expanded: Option<&'a ItemBinding>,
     awaiting_save: &'a [&'a ItemBinding],
     filter: &'a str,
+    order: SidebarOrder,
     revealed: bool,
     actions: &'a mut Vec<Action>,
 }
@@ -35,8 +37,9 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
         .tabs_awaiting_save()
         .filter_map(|tab| tab.binding.as_ref())
         .collect();
+    let order = state.interface().sidebar_order;
     let mut shown_any = false;
-    for (index, collection) in state.workspace.collections.iter().enumerate() {
+    for (index, collection) in order.arrange_collections(&state.workspace.collections) {
         if collection.matches_filter(filter) {
             shown_any = true;
             let mut view = TreeView {
@@ -46,6 +49,7 @@ pub(super) fn show(ui: &mut Ui, state: &AppState, filter: &str, actions: &mut Ve
                 expanded,
                 awaiting_save: &awaiting_save,
                 filter,
+                order,
                 revealed,
                 actions: &mut *actions,
             };
@@ -109,19 +113,28 @@ fn collection_node(ui: &mut Ui, view: &mut TreeView, index: usize) {
     );
     view.actions.extend(added);
     menus::collection(&response, collection, folder, view.actions);
-    drag::begin_collection(&response, collection.id());
-    drag::accept_collection(ui, &response, index, view.actions);
-    drag::accept(
-        ui,
-        &response,
-        collection,
-        DropSlot::CollectionRoot,
-        view.actions,
-    );
+    if view.order.allows_dragging() {
+        drag::begin_collection(&response, collection.id());
+        drag::accept_collection(ui, &response, index, view.actions);
+        drag::accept(
+            ui,
+            &response,
+            collection,
+            DropSlot::CollectionRoot,
+            view.actions,
+        );
+    }
+}
+
+fn drag_item(ui: &Ui, view: &mut TreeView, response: &Response, item_id: &str, slot: DropSlot) {
+    if view.order.allows_dragging() {
+        drag::begin(response, view.collection.id(), item_id);
+        drag::accept(ui, response, view.collection, slot, view.actions);
+    }
 }
 
 fn items(ui: &mut Ui, view: &mut TreeView, items: &[Item]) {
-    for item in items {
+    for item in view.order.arrange_items(items) {
         if view.filter.is_empty() || item.matches_filter(view.filter) {
             item_node(ui, view, item);
         }
@@ -163,14 +176,7 @@ fn folder_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
         |ui| items(ui, view, item.children()),
     );
     view.actions.extend(added);
-    drag::begin(&response, collection.id(), item_id);
-    drag::accept(
-        ui,
-        &response,
-        collection,
-        DropSlot::IntoFolder(item_id),
-        view.actions,
-    );
+    drag_item(ui, view, &response, item_id, DropSlot::IntoFolder(item_id));
     menus::item(&response, collection.id(), item, view.actions);
 }
 
@@ -199,14 +205,7 @@ fn request_node(ui: &mut Ui, view: &mut TreeView, item: &Item) {
             item_id: item_id.to_string(),
         });
     }
-    drag::begin(&response, collection.id(), item_id);
-    drag::accept(
-        ui,
-        &response,
-        collection,
-        DropSlot::Beside(item_id),
-        view.actions,
-    );
+    drag_item(ui, view, &response, item_id, DropSlot::Beside(item_id));
     menus::item(&response, collection.id(), item, view.actions);
     let expanded = view
         .expanded
