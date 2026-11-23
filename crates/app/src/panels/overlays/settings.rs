@@ -1,3 +1,4 @@
+mod about;
 mod accents;
 mod certificates;
 mod data_folder;
@@ -23,10 +24,6 @@ const SIDEBAR_WIDTH: f32 = 140.0;
 const CONTENT_WIDTH: f32 = 520.0;
 const CONTENT_HEIGHT: f32 = 460.0;
 const PANE_GAP: f32 = 24.0;
-const ABOUT_NAME: &str = "Requestor";
-const ABOUT_TAGLINE: &str = "A lightweight HTTP client.";
-const VERSION_LABEL: &str = "Version";
-const ABOUT_CREDIT: &str = "Developed by Muhsin Caliskan";
 
 struct SettingsContext<'a> {
     settings: &'a mut AppSettings,
@@ -79,15 +76,15 @@ impl Category {
         } = context;
         match self {
             Category::Request => request::show(ui, settings),
-            Category::Interface => {
-                interface::show(ui, &mut settings.interface, checking_for_updates, actions)
-            }
+            Category::Interface => interface::show(ui, &mut settings.interface),
             Category::Themes => themes::show(ui, &mut settings.interface),
             Category::Shortcuts => unchanged(ui, shortcuts::show),
             Category::Proxy => proxy::show(ui, &mut settings.request),
             Category::Certificates => certificates::show(ui, &mut settings.request, actions),
             Category::Data => unchanged(ui, |ui| data_folder::show(ui, data_folder, actions)),
-            Category::About => unchanged(ui, about),
+            Category::About => {
+                about::show(ui, &mut settings.interface, checking_for_updates, actions)
+            }
         }
     }
 }
@@ -167,11 +164,4 @@ fn content(
 fn unchanged(ui: &mut Ui, render: impl FnOnce(&mut Ui)) -> bool {
     render(ui);
     false
-}
-
-fn about(ui: &mut Ui) {
-    ui.heading(ABOUT_NAME);
-    ui.label(ABOUT_TAGLINE);
-    ui.label(format!("{VERSION_LABEL} {}", env!("CARGO_PKG_VERSION")));
-    ui.weak(ABOUT_CREDIT);
 }
