@@ -31,6 +31,7 @@ const ABOUT_CREDIT: &str = "Developed by Muhsin Caliskan";
 struct SettingsContext<'a> {
     settings: &'a mut AppSettings,
     data_folder: Option<&'a DataFolder>,
+    checking_for_updates: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -74,10 +75,13 @@ impl Category {
         let SettingsContext {
             settings,
             data_folder,
+            checking_for_updates,
         } = context;
         match self {
             Category::Request => request::show(ui, settings),
-            Category::Interface => interface::show(ui, &mut settings.interface),
+            Category::Interface => {
+                interface::show(ui, &mut settings.interface, checking_for_updates, actions)
+            }
             Category::Themes => themes::show(ui, &mut settings.interface),
             Category::Shortcuts => unchanged(ui, shortcuts::show),
             Category::Proxy => proxy::show(ui, &mut settings.request),
@@ -105,9 +109,11 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> b
             });
             ui.add_space(PANE_GAP);
             pane(ui, CONTENT_WIDTH, |ui| {
+                let checking_for_updates = state.is_checking_for_updates();
                 let context = SettingsContext {
                     settings: &mut state.workspace.settings,
                     data_folder: state.data_folder.as_ref(),
+                    checking_for_updates,
                 };
                 edited = content(ui, category, context, actions);
             });

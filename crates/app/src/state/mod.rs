@@ -59,7 +59,7 @@ pub use sections::{EditorSection, ResponseSection};
 pub use socket::{SocketPhase, SocketSession};
 pub use stream::{LiveStream, StreamUpdate};
 pub use tab::{ItemBinding, RequestTab, TabId};
-pub use updates::UpdateStage;
+pub use updates::{UpdateCheckOrigin, UpdateStage};
 
 use requestor_core::update::Release;
 use requestor_core::workspace::{
@@ -76,6 +76,7 @@ pub struct AppState {
     pub overlay: Option<Overlay>,
     pub available_update: Option<Release>,
     pub update_stage: UpdateStage,
+    update_check: Option<UpdateCheckOrigin>,
     pub can_install_updates: bool,
     pub code_panel: Option<CodePanel>,
     pub data_folder: Option<DataFolder>,
@@ -99,6 +100,7 @@ impl AppState {
             overlay: None,
             available_update: None,
             update_stage: UpdateStage::default(),
+            update_check: None,
             can_install_updates: false,
             code_panel: None,
             data_folder: None,

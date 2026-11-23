@@ -3,6 +3,7 @@ use std::time::Instant;
 use eframe::egui::{Context, Ui, ViewportCommand};
 use requestor_core::workspace::{DataFolder, WorkspaceStore};
 
+use crate::app_menu::AppMenu;
 use crate::browser;
 use crate::file_picker;
 use crate::keychain::PostmanKeychain;
@@ -10,7 +11,7 @@ use crate::panels;
 use crate::runner::Runner;
 use crate::saver::Saver;
 use crate::shortcuts;
-use crate::state::{Action, AppState, Effect};
+use crate::state::{Action, AppState, Effect, UpdateCheckOrigin};
 use crate::theme::Look;
 use crate::updater;
 use crate::widgets::variable_text_edit;
@@ -23,6 +24,7 @@ pub struct RequestorApp {
     look: Option<Look>,
     sends_active_tab_on_start: bool,
     update_check_pending: bool,
+    menu: Option<AppMenu>,
 }
 
 impl RequestorApp {
@@ -44,6 +46,7 @@ impl RequestorApp {
             look: None,
             sends_active_tab_on_start: false,
             update_check_pending: true,
+            menu: None,
         }
     }
 
@@ -97,6 +100,7 @@ impl RequestorApp {
                     }
                 }
                 Effect::AbortSend(job) => self.runner.abort(job),
+                Effect::CheckForUpdate(settings) => self.runner.check_for_update(&settings, ctx),
                 Effect::InstallUpdate { release, settings } => {
                     self.runner.install_update(*release, &settings, ctx)
                 }
@@ -189,11 +193,10 @@ impl eframe::App for RequestorApp {
         if std::mem::take(&mut self.sends_active_tab_on_start) {
             pending.extend(self.state.active_tab.map(Action::Send));
         }
-        if std::mem::take(&mut self.update_check_pending)
-            && self.state.interface().check_for_updates
-        {
-            self.runner
-                .check_for_update(&self.state.workspace.settings.request, ctx);
+        let menu = self.menu.get_or_insert_with(|| AppMenu::install(ctx));
+        pending.extend(menu.actions());
+        if std::mem::take(&mut self.update_check_pending) {
+            pending.push(Action::CheckForUpdates(UpdateCheckOrigin::Startup));
         }
         self.apply(pending, ctx);
         let failures: Vec<String> = self.saver.failures().collect();
