@@ -1,17 +1,12 @@
-use eframe::egui::{Button, Context, Id, Slider, Ui};
+use eframe::egui::{Context, Id, Slider, Ui};
 use requestor_core::workspace::InterfaceSettings;
 
 use super::row::{row, toggles, Toggle};
-use crate::state::{Action, UpdateCheckOrigin};
 
 const SCALE_ID: &str = "settings-interface-scale";
 const SCALE_STEP: f64 = 0.05;
-const CHECK_NOW_TITLE: &str = "Check for updates now";
-const CHECK_NOW_LABEL: &str = "Check now";
-const CHECKING_LABEL: &str = "Checking…";
-const INSTALLED_VERSION_LABEL: &str = "Installed version";
 
-const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 11] = [
+const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 10] = [
     Toggle {
         label: "Autosave",
         description: "Save changes automatically.",
@@ -62,37 +57,11 @@ const INTERFACE_TOGGLES: [Toggle<InterfaceSettings>; 11] = [
         description: "Move the sidebar to the other side.",
         field: |settings| &mut settings.sidebars_swapped,
     },
-    Toggle {
-        label: "Check for updates",
-        description: "Look for a newer version on GitHub when the app starts.",
-        field: |settings| &mut settings.check_for_updates,
-    },
 ];
 
-pub fn show(
-    ui: &mut Ui,
-    settings: &mut InterfaceSettings,
-    checking_for_updates: bool,
-    actions: &mut Vec<Action>,
-) -> bool {
+pub fn show(ui: &mut Ui, settings: &mut InterfaceSettings) -> bool {
     let changed = toggles(ui, &INTERFACE_TOGGLES, settings);
-    check_now(ui, checking_for_updates, actions);
     changed | scale(ui, settings)
-}
-
-fn check_now(ui: &mut Ui, checking: bool, actions: &mut Vec<Action>) {
-    let description = format!("{INSTALLED_VERSION_LABEL} {}", env!("CARGO_PKG_VERSION"));
-    row(ui, CHECK_NOW_TITLE, &description, |ui| {
-        let label = if checking {
-            CHECKING_LABEL
-        } else {
-            CHECK_NOW_LABEL
-        };
-        if ui.add_enabled(!checking, Button::new(label)).clicked() {
-            actions.push(Action::CheckForUpdates(UpdateCheckOrigin::Manual));
-        }
-        false
-    });
 }
 
 fn scale(ui: &mut Ui, settings: &mut InterfaceSettings) -> bool {
