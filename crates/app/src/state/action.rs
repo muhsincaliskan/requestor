@@ -10,7 +10,6 @@ use requestor_core::prepared::CodeLanguage;
 use requestor_core::response::HttpResponse;
 use requestor_core::secret::Secret;
 use requestor_core::transport::SocketEvent;
-use requestor_core::update::Release;
 use requestor_core::workspace::VariableAssignment;
 
 use super::certificates::CertificateFile;
@@ -19,6 +18,7 @@ use super::folders::FolderPurpose;
 use super::overlay::{LibraryTarget, Overlay, SaveTabForm};
 use super::stream::StreamUpdate;
 use super::tab::TabId;
+use super::updates::{UpdateCheckOrigin, UpdateCheckResult};
 
 #[derive(Debug)]
 pub enum Action {
@@ -182,7 +182,8 @@ pub enum Action {
     },
     StopSavingToFolder(String),
     SettingsEdited,
-    UpdateAvailable(Release),
+    CheckForUpdates(UpdateCheckOrigin),
+    UpdateChecked(UpdateCheckResult),
     OpenReleasePage,
     InstallUpdate,
     UpdateInstalled(Result<(), String>),

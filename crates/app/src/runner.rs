@@ -120,14 +120,15 @@ impl Runner {
         thread::Builder::new()
             .name(UPDATE_WORKER_NAME.to_string())
             .spawn(move || {
-                let Ok(transport) = ReqwestTransport::new(&settings) else {
-                    return;
-                };
-                let client = GithubReleaseClient::new(transport, LATEST_RELEASE_URL);
-                if let Ok(Some(release)) = newer_release(&client, &Version::current()) {
-                    if report.send(Action::UpdateAvailable(release)).is_ok() {
-                        wake.request_repaint();
-                    }
+                let result = ReqwestTransport::new(&settings)
+                    .map_err(|error| error.to_string())
+                    .and_then(|transport| {
+                        let client = GithubReleaseClient::new(transport, LATEST_RELEASE_URL);
+                        newer_release(&client, &Version::current())
+                            .map_err(|error| error.to_string())
+                    });
+                if report.send(Action::UpdateChecked(result)).is_ok() {
+                    wake.request_repaint();
                 }
             })
             .ok();

@@ -45,6 +45,7 @@ pub enum Effect {
     },
     CopyText(String),
     OpenUrl(String),
+    CheckForUpdate(Box<RequestSettings>),
     InstallUpdate {
         release: Box<Release>,
         settings: Box<RequestSettings>,
@@ -109,6 +110,7 @@ impl Effect {
             | Effect::FetchSchema { .. }
             | Effect::CopyText(_)
             | Effect::OpenUrl(_)
+            | Effect::CheckForUpdate(_)
             | Effect::InstallUpdate { .. }
             | Effect::Relaunch
             | Effect::AbortSend(_)
