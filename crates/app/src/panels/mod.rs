@@ -18,6 +18,8 @@ use requestor_core::workspace::InterfaceSettings;
 
 use crate::state::{Action, AppState};
 
+pub use overlays::reveal_about;
+
 const TOOLBAR_ID: &str = "toolbar";
 const STATUS_BAR_ID: &str = "status-bar";
 const SIDEBAR_ID: &str = "sidebar";

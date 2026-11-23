@@ -15,6 +15,7 @@ use requestor_core::workspace::{AppSettings, DataFolder};
 use super::{button_row, modal, TITLE_GAP};
 use crate::state::{Action, AppState};
 use crate::widgets::action_button;
+use about::UpdatePane;
 
 const MODAL_ID: &str = "settings";
 const CATEGORY_KEY: &str = "settings-category";
@@ -28,7 +29,7 @@ const PANE_GAP: f32 = 24.0;
 struct SettingsContext<'a> {
     settings: &'a mut AppSettings,
     data_folder: Option<&'a DataFolder>,
-    checking_for_updates: bool,
+    updates: UpdatePane,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -72,7 +73,7 @@ impl Category {
         let SettingsContext {
             settings,
             data_folder,
-            checking_for_updates,
+            updates,
         } = context;
         match self {
             Category::Request => request::show(ui, settings),
@@ -82,11 +83,13 @@ impl Category {
             Category::Proxy => proxy::show(ui, &mut settings.request),
             Category::Certificates => certificates::show(ui, &mut settings.request, actions),
             Category::Data => unchanged(ui, |ui| data_folder::show(ui, data_folder, actions)),
-            Category::About => {
-                about::show(ui, &mut settings.interface, checking_for_updates, actions)
-            }
+            Category::About => about::show(ui, &mut settings.interface, &updates, actions),
         }
     }
+}
+
+pub fn reveal_about(ctx: &Context) {
+    ctx.data_mut(|data| data.insert_temp(Id::new(CATEGORY_KEY), Category::About));
 }
 
 pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> bool {
@@ -106,11 +109,14 @@ pub fn show(ctx: &Context, state: &mut AppState, actions: &mut Vec<Action>) -> b
             });
             ui.add_space(PANE_GAP);
             pane(ui, CONTENT_WIDTH, |ui| {
-                let checking_for_updates = state.is_checking_for_updates();
+                let updates = UpdatePane {
+                    status: state.update_status(),
+                    can_install: state.can_install_updates,
+                };
                 let context = SettingsContext {
                     settings: &mut state.workspace.settings,
                     data_folder: state.data_folder.as_ref(),
-                    checking_for_updates,
+                    updates,
                 };
                 edited = content(ui, category, context, actions);
             });

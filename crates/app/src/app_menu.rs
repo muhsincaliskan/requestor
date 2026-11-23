@@ -5,6 +5,7 @@ use std::sync::mpsc::{channel, Receiver};
 
 use eframe::egui::Context;
 
+use crate::panels;
 use crate::state::{Action, Overlay, UpdateCheckOrigin};
 
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -15,10 +16,16 @@ pub enum MenuCommand {
 }
 
 impl MenuCommand {
-    fn action(self) -> Action {
+    fn actions(self, ctx: &Context) -> Vec<Action> {
         match self {
-            MenuCommand::OpenSettings => Action::Show(Overlay::Settings),
-            MenuCommand::CheckForUpdates => Action::CheckForUpdates(UpdateCheckOrigin::Manual),
+            MenuCommand::OpenSettings => vec![Action::Show(Overlay::Settings)],
+            MenuCommand::CheckForUpdates => {
+                panels::reveal_about(ctx);
+                vec![
+                    Action::Show(Overlay::Settings),
+                    Action::CheckForUpdates(UpdateCheckOrigin::Manual),
+                ]
+            }
         }
     }
 }
@@ -45,7 +52,10 @@ impl AppMenu {
         AppMenu { commands }
     }
 
-    pub fn actions(&self) -> impl Iterator<Item = Action> + '_ {
-        self.commands.try_iter().map(MenuCommand::action)
+    pub fn actions(&self, ctx: &Context) -> Vec<Action> {
+        self.commands
+            .try_iter()
+            .flat_map(|command| command.actions(ctx))
+            .collect()
     }
 }

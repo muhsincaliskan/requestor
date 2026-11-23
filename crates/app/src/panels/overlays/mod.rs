@@ -13,6 +13,8 @@ mod settings;
 mod shared_fields;
 mod table;
 
+pub use settings::reveal_about;
+
 use eframe::egui::{vec2, Align, Context, Frame, Id, Layout, Margin, Modal, Ui};
 
 use crate::state::{Action, AppState, Overlay};
