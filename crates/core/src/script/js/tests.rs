@@ -124,3 +124,12 @@ fn truthy_guards_become_exists_checks() {
     );
     round_trip("if json exists and json result exists and not json error exists\n  save json session.sessionId as sid\nend");
 }
+
+#[test]
+fn or_guards_convert_too() {
+    let source = "var data = pm.response.json();\nif (data.error || data.result.result != 'SUCCESS' || !data.session) {\n    pm.environment.unset(\"sid\");\n}";
+    assert_eq!(
+        converted(source),
+        "if json error exists or json result.result is not \"SUCCESS\" or json session not exists\n  clear sid\nend"
+    );
+}
