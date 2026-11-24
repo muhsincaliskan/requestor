@@ -77,9 +77,12 @@ impl Recognizer {
         if let Some([value]) = expression.call_of(EMPTY_CALL) {
             return Some(compare(self.subject(value)?, Comparison::IsEmpty, None));
         }
-        let presence = PRESENCE_CALLS
+        let Some(presence) = PRESENCE_CALLS
             .iter()
-            .find_map(|call| expression.call_of(call))?;
+            .find_map(|call| expression.call_of(call))
+        else {
+            return self.truthy(expression);
+        };
         let [Expr::Text(name)] = presence else {
             return None;
         };
@@ -88,6 +91,13 @@ impl Recognizer {
             None => Subject::Variable(name.clone()),
         };
         Some(compare(subject, Comparison::Exists, None))
+    }
+
+    fn truthy(&self, expression: &Expr) -> Option<Condition> {
+        match self.subject(expression)? {
+            subject @ Subject::Json(_) => Some(compare(subject, Comparison::Exists, None)),
+            _ => None,
+        }
     }
 
     pub(super) fn test_condition(&self, body: &Body) -> Option<Condition> {
