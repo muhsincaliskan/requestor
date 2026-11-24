@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{Popup, Ui};
 use requestor_core::workspace::{SidebarOrder, SidebarSort};
 
@@ -21,9 +22,7 @@ pub(super) fn show(ui: &mut Ui, order: &mut SidebarOrder) -> bool {
                 .changed();
         }
         ui.separator();
-        changed |= ui
-            .checkbox(&mut order.folders_first, FOLDERS_FIRST_LABEL)
-            .changed();
+        changed |= check_box(ui, &mut order.folders_first, FOLDERS_FIRST_LABEL).changed();
     });
     changed
 }

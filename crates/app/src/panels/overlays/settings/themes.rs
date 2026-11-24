@@ -6,7 +6,7 @@ use crate::theme::Palette;
 
 const CARD_SIZE: Vec2 = Vec2::new(150.0, 86.0);
 const SWATCH_HEIGHT: f32 = 52.0;
-const CARD_RADIUS: u8 = 6;
+const CARD_RADIUS: u8 = 8;
 const CARD_SPACING: f32 = 10.0;
 const LABEL_BASELINE: f32 = 14.0;
 const SELECTED_STROKE_WIDTH: f32 = 2.0;

@@ -10,7 +10,7 @@ const BODY: &str = "Bring every collection and environment over in one step.";
 const OTHER_FORMATS_LABEL: &str = "Other formats…";
 const OTHER_FORMATS_HINT: &str = "OpenAPI, WSDL, cURL or a raw HTTP request";
 const CARD_MARGIN: i8 = 10;
-const CARD_RADIUS: u8 = 6;
+const CARD_RADIUS: u8 = 8;
 const LINE_GAP: f32 = 6.0;
 
 pub(super) fn show(ui: &mut Ui, actions: &mut Vec<Action>) {

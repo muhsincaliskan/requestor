@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use std::sync::Arc;
 
 use eframe::egui::text::LayoutJob;
@@ -31,8 +32,7 @@ impl CodeChoice {
                 }
             }
             ui.separator();
-            changed |= ui
-                .checkbox(&mut self.include_secrets, SECRETS_LABEL)
+            changed |= check_box(ui, &mut self.include_secrets, SECRETS_LABEL)
                 .on_hover_text(SECRETS_HINT)
                 .changed();
         });

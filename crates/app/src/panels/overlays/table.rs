@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{vec2, Align, Button, Context, Grid, Id, Layout, ScrollArea, TextEdit, Ui};
 
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
@@ -90,7 +91,7 @@ pub(super) fn text_cell(ui: &mut Ui, text: &mut String, hint: &str, masked: bool
 
 pub(super) fn enabled_cell(ui: &mut Ui, enabled: bool) -> Option<bool> {
     let mut checked = enabled;
-    ui.checkbox(&mut checked, "").changed().then_some(checked)
+    check_box(ui, &mut checked, "").changed().then_some(checked)
 }
 
 pub(super) fn delete_cell(ui: &mut Ui) -> bool {

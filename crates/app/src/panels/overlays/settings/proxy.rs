@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{Context, Id, TextEdit, Ui};
 use requestor_core::settings::{ProxySettings, RequestSettings};
 
@@ -91,7 +92,7 @@ fn password(ui: &mut Ui, proxy: &mut ProxySettings) -> bool {
             .ctx()
             .data(|data| data.get_temp(reveal_id))
             .unwrap_or(false);
-        if ui.checkbox(&mut revealed, REVEAL_LABEL).changed() {
+        if check_box(ui, &mut revealed, REVEAL_LABEL).changed() {
             ui.ctx()
                 .data_mut(|data| data.insert_temp(reveal_id, revealed));
         }

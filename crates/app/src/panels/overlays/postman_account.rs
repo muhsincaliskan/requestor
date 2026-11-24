@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{Button, ComboBox, Key, ProgressBar, RichText, TextEdit, Ui};
 
 use super::TITLE_GAP;
@@ -28,7 +29,7 @@ pub fn show(
     ui.weak(EXPLANATION);
     ui.add_space(TITLE_GAP);
     key_row(ui, form, actions);
-    ui.checkbox(&mut form.remember_key, REMEMBER_LABEL);
+    check_box(ui, &mut form.remember_key, REMEMBER_LABEL);
     if form.is_listing() {
         ui.horizontal(|ui| {
             ui.spinner();
