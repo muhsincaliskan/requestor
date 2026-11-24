@@ -113,3 +113,23 @@ fn status_compared_with_text_stays_unconverted() {
         assert!(Script::from_javascript(&lines(source)).is_err(), "{source}");
     }
 }
+
+#[test]
+fn truthy_guards_become_exists_checks() {
+    let source = "var data = JSON.parse(responseBody);\nif(data && data.result && data.result.result=='SUCCESS'){\n    postman.setEnvironmentVariable(\"sid\", data.session.sessionId);\n}";
+    let found = Script::from_javascript(&lines(source));
+    assert_eq!(
+        found.map(|script| script.text()).map_err(|failure| format!("{failure:?}")),
+        Ok("if json exists and json result exists and json result.result is \"SUCCESS\"\n  save json session.sessionId as sid\nend".to_string())
+    );
+    round_trip("if json exists and json result exists and not json error exists\n  save json session.sessionId as sid\nend");
+}
+
+#[test]
+fn or_guards_convert_too() {
+    let source = "var data = pm.response.json();\nif (data.error || data.result.result != 'SUCCESS' || !data.session) {\n    pm.environment.unset(\"sid\");\n}";
+    assert_eq!(
+        converted(source),
+        "if json error exists or json result.result is not \"SUCCESS\" or json session not exists\n  clear sid\nend"
+    );
+}
