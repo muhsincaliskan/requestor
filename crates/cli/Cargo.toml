@@ -11,7 +11,7 @@ name = "requestor"
 path = "src/main.rs"
 
 [dependencies]
-requestor-core = { version = "0.6.0", path = "../core" }
+requestor-core = { version = "0.6.1", path = "../core" }
 
 [lints]
 workspace = true
