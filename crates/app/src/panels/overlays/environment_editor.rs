@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{ComboBox, Context, Ui};
 use requestor_core::environment::{
     Environment, EnvironmentColor, EnvironmentValue, PRODUCTION_NAMES,
@@ -77,7 +78,7 @@ fn value_cell(ui: &mut Ui, entry: &mut EnvironmentValue) -> bool {
 
 fn secret_cell(ui: &mut Ui, entry: &mut EnvironmentValue) -> bool {
     let mut secret = entry.is_secret();
-    let toggled = ui.checkbox(&mut secret, SECRET_LABEL).changed();
+    let toggled = check_box(ui, &mut secret, SECRET_LABEL).changed();
     if toggled {
         entry.set_secret(secret);
     }
@@ -88,8 +89,7 @@ fn marking(ui: &mut Ui, environment: &mut Environment) -> bool {
     ui.horizontal(|ui| {
         let mut changed = color_picker(ui, environment);
         let mut protected = environment.is_protected();
-        if ui
-            .checkbox(&mut protected, PROTECT_LABEL)
+        if check_box(ui, &mut protected, PROTECT_LABEL)
             .on_hover_text(format!(
                 "{PROTECT_HINT} {}",
                 PRODUCTION_NAMES.join(NAME_LIST_SEPARATOR)

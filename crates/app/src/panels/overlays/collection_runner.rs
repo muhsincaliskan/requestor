@@ -1,5 +1,6 @@
 mod results;
 
+use crate::widgets::check_box;
 use eframe::egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
 
 use super::{button_row, dialog, SECTION_GAP};
@@ -90,7 +91,7 @@ fn steps(ui: &mut Ui, form: &mut RunnerForm) {
                 let last = form.steps.len() - 1;
                 for (index, step) in form.steps.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
-                        ui.checkbox(&mut step.enabled, "");
+                        check_box(ui, &mut step.enabled, "");
                         ui.label(
                             RichText::new(step.method())
                                 .color(method_color(ui, step.method()))

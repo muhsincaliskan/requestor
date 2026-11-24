@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{ComboBox, Context, Key, TextEdit, Ui};
 use requestor_core::collection::Collection;
 
@@ -212,7 +213,7 @@ fn credentials_choice(ui: &mut Ui, form: &mut ExportForm, credentials: usize) {
     }
     let found = format!("{credentials} {CREDENTIALS_FOUND}");
     ui.colored_label(ui.visuals().warn_fg_color, found);
-    ui.checkbox(&mut form.keep_credentials, KEEP_CREDENTIALS_LABEL);
+    check_box(ui, &mut form.keep_credentials, KEEP_CREDENTIALS_LABEL);
 }
 
 fn format_choice(ui: &mut Ui, form: &mut ExportForm) {

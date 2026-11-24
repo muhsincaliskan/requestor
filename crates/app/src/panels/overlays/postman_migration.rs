@@ -1,3 +1,4 @@
+use crate::widgets::check_box;
 use eframe::egui::{Context, RichText, ScrollArea, Ui};
 
 use super::postman_account;
@@ -80,7 +81,7 @@ fn export_section(ui: &mut Ui, form: &mut MigrationForm, actions: &mut Vec<Actio
         if ui.button(EXPORT_LABEL).clicked() {
             actions.push(Action::ChooseWorkspaceArchiveLocation);
         }
-        ui.checkbox(&mut form.include_credentials, CREDENTIALS_LABEL)
+        check_box(ui, &mut form.include_credentials, CREDENTIALS_LABEL)
             .on_hover_text(CREDENTIALS_HINT);
     });
 }
