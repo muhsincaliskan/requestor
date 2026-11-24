@@ -1,5 +1,5 @@
 use super::Workspace;
-use crate::checks::RulesReport;
+use crate::script::ScriptReport;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ChangedStores {
@@ -10,7 +10,7 @@ pub struct ChangedStores {
 impl Workspace {
     pub fn store_extracted(
         &mut self,
-        report: &RulesReport,
+        report: &ScriptReport,
         collection_id: Option<&str>,
     ) -> ChangedStores {
         let active = self.session.active_environment.clone();
@@ -19,7 +19,7 @@ impl Workspace {
 
     pub fn store_extracted_in(
         &mut self,
-        report: &RulesReport,
+        report: &ScriptReport,
         collection_id: Option<&str>,
         environment_id: Option<&str>,
     ) -> ChangedStores {
@@ -54,22 +54,19 @@ impl Workspace {
 #[cfg(test)]
 mod tests {
     use super::ChangedStores;
-    use crate::checks::{ExtractSource, Extracted, Extraction, RulesReport, VariableTarget};
     use crate::collection::Collection;
     use crate::environment::Environment;
+    use crate::script::{ScriptReport, VariableTarget, VariableWrite, Written};
     use crate::workspace::Workspace;
 
-    fn report(target: VariableTarget) -> RulesReport {
-        RulesReport {
-            checks: Vec::new(),
-            extracted: vec![Extracted {
-                extraction: Extraction {
-                    variable: "token".to_string(),
-                    source: ExtractSource::Header("X".to_string()),
-                    target,
-                },
-                value: Ok("t-1".to_string()),
+    fn report(target: VariableTarget) -> ScriptReport {
+        ScriptReport {
+            writes: vec![VariableWrite {
+                variable: "token".to_string(),
+                target,
+                value: Ok(Written::Value("t-1".to_string())),
             }],
+            ..ScriptReport::default()
         }
     }
 

@@ -1,5 +1,5 @@
 use super::{Auth, Collection, Item, Param, Request, Variable};
-use crate::checks::ResponseRules;
+use crate::script::RequestScripts;
 
 const PATH_SEPARATOR: &str = "/";
 
@@ -9,7 +9,7 @@ pub struct RunnableRequest {
     pub name: String,
     pub request: Request,
     pub variables: Vec<Variable>,
-    pub rules: ResponseRules,
+    pub scripts: RequestScripts,
 }
 
 impl RunnableRequest {
@@ -90,7 +90,7 @@ impl Scope {
             name: item.name.clone().unwrap_or_default(),
             request,
             variables: self.variables.clone(),
-            rules: ResponseRules::of_events(item.event.as_ref()).unwrap_or_default(),
+            scripts: RequestScripts::of_events(item.event.as_ref()),
         }
     }
 }

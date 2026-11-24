@@ -43,6 +43,10 @@ impl Variable {
         }
     }
 
+    pub fn remove_from(variables: &mut Vec<Variable>, key: &str) {
+        variables.retain(|variable| variable.key_text() != key);
+    }
+
     pub fn set_in(variables: &mut Vec<Variable>, key: &str, text: &str) {
         match variables
             .iter_mut()

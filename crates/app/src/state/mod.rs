@@ -23,6 +23,8 @@ mod postman_account;
 mod postman_migration;
 mod schema_view;
 mod schemas;
+mod script_pane;
+mod scripting;
 mod sections;
 mod sending;
 mod socket;
@@ -55,6 +57,7 @@ pub use overlay::{
 pub use persistence::SaveStatus;
 pub use postman_account::PostmanAccountForm;
 pub use schema_view::{SchemaLookup, SchemaView};
+pub use script_pane::{ConversionFailure, ScriptPane, ScriptView};
 pub use sections::{EditorSection, ResponseSection};
 pub use socket::{SocketPhase, SocketSession};
 pub use stream::{LiveStream, StreamUpdate};

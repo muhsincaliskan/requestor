@@ -1,11 +1,13 @@
 use requestor_core::collection::{Item, Request};
-use requestor_core::draft::{RequestDraft, RulesDraft};
+use requestor_core::draft::{RequestDraft, ScriptsDraft};
 use requestor_core::history::HistoryEntry;
+use requestor_core::script::ScriptReport;
 use requestor_core::settings::RequestOverrides;
 use requestor_core::workspace::{SessionTab, Workspace};
 
 use super::exchange::Exchange;
 use super::schema_view::SchemaView;
+use super::script_pane::ScriptPane;
 use super::sections::{EditorSection, ResponseSection};
 use crate::response::BodyPresentation;
 
@@ -34,6 +36,8 @@ pub struct RequestTab {
     pub response_section: ResponseSection,
     pub message_draft: String,
     pub schema: SchemaView,
+    pub script_pane: ScriptPane,
+    pub(super) before_report: Option<ScriptReport>,
 }
 
 impl ItemBinding {
@@ -61,7 +65,7 @@ impl RequestTab {
     pub fn for_item(id: TabId, binding: ItemBinding, item: &Item) -> Option<Self> {
         let request = item.full_request()?;
         let draft = RequestDraft::from_request(item.display_name(), &request)
-            .with_saved_rules(RulesDraft::from_events(item.event.as_ref()))
+            .with_saved_scripts(ScriptsDraft::from_events(item.event.as_ref()))
             .with_saved_overrides(RequestOverrides::from_extra(&item.extra));
         Some(RequestTab::with_draft(id, Some(binding), draft, false))
     }
@@ -83,7 +87,8 @@ impl RequestTab {
                 .find_item(&binding.item_id)
         });
         let stored = stored_item.and_then(Item::full_request);
-        let saved_rules = RulesDraft::from_events(stored_item.and_then(|item| item.event.as_ref()));
+        let saved_scripts =
+            ScriptsDraft::from_events(stored_item.and_then(|item| item.event.as_ref()));
         let saved_overrides = stored_item
             .map(|item| RequestOverrides::from_extra(&item.extra))
             .unwrap_or_default();
@@ -92,10 +97,13 @@ impl RequestTab {
             Some(request) => RequestDraft::from_request(saved.name.as_str(), request),
             None => RequestDraft::blank(saved.name.as_str()),
         }
-        .with_saved_rules(saved_rules)
+        .with_saved_scripts(saved_scripts)
         .with_saved_overrides(saved_overrides);
-        if let Some(lines) = &saved.unsaved_tests {
-            draft.rules = RulesDraft::from_script(lines);
+        if let Some(text) = &saved.unsaved_before_script {
+            draft.scripts.before.text.clone_from(text);
+        }
+        if let Some(text) = saved.unsaved_after_text() {
+            draft.scripts.after.text = text;
         }
         if let Some(overrides) = saved.unsaved_overrides() {
             draft.overrides = overrides;
@@ -119,9 +127,13 @@ impl RequestTab {
             item_id: self.binding.as_ref().map(|bound| bound.item_id.clone()),
             name: self.draft.name.clone(),
             unsaved_request: self.unsaved.then(|| self.draft.to_request()),
-            unsaved_tests: self
+            unsaved_before_script: self
                 .unsaved
-                .then(|| self.draft.rules.script_lines())
+                .then(|| self.draft.scripts.before.session_text())
+                .flatten(),
+            unsaved_after_script: self
+                .unsaved
+                .then(|| self.draft.scripts.after.session_text())
                 .flatten(),
             source_collection_id: self.source.as_ref().map(|from| from.collection_id.clone()),
             source_item_id: self.source.as_ref().map(|from| from.item_id.clone()),
@@ -223,6 +235,8 @@ impl RequestTab {
             response_section: ResponseSection::default(),
             message_draft: String::new(),
             schema: SchemaView::default(),
+            script_pane: ScriptPane::default(),
+            before_report: None,
         }
     }
 }

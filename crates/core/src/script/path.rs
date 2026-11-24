@@ -12,7 +12,7 @@ enum Segment {
     Index(usize),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct JsonPath {
     segments: Vec<Segment>,
 }
@@ -51,6 +51,30 @@ impl JsonPath {
             rest = remaining;
         }
         Some(JsonPath { segments })
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.segments.is_empty()
+    }
+
+    pub fn with_key(&self, key: &str) -> JsonPath {
+        self.extended(Segment::Key(key.to_string()))
+    }
+
+    pub fn with_index(&self, index: usize) -> JsonPath {
+        self.extended(Segment::Index(index))
+    }
+
+    fn extended(&self, segment: Segment) -> JsonPath {
+        let mut segments = self.segments.clone();
+        segments.push(segment);
+        JsonPath { segments }
+    }
+
+    pub fn joined(&self, tail: &JsonPath) -> JsonPath {
+        let mut segments = self.segments.clone();
+        segments.extend(tail.segments.iter().cloned());
+        JsonPath { segments }
     }
 
     pub fn text(&self) -> String {

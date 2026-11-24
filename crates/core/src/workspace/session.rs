@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::collection::Request;
+use crate::script::Script;
 use crate::settings::RequestOverrides;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -16,6 +17,10 @@ pub struct SessionTab {
     pub unsaved_request: Option<Request>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unsaved_tests: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unsaved_before_script: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unsaved_after_script: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_collection_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -37,6 +42,15 @@ pub struct Session {
 }
 
 impl SessionTab {
+    pub fn unsaved_after_text(&self) -> Option<String> {
+        self.unsaved_after_script.clone().or_else(|| {
+            let lines = self.unsaved_tests.as_ref()?;
+            Script::from_javascript(lines)
+                .ok()
+                .map(|script| script.text())
+        })
+    }
+
     pub fn unsaved_overrides(&self) -> Option<RequestOverrides> {
         self.unsaved_request.as_ref()?;
         RequestOverrides::stored_in(&self.extra)

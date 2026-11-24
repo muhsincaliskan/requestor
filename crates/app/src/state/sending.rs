@@ -1,13 +1,12 @@
-use requestor_core::checks::RulesReport;
-use requestor_core::collection::Request;
+use requestor_core::collection::{Request, BEFORE_REQUEST_STOPPED};
 use requestor_core::environment::Environment;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
 use requestor_core::settings::RequestSettings;
 use requestor_core::variables::VariableScope;
-use requestor_core::workspace::ChangedStores;
 
 use super::exchange::Exchange;
+use super::scripting::with_locals;
 use super::tab::{RequestTab, TabId};
 use super::{Action, AppState, Effect, Overlay};
 use crate::response::ResponseView;
@@ -53,7 +52,16 @@ impl AppState {
     }
 
     pub(super) fn prepare(&self, id: TabId) -> Option<Result<PreparedRequest, String>> {
+        self.prepare_with(id, &[])
+    }
+
+    fn prepare_with(
+        &self,
+        id: TabId,
+        locals: &[(String, String)],
+    ) -> Option<Result<PreparedRequest, String>> {
         let (request, scope) = self.sendable(id)?;
+        let scope = with_locals(scope, locals);
         Some(
             PreparedRequest::from_request(&request, &scope, &self.request_settings(id))
                 .map_err(|error| error.to_string()),
@@ -94,17 +102,16 @@ impl AppState {
         if let Some(tab) = self.tab_mut(id) {
             tab.remember_body_presentation();
         }
-        let Some(prepared) = self.prepare(id) else {
+        let before = self.run_before_script(id);
+        if let Some(failure) = &before.failure {
+            return self.fail_send(id, format!("{BEFORE_REQUEST_STOPPED}{failure}"));
+        }
+        let Some(prepared) = self.prepare_with(id, &before.request_variables()) else {
             return;
         };
         let request = match prepared {
             Ok(request) => request,
-            Err(reason) => {
-                if let Some(tab) = self.tab_mut(id) {
-                    tab.exchange = Exchange::Failed(reason);
-                }
-                return;
-            }
+            Err(reason) => return self.fail_send(id, reason),
         };
         self.warn_about_unresolved(&request);
         if request.is_websocket() {
@@ -117,12 +124,23 @@ impl AppState {
             tab.exchange.start_send(job, record)
         });
         self.abandoned_jobs.extend(replaced);
+        if let Some(tab) = self.tab_mut(id) {
+            tab.before_report = Some(before);
+        }
         effects.push(Effect::Send {
             tab: id,
             job,
             request: Box::new(request),
             settings: Box::new(self.request_settings(id)),
         });
+    }
+
+    fn fail_send(&mut self, id: TabId, reason: String) {
+        let replaced = self.tab_mut(id).and_then(|tab| {
+            tab.before_report = None;
+            tab.exchange.fail(reason)
+        });
+        self.abandoned_jobs.extend(replaced);
     }
 
     pub(super) fn send_finished(
@@ -135,7 +153,7 @@ impl AppState {
         let Some(tab) = self.tab(id).filter(|tab| tab.is_waiting_for(job)) else {
             return;
         };
-        let rules = tab.draft.rules.to_rules();
+        let after = tab.draft.scripts.after.runnable();
         let collection_id = tab
             .binding
             .as_ref()
@@ -144,14 +162,18 @@ impl AppState {
             .tab_mut(id)
             .and_then(|tab| tab.exchange.take_previous());
         let record = self.tab_mut(id).and_then(|tab| tab.exchange.take_record());
+        let before = self.tab_mut(id).and_then(|tab| tab.before_report.take());
         let status = result.as_ref().ok().map(|response| response.status);
         self.remember_sent(record.map(|record| record.finished(status)));
         let exchange = match result {
             Ok(response) => {
-                let report = (!rules.is_empty()).then(|| rules.evaluate(&response));
-                if let Some(report) = &report {
-                    self.store_extracted(report, collection_id.as_deref());
-                }
+                let report = self.run_after_script(
+                    id,
+                    after.as_ref(),
+                    before,
+                    &response,
+                    collection_id.as_deref(),
+                );
                 let presentation = self
                     .tab_mut(id)
                     .and_then(|tab| tab.body_presentation.take());
@@ -165,20 +187,6 @@ impl AppState {
         };
         if let Some(tab) = self.tab_mut(id) {
             tab.exchange = exchange;
-        }
-    }
-
-    fn store_extracted(&mut self, report: &RulesReport, collection_id: Option<&str>) {
-        let changed = self.workspace.store_extracted(report, collection_id);
-        self.mark_extraction_changes(changed);
-    }
-
-    pub(super) fn mark_extraction_changes(&mut self, changed: ChangedStores) {
-        if let Some(environment_id) = changed.environment_id {
-            self.unsaved.touch_environment(&environment_id, self.now);
-        }
-        if let Some(collection_id) = changed.collection_id {
-            self.unsaved.touch_collection(&collection_id, self.now);
         }
     }
 }

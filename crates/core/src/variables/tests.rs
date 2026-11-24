@@ -38,6 +38,20 @@ fn unresolved_names_keep_their_original_spelling_and_are_reported_once() {
 }
 
 #[test]
+fn postman_dynamic_placeholders_generate_values_unless_defined() {
+    let resolved = scope().resolve("{{$guid}}|{{$timestamp}}|{{$randomInt}}");
+    let parts: Vec<&str> = resolved.text.split('|').collect();
+    assert_eq!(parts[0].len(), 36);
+    assert!(parts[1].parse::<u64>().is_ok());
+    assert!(parts[2].parse::<u32>().is_ok());
+    assert!(resolved.unresolved.is_empty());
+    assert_eq!(
+        scope_with(&[("$guid", "fixed")]).resolve("{{$guid}}").text,
+        "fixed"
+    );
+}
+
+#[test]
 fn nested_variables_expand() {
     let nested = scope_with(&[("base", "https://{{host}}"), ("host", "h")]);
     assert_eq!(nested.resolve("{{base}}/p").text, "https://h/p");

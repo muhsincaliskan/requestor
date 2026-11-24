@@ -5,7 +5,7 @@ pub enum EditorSection {
     Headers,
     Body,
     Auth,
-    Tests,
+    Scripts,
     Settings,
 }
 
@@ -26,7 +26,7 @@ impl EditorSection {
         EditorSection::Headers,
         EditorSection::Body,
         EditorSection::Auth,
-        EditorSection::Tests,
+        EditorSection::Scripts,
         EditorSection::Settings,
     ];
 
@@ -36,7 +36,7 @@ impl EditorSection {
             EditorSection::Headers => "Headers",
             EditorSection::Body => "Body",
             EditorSection::Auth => "Auth",
-            EditorSection::Tests => "Tests",
+            EditorSection::Scripts => "Scripts",
             EditorSection::Settings => "Settings",
         }
     }

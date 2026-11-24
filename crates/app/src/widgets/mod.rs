@@ -21,6 +21,7 @@ pub const PROTECTED_SEND_HINT: &str =
 
 pub mod action_button;
 pub mod auth_editor;
+pub mod capsule;
 pub mod code_view;
 pub mod key_value_table;
 pub mod switch;

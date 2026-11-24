@@ -2,14 +2,14 @@ mod auth;
 mod body;
 mod paste;
 mod row;
-mod rules;
+mod scripts;
 mod soap_action;
 mod url_sync;
 
 pub use auth::{AuthDraft, AuthKind};
 pub use body::{BodyDraft, BodyKind, RawLanguage};
 pub use row::KeyValueRow;
-pub use rules::{CheckKind, CheckRow, ExtractKind, ExtractRow, RulesDraft};
+pub use scripts::{ScriptDraft, ScriptsDraft};
 
 use crate::collection::{Request, Url, UrlParts};
 use crate::method::HttpMethod;
@@ -26,9 +26,9 @@ pub struct RequestDraft {
     pub headers: Vec<KeyValueRow>,
     pub body: BodyDraft,
     pub auth: AuthDraft,
-    pub rules: RulesDraft,
+    pub scripts: ScriptsDraft,
     pub overrides: RequestOverrides,
-    saved_rules: RulesDraft,
+    saved_scripts: ScriptsDraft,
     saved_overrides: RequestOverrides,
     source: Request,
 }
@@ -50,9 +50,9 @@ impl RequestDraft {
             headers: rows_from_params(request.header.as_ref()),
             body: BodyDraft::from_body(request.body.as_ref()),
             auth: AuthDraft::from_auth(request.auth.as_ref()),
-            rules: RulesDraft::default(),
+            scripts: ScriptsDraft::default(),
             overrides: RequestOverrides::default(),
-            saved_rules: RulesDraft::default(),
+            saved_scripts: ScriptsDraft::default(),
             saved_overrides: RequestOverrides::default(),
             source: request.clone(),
         };
@@ -60,9 +60,9 @@ impl RequestDraft {
         draft
     }
 
-    pub fn with_saved_rules(mut self, rules: RulesDraft) -> Self {
-        self.rules = rules.clone();
-        self.saved_rules = rules;
+    pub fn with_saved_scripts(mut self, scripts: ScriptsDraft) -> Self {
+        self.scripts = scripts.clone();
+        self.saved_scripts = scripts;
         self
     }
 
@@ -97,14 +97,15 @@ impl RequestDraft {
     pub fn commit(&mut self) -> Request {
         let request = self.to_request();
         self.source = request.clone();
-        self.saved_rules = self.rules.clone();
+        self.scripts = self.scripts.committed();
+        self.saved_scripts = self.scripts.clone();
         self.saved_overrides = self.overrides.clone();
         request
     }
 
     pub fn is_unchanged(&self) -> bool {
         RequestDraft::from_request(self.name.clone(), &self.source)
-            .with_saved_rules(self.saved_rules.clone())
+            .with_saved_scripts(self.saved_scripts.clone())
             .with_saved_overrides(self.saved_overrides.clone())
             == *self
     }

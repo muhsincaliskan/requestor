@@ -78,7 +78,7 @@ fn the_worker_reports_each_step_and_carries_extractions_to_later_steps() {
     assert_eq!(events.len(), 4);
     assert!(matches!(
         &events[0],
-        Action::RunStepFinished { job: 1, outcome } if outcome.extracted.len() == 1
+        Action::RunStepFinished { job: 1, outcome } if outcome.report.writes.len() == 1
     ));
     assert!(matches!(
         &events[3],

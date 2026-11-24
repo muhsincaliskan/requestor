@@ -13,10 +13,10 @@ pub use search::BodySearch;
 
 use std::time::Duration;
 
-use requestor_core::checks::RulesReport;
 use requestor_core::event_stream::EventLog;
 use requestor_core::header::Header;
 use requestor_core::response::{HttpResponse, ResponseFormat, ResponseTiming, StatusClass};
+use requestor_core::script::ScriptReport;
 use requestor_core::text_diff::LineDiff;
 
 const BINARY_NOTICE: &str = "Binary response body";
@@ -31,7 +31,7 @@ pub struct ResponseView {
     pub headers: Vec<Header>,
     pub format: ResponseFormat,
     pub truncated: bool,
-    pub report: Option<RulesReport>,
+    pub report: Option<ScriptReport>,
     layout: BodyLayout,
     inspection: JsonInspection,
     body: Vec<u8>,
@@ -96,7 +96,7 @@ impl ResponseView {
         self.events.as_ref()
     }
 
-    pub fn with_report(mut self, report: Option<RulesReport>) -> Self {
+    pub fn with_report(mut self, report: Option<ScriptReport>) -> Self {
         self.report = report;
         self
     }

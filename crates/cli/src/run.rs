@@ -3,6 +3,7 @@ use std::io::Write;
 use requestor_core::collection::{RunSession, RunnableRequest};
 use requestor_core::environment::Environment;
 use requestor_core::prepared::PreparedRequest;
+use requestor_core::script::StoredScript;
 use requestor_core::transport::{HttpTransport, ReqwestTransport};
 
 use crate::args::RunOptions;
@@ -51,13 +52,15 @@ fn report_step(
     transport: &dyn HttpTransport,
 ) -> RequestReport {
     let name = runnable.qualified_name();
-    let (prepared, redactor) = match session.prepare(runnable) {
-        Ok(request) => request,
-        Err(error) => return RequestReport::failed(&name, None, error),
+    warn_unconverted(&name, runnable);
+    let step = match session.prepare(runnable) {
+        Ok(step) => step,
+        Err(failure) => return RequestReport::failed(&name, None, failure.reason),
     };
-    warn_unresolved(&name, &prepared);
-    let line = RequestLine::from(&prepared, &redactor);
-    match session.send(runnable, prepared, &redactor, transport) {
+    warn_unresolved(&name, &step.request);
+    let line = RequestLine::from(&step.request, &step.redactor);
+    let redactor = step.redactor.clone();
+    match session.send(runnable, step, transport) {
         Ok((response, report)) => {
             let checks = report
                 .checks
@@ -66,7 +69,26 @@ fn report_step(
                 .collect();
             RequestReport::from_response(&name, &line, &response).with_checks(checks)
         }
-        Err(error) => RequestReport::failed(&name, Some(&line), error),
+        Err(failure) => RequestReport::failed(&name, Some(&line), failure.reason),
+    }
+}
+
+fn warn_unconverted(name: &str, runnable: &RunnableRequest) {
+    for (label, stored) in [
+        ("before request", &runnable.scripts.before),
+        ("after response", &runnable.scripts.after),
+    ] {
+        if let StoredScript::Unconverted { problems, .. } = stored {
+            let lines: Vec<String> = problems
+                .lines
+                .iter()
+                .map(|line| line.line.to_string())
+                .collect();
+            eprintln!(
+                "warning: {name}: {label} script not run, lines Requestor cannot convert: {}",
+                lines.join(", ")
+            );
+        }
     }
 }
 

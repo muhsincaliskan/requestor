@@ -3,6 +3,7 @@ const CLOSE_MARK: &str = "}}";
 pub(super) const MAX_EXPANDED_BYTES: usize = 1024 * 1024;
 
 use super::VariableScope;
+use crate::script::Dynamic;
 
 pub(super) fn sorted_unique(mut names: Vec<String>) -> Vec<String> {
     names.sort();
@@ -48,6 +49,9 @@ impl Expansion<'_> {
             return found.literal.to_string();
         }
         let Some(value) = self.scope.lookup(found.name) else {
+            if let Some(dynamic) = Dynamic::from_placeholder(found.name) {
+                return dynamic.generate();
+            }
             self.unresolved.push(found.name.to_string());
             return found.literal.to_string();
         };

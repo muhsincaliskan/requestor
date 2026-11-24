@@ -1,8 +1,8 @@
 mod body;
-mod checks;
 mod explorer_row;
 mod graphql;
 mod inherited;
+mod scripts;
 mod settings;
 mod tables;
 mod url_bar;
@@ -98,14 +98,19 @@ fn section_label(open: &RequestTab, section: EditorSection) -> String {
         EditorSection::Headers => open.draft.active_header_count(),
         EditorSection::Body => open.draft.body.active_count(),
         EditorSection::Auth => 0,
-        EditorSection::Tests => open.draft.rules.active_count(),
+        EditorSection::Scripts => open.draft.scripts.active_count(),
         EditorSection::Settings => open.draft.overrides.count(),
     };
     let label = match count {
         0 => section.label().to_string(),
         count => format!("{} ({count})", section.label()),
     };
-    if section == EditorSection::Settings && open.draft.overrides.lowers_security() {
+    let attention = match section {
+        EditorSection::Settings => open.draft.overrides.lowers_security(),
+        EditorSection::Scripts => open.draft.scripts.has_problems(),
+        _ => false,
+    };
+    if attention {
         return format!("{label}{ATTENTION_MARK}");
     }
     label
@@ -129,7 +134,7 @@ fn show_section(
             inherited::auth(ui, &open.draft.auth, context.inheritance.auth.as_ref());
             changed
         }
-        EditorSection::Tests => checks::show(ui, &mut open.draft.rules),
+        EditorSection::Scripts => scripts::show(ui, open, hints),
         EditorSection::Settings => settings::show(ui, &mut open.draft.overrides, context.global),
     }
 }

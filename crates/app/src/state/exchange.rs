@@ -34,6 +34,13 @@ impl Exchange {
         replaced
     }
 
+    pub fn fail(&mut self, reason: String) -> Option<u64> {
+        match std::mem::replace(self, Exchange::Failed(reason)) {
+            Exchange::Sending { job, .. } => Some(job),
+            _ => None,
+        }
+    }
+
     pub fn start_socket(&mut self, session: SocketSession) -> Option<u64> {
         match std::mem::replace(self, Exchange::Socket(Box::new(session))) {
             Exchange::Sending { job, .. } => Some(job),
