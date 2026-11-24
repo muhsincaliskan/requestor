@@ -1,8 +1,8 @@
 mod form;
 
-use requestor_core::checks::{RulesReport, VariableTarget};
 use requestor_core::collection::{RunPacing, RunStepOutcome, RunnableRequest, Variable};
 use requestor_core::environment::Environment;
+use requestor_core::script::VariableTarget;
 use requestor_core::settings::RequestSettings;
 
 use super::{Action, AppState, Effect, Overlay};
@@ -119,22 +119,19 @@ impl AppState {
             return;
         };
         form.record(outcome.result);
-        if outcome.extracted.is_empty() {
+        if outcome.report.writes.is_empty() {
             return;
         }
         let collection_id = form.collection_id.clone();
         let environment_id = form.environment_id().map(str::to_string);
-        let mut report = RulesReport {
-            extracted: outcome.extracted,
-            ..RulesReport::default()
-        };
+        let mut report = outcome.report;
         if environment_id
             .as_deref()
             .is_some_and(|id| self.workspace.environment(id).is_none())
         {
             report
-                .extracted
-                .retain(|entry| entry.extraction.target == VariableTarget::Collection);
+                .writes
+                .retain(|write| write.target == VariableTarget::Collection);
         }
         let changed = self.workspace.store_extracted_in(
             &report,

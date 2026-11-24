@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use requestor_core::checks::{ExtractSource, Extracted, Extraction, VariableTarget};
 use requestor_core::collection::{Item, Request, RunStepOutcome, RunStepResult, Url};
 use requestor_core::environment::Environment;
+use requestor_core::script::{ScriptReport, VariableTarget, VariableWrite, Written};
 
 use super::state_with_request;
 use crate::state::{Action, AppState, Effect, Overlay, RunnerForm};
@@ -26,7 +26,7 @@ fn outcome(name: &str) -> RunStepOutcome {
             checks_total: 0,
             error: None,
         },
-        extracted: Vec::new(),
+        report: ScriptReport::default(),
     }
 }
 
@@ -149,9 +149,9 @@ fn a_completed_step_stores_variables_in_its_original_environment_and_collection(
     state.apply(Action::SelectEnvironment(Some(staging.clone())), 0.0);
 
     let mut step = outcome("list");
-    step.extracted = vec![
-        extracted(VariableTarget::Environment),
-        extracted(VariableTarget::Collection),
+    step.report.writes = vec![
+        written(VariableTarget::Environment),
+        written(VariableTarget::Collection),
     ];
     state.apply(
         Action::RunStepFinished {
@@ -190,13 +190,10 @@ fn start(state: &mut AppState) -> u64 {
     run.job
 }
 
-fn extracted(target: VariableTarget) -> Extracted {
-    Extracted {
-        extraction: Extraction {
-            variable: "id".to_string(),
-            source: ExtractSource::Header("X-Id".to_string()),
-            target,
-        },
-        value: Ok("42".to_string()),
+fn written(target: VariableTarget) -> VariableWrite {
+    VariableWrite {
+        variable: "id".to_string(),
+        target,
+        value: Ok(Written::Value("42".to_string())),
     }
 }

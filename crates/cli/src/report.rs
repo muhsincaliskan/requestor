@@ -1,6 +1,6 @@
-use requestor_core::checks::CheckOutcome;
 use requestor_core::prepared::PreparedRequest;
 use requestor_core::response::HttpResponse;
+use requestor_core::script::CheckOutcome;
 use requestor_core::secret::Redactor;
 
 use crate::json::JsonLine;

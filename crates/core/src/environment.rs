@@ -162,6 +162,10 @@ impl Environment {
             .map(|entry| entry.key.as_str())
     }
 
+    pub fn remove_value(&mut self, key: &str) {
+        self.values.retain(|entry| entry.key != key);
+    }
+
     pub fn value_of(&self, key: &str) -> Option<String> {
         self.values
             .iter()

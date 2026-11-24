@@ -29,7 +29,7 @@
 - Basic, Bearer and API key auth, inherited from the collection or folder. Other Postman auth types are kept as they are.
 - `{{variables}}` from environments and collections, with autocomplete, coloring and hover previews.
 - Import from Postman, OpenAPI 3, WSDL, cURL and raw HTTP. Paste a cURL command into the URL field to fill in the whole request.
-- Tests on each request, stored as Postman test scripts, and values passed from one response to the next request.
+- Scripts before and after each request in a short English language (`expect status is 200`), stored as Postman JavaScript so the same collection runs in Postman.
 - WebSocket and server-sent events, response diffs, request history and code generation.
 - Proxy with username and password, client certificates, SSL verification, cookies, redirects, timeouts, response size limit and HTTP version, all in Settings.
 - Light, dark, midnight and sepia themes, a two-pane view, swappable sidebars, a command palette and keyboard shortcuts for everything.
@@ -90,10 +90,7 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
   - It sends the matching Content-Type.
   - It is stored as raw XML, so Postman opens it unchanged.
 - GraphQL: **Fetch schema** asks the server for its schema with the request's URL, headers and auth. The schema's queries and mutations are listed beside the query editor with a filter. Click a field to replace the query with a ready operation that takes its arguments as variables and selects its simple fields. Values already filled in the variables are kept. The schema is kept while the tab is open.
-- Tests on each request:
-  - Checks for status, response time, body text, a header or a JSON value.
-  - Save a JSON value or a header into an environment or collection variable for the next requests.
-  - Stored as Postman test scripts, so the same collection runs in Postman. Custom scripts are kept as they are.
+- Scripts on each request, in the **Scripts** tab. See [Scripts](#scripts).
 - Secret values are masked in the UI and never logged.
 - Secret environment values and the proxy password are kept in the system keychain (macOS Keychain, Windows Credential Manager, the Secret Service on Linux), one entry per environment. The workspace files and every export leave them empty, so a command-line run that reads a workspace environment file sees them empty too. When no keychain is available, or it refuses a value, the values stay in the workspace files and Requestor says so. Secret collection and folder variables are left empty in exports.
 - Large responses scroll smoothly:
@@ -112,6 +109,62 @@ This writes `target/bundle/Requestor.app` and, when `hdiutil` is available, `tar
 - A URL typed without `http://` or `https://` is sent over HTTP, as in a browser.
 - With autosave off, requests with unsaved edits are marked in the tree and listed in an Unsaved group at the top of the sidebar.
 - A standalone `requestor` command-line binary runs collections, sends single cURL or raw HTTP requests, and converts imports to Postman format.
+
+## Scripts
+
+Each request has a **Before request** and an **After response** script in its **Scripts** tab. Scripts use a small English language that Requestor runs itself, with no JavaScript engine. One statement per line:
+
+```
+# After response
+expect status is 200
+expect time below 500 ms
+expect header Content-Type contains "json"
+expect json data.items is not empty named "Has items"
+
+if status is 200 and json data.token exists
+  save json data.token as token
+  save header X-Request-Id as last_id in collection
+else if status is 401
+  clear token
+else
+  fail "Unexpected status"
+end
+```
+
+```
+# Before request
+set request_id to new uuid in request
+set started to timestamp ms
+if {{env}} is "prod"
+  fail "Do not run this against prod"
+end
+```
+
+| Statement | Meaning |
+| --- | --- |
+| `expect CONDITION [named "title"]` | A check. The title shown in results defaults to the condition. |
+| `save SUBJECT as NAME [in TARGET]` | Store a value from the response. |
+| `set NAME to VALUE [in TARGET]` | Store a fixed or generated value. |
+| `clear NAME [in TARGET]` | Remove a variable. |
+| `fail "message"` | Stop the script. A failure before the request stops the send. |
+| `if` / `else if` / `else` / `end` | Branches, nested as deep as needed. Indentation is only for reading. |
+| `# text` | A comment. |
+
+- Subjects: `status`, `time` (ms), `body`, `header NAME`, `json PATH` (for example `data.items[0].id`; `json` alone is the whole body) and `{{variable}}`. Response subjects work only in **After response**.
+- Comparisons: `is`, `is not`, `contains`, `not contains`, `above`, `below`, `exists`, `not exists`, `is empty`, `is not empty`.
+- Conditions combine with `not`, `and` and `or`, in that order of binding, without parentheses.
+- Values: numbers, `true`, `false`, `null`, `"text"` (with `{{variables}}` inside), or `{{variable}}`.
+- Generated values for `set`: `new uuid`, `timestamp`, `timestamp ms`, `random number 1 100`, `now iso`.
+- Targets: `environment` (the default, or the collection when no environment is active), `collection`, or `request`, which lasts only for this send and is not saved.
+- The editor suggests the next word under the editor, and lists mistakes by line. While a script has mistakes, the last saved version keeps running.
+- `{{$guid}}`, `{{$randomUUID}}`, `{{$timestamp}}` and `{{$randomInt}}` work anywhere variables do, as in Postman.
+
+Scripts are stored as Postman JavaScript (`pm.test`, `pm.expect`, `pm.environment.set`, …), so the same collection runs in Postman. The **JavaScript** view shows that code:
+
+- **Convert to JavaScript →** shows the JavaScript for the current script.
+- You can edit the JavaScript and press **← Convert to script**. Requestor never runs JavaScript, and edits that are not converted are not saved.
+- Imported Postman scripts are converted when every line is recognized, including common styles such as `pm.test(...)` with chai assertions, `var jsonData = pm.response.json()`, `postman.setEnvironmentVariable` and `tests["name"] = ...`.
+- When a line is not recognized, the script does not run. The Scripts tab lists the lines it could not convert, and the original JavaScript is kept unchanged on save and export.
 
 ## Using the same data on several computers
 
@@ -211,6 +264,10 @@ The arguments are the number of open tabs, the size of the response loaded into 
 ## Fonts
 
 The interface uses [Inter](https://github.com/rsms/inter) in Regular, Medium and SemiBold, reduced to the Latin and interface symbol ranges. Inter is licensed under the SIL Open Font License 1.1; see `assets/fonts/LICENSE-Inter.txt`.
+
+## Roadmap
+
+Planned and considered work is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Code signing policy
 

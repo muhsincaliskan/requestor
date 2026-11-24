@@ -1,11 +1,12 @@
 use std::fmt;
 use std::time::Duration;
 
+use super::step::{PreparedStep, StepFailure, BEFORE_REQUEST_STOPPED};
 use super::{RunnableRequest, Variable};
-use crate::checks::{Extracted, RulesReport};
 use crate::environment::Environment;
 use crate::prepared::PreparedRequest;
 use crate::response::{HttpResponse, StatusClass};
+use crate::script::{Script, ScriptContext, ScriptReport};
 use crate::secret::Redactor;
 use crate::settings::RequestSettings;
 use crate::transport::HttpTransport;
@@ -34,7 +35,7 @@ pub struct RunStepResult {
 
 pub struct RunStepOutcome {
     pub result: RunStepResult,
-    pub extracted: Vec<Extracted>,
+    pub report: ScriptReport,
 }
 
 impl fmt::Debug for RunStepOutcome {
@@ -42,7 +43,7 @@ impl fmt::Debug for RunStepOutcome {
         formatter
             .debug_struct("RunStepOutcome")
             .field("result", &self.result)
-            .field("extracted_count", &self.extracted.len())
+            .field("write_count", &self.report.writes.len())
             .finish()
     }
 }
@@ -105,7 +106,7 @@ impl RunStepResult {
         iteration: u32,
         runnable: &RunnableRequest,
         response: &HttpResponse,
-        report: &RulesReport,
+        report: &ScriptReport,
     ) -> Self {
         RunStepResult {
             iteration,
@@ -152,35 +153,82 @@ impl RunSession {
         self
     }
 
-    pub fn prepare(
-        &self,
-        runnable: &RunnableRequest,
-    ) -> Result<(PreparedRequest, Redactor), String> {
-        let scope = VariableScope::layered(
-            self.collection_variables.as_deref().unwrap_or_default(),
-            &runnable.variables,
-            self.environment.as_ref(),
-            &self.extra_variables,
-        );
+    pub fn prepare(&mut self, runnable: &RunnableRequest) -> Result<PreparedStep, StepFailure> {
+        let report = match runnable.scripts.before.runnable() {
+            Some(script) => self.run_script(script, runnable, &[], None),
+            None => ScriptReport::default(),
+        };
+        let scope = self.scope(runnable, &report.request_variables());
         let redactor = Redactor::for_request(&scope, runnable.request.auth.as_ref());
-        let prepared = PreparedRequest::from_request(&runnable.request, &scope, &self.settings)
-            .map_err(|error| redactor.redact_text(&error.to_string()))?;
-        Ok((prepared, redactor))
+        if let Some(failure) = &report.failure {
+            let reason = redactor.redact_text(&format!("{BEFORE_REQUEST_STOPPED}{failure}"));
+            return Err(StepFailure { reason, report });
+        }
+        let request = match PreparedRequest::from_request(&runnable.request, &scope, &self.settings)
+        {
+            Ok(request) => request,
+            Err(error) => {
+                let reason = redactor.redact_text(&error.to_string());
+                return Err(StepFailure { reason, report });
+            }
+        };
+        Ok(PreparedStep {
+            request,
+            redactor,
+            report,
+        })
     }
 
     pub fn send(
         &mut self,
         runnable: &RunnableRequest,
-        prepared: PreparedRequest,
-        redactor: &Redactor,
+        step: PreparedStep,
         transport: &dyn HttpTransport,
-    ) -> Result<(HttpResponse, RulesReport), String> {
-        let response = transport
-            .send(prepared)
-            .map_err(|error| redactor.redact_text(&error.to_string()))?;
-        let report = runnable.rules.evaluate(&response);
-        report.apply(self.environment.as_mut(), &mut self.collection_variables);
+    ) -> Result<(HttpResponse, ScriptReport), StepFailure> {
+        let PreparedStep {
+            request,
+            redactor,
+            mut report,
+        } = step;
+        let response = match transport.send(request) {
+            Ok(response) => response,
+            Err(error) => {
+                let reason = redactor.redact_text(&error.to_string());
+                return Err(StepFailure { reason, report });
+            }
+        };
+        if let Some(script) = runnable.scripts.after.runnable() {
+            let locals = report.request_variables();
+            report.absorb(self.run_script(script, runnable, &locals, Some(&response)));
+        }
         Ok((response, report))
+    }
+
+    fn run_script(
+        &mut self,
+        script: &Script,
+        runnable: &RunnableRequest,
+        locals: &[(String, String)],
+        response: Option<&HttpResponse>,
+    ) -> ScriptReport {
+        let scope = self.scope(runnable, locals);
+        let report = script.run(&ScriptContext {
+            response,
+            variables: &scope,
+        });
+        report.apply(self.environment.as_mut(), &mut self.collection_variables);
+        report
+    }
+
+    fn scope(&self, runnable: &RunnableRequest, locals: &[(String, String)]) -> VariableScope {
+        let mut overrides = self.extra_variables.clone();
+        overrides.extend(locals.iter().cloned());
+        VariableScope::layered(
+            self.collection_variables.as_deref().unwrap_or_default(),
+            &runnable.variables,
+            self.environment.as_ref(),
+            &overrides,
+        )
     }
 
     pub fn run_one(
@@ -191,15 +239,15 @@ impl RunSession {
     ) -> RunStepOutcome {
         let outcome = self
             .prepare(runnable)
-            .and_then(|(prepared, redactor)| self.send(runnable, prepared, &redactor, transport));
+            .and_then(|step| self.send(runnable, step, transport));
         match outcome {
             Ok((response, report)) => RunStepOutcome {
                 result: RunStepResult::responded(iteration, runnable, &response, &report),
-                extracted: report.extracted,
+                report,
             },
-            Err(error) => RunStepOutcome {
-                result: RunStepResult::failed(iteration, runnable, error),
-                extracted: Vec::new(),
+            Err(failure) => RunStepOutcome {
+                result: RunStepResult::failed(iteration, runnable, failure.reason),
+                report: failure.report,
             },
         }
     }

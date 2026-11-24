@@ -13,6 +13,7 @@ mod request;
 mod run;
 mod runner;
 mod shared_headers;
+mod step;
 mod tree;
 mod url;
 mod variable;
@@ -34,6 +35,7 @@ pub use runner::{
     RunPacing, RunSession, RunStepOutcome, RunStepResult, MAX_DELAY_MS, MAX_ITERATIONS,
 };
 pub use shared_headers::InheritedHeader;
+pub use step::{PreparedStep, StepFailure, BEFORE_REQUEST_STOPPED};
 pub use url::{Url, UrlParts, SCHEME_SEPARATOR};
 pub use variable::Variable;
 

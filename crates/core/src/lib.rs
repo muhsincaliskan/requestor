@@ -1,4 +1,3 @@
-pub mod checks;
 pub mod collection;
 pub mod curl_command;
 pub mod draft;
@@ -20,6 +19,7 @@ pub mod migration;
 pub mod postman_cloud;
 pub mod prepared;
 pub mod response;
+pub mod script;
 pub mod secret;
 pub mod settings;
 pub mod soap;

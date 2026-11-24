@@ -1,14 +1,16 @@
 use eframe::egui::{Label, RichText, ScrollArea, Ui};
-use requestor_core::checks::{CheckOutcome, Extracted};
+use requestor_core::script::{CheckOutcome, VariableWrite, Written};
 
 use crate::response::ResponseView;
 use crate::widgets::success_color;
 
 const PASSED_MARK: &str = "✓";
 const FAILED_MARK: &str = "✗";
-const NO_CHECKS_TEXT: &str = "This request has no checks, only saved values.";
-const SAVED_TITLE: &str = "Saved values";
+const NO_CHECKS_TEXT: &str = "The scripts ran without expect lines.";
+const SAVED_TITLE: &str = "Variables";
 const SAVED_TEXT: &str = "saved";
+const REMOVED_TEXT: &str = "cleared";
+const STOPPED_TITLE: &str = "Script stopped:";
 const NOT_SAVED_TEXT: &str = "not saved:";
 const SECTION_GAP: f32 = 12.0;
 
@@ -23,11 +25,18 @@ pub fn show(ui: &mut Ui, view: &ResponseView) {
         for outcome in &report.checks {
             outcome_row(ui, outcome);
         }
-        if !report.extracted.is_empty() {
+        if let Some(failure) = &report.failure {
+            ui.add_space(SECTION_GAP);
+            ui.horizontal(|ui| {
+                ui.strong(STOPPED_TITLE);
+                ui.label(failure);
+            });
+        }
+        if !report.writes.is_empty() {
             ui.add_space(SECTION_GAP);
             ui.strong(SAVED_TITLE);
-            for extracted in &report.extracted {
-                extracted_row(ui, extracted);
+            for write in &report.writes {
+                write_row(ui, write);
             }
         }
     });
@@ -46,14 +55,17 @@ fn outcome_row(ui: &mut Ui, outcome: &CheckOutcome) {
     });
 }
 
-fn extracted_row(ui: &mut Ui, extracted: &Extracted) {
+fn write_row(ui: &mut Ui, write: &VariableWrite) {
     ui.horizontal(|ui| {
-        let variable = RichText::new(&extracted.extraction.variable).monospace();
-        match &extracted.value {
-            Ok(_) => {
+        let variable = RichText::new(&write.variable).monospace();
+        match &write.value {
+            Ok(written) => {
                 ui.label(RichText::new(PASSED_MARK).color(success_color(ui)));
                 ui.label(variable);
-                ui.weak(SAVED_TEXT);
+                ui.weak(match written {
+                    Written::Value(_) => SAVED_TEXT,
+                    Written::Removed => REMOVED_TEXT,
+                });
             }
             Err(reason) => {
                 ui.label(RichText::new(FAILED_MARK).color(ui.visuals().error_fg_color));
