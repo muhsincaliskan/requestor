@@ -4,6 +4,8 @@ use eframe::egui::text::LayoutJob;
 use eframe::egui::{vec2, Galley, ScrollArea, TextBuffer, TextEdit, TextStyle, Ui};
 use requestor_core::prepared::CodeLanguage;
 
+use super::checkbox;
+
 const SECRETS_LABEL: &str = "Include secrets";
 const SECRETS_HINT: &str = "Off: tokens, passwords and secret variables show as <redacted>.";
 const CODE_SALT: &str = "generated-code";
@@ -31,8 +33,7 @@ impl CodeChoice {
                 }
             }
             ui.separator();
-            changed |= ui
-                .checkbox(&mut self.include_secrets, SECRETS_LABEL)
+            changed |= checkbox(ui, &mut self.include_secrets, SECRETS_LABEL)
                 .on_hover_text(SECRETS_HINT)
                 .changed();
         });

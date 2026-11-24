@@ -1,3 +1,4 @@
+mod checkbox;
 mod environment_color;
 mod highlight;
 mod icon_button;
@@ -5,6 +6,7 @@ mod list_row;
 mod method_badge;
 mod status_color;
 
+pub use checkbox::checkbox;
 pub use environment_color::{environment_color, environment_swatch};
 pub use highlight::{append_row, layout_row, SyntaxPalette};
 pub use icon_button::{chevron_button, close_button, eye_button, icon_button, ICON_BUTTON_SIZE};

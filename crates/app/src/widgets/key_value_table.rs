@@ -1,8 +1,8 @@
-use eframe::egui::{Checkbox, Id, Label, RichText, Ui};
+use eframe::egui::{Id, Label, RichText, Ui};
 use requestor_core::draft::KeyValueRow;
 
-use super::icon_button;
 use super::variable_text_edit::{VariableHints, VariableTextEdit};
+use super::{checkbox, icon_button};
 
 const KEY_HINT: &str = "Key";
 const VALUE_HINT: &str = "Value";
@@ -152,7 +152,7 @@ impl<'a> KeyValueTable<'a> {
         let deletable = self.rows_addable && !is_pending;
         let mut outcome = RowOutcome::default();
         ui.horizontal(|ui| {
-            outcome.changed |= ui.add(Checkbox::without_text(&mut row.enabled)).changed();
+            outcome.changed |= checkbox(ui, &mut row.enabled, "").changed();
             outcome.changed |= key_cell(ui, row, widths.key, keys_editable, hints, id.with(index));
             outcome.changed |=
                 value_cell(ui, row, widths.value, files_allowed, hints, id.with(index));

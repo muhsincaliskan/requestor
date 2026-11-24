@@ -5,7 +5,7 @@ use super::{button_row, dialog};
 use crate::state::{
     Action, AppState, DeleteConfirmation, ExportForm, ExportFormat, RenameForm, SaveTabForm, TabId,
 };
-use crate::widgets::action_button;
+use crate::widgets::{action_button, checkbox};
 
 const CHOOSE_LOCATION_LABEL: &str = "Export to…";
 const CANCEL_LABEL: &str = "Cancel";
@@ -212,7 +212,7 @@ fn credentials_choice(ui: &mut Ui, form: &mut ExportForm, credentials: usize) {
     }
     let found = format!("{credentials} {CREDENTIALS_FOUND}");
     ui.colored_label(ui.visuals().warn_fg_color, found);
-    ui.checkbox(&mut form.keep_credentials, KEEP_CREDENTIALS_LABEL);
+    checkbox(ui, &mut form.keep_credentials, KEEP_CREDENTIALS_LABEL);
 }
 
 fn format_choice(ui: &mut Ui, form: &mut ExportForm) {

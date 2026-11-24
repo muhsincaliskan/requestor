@@ -2,7 +2,7 @@ use eframe::egui::{Button, ComboBox, Key, ProgressBar, RichText, TextEdit, Ui};
 
 use super::TITLE_GAP;
 use crate::state::{Action, MigrationForm, PostmanAccountForm};
-use crate::widgets::action_button;
+use crate::widgets::{action_button, checkbox};
 
 const HEADING: &str = "From your Postman account";
 const EXPLANATION: &str = "Paste a Postman API key to import every collection and environment of a workspace, with folders kept. Create one in Postman under Settings, API keys.";
@@ -28,7 +28,7 @@ pub fn show(
     ui.weak(EXPLANATION);
     ui.add_space(TITLE_GAP);
     key_row(ui, form, actions);
-    ui.checkbox(&mut form.remember_key, REMEMBER_LABEL);
+    checkbox(ui, &mut form.remember_key, REMEMBER_LABEL);
     if form.is_listing() {
         ui.horizontal(|ui| {
             ui.spinner();

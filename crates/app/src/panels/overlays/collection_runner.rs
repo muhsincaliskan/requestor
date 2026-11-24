@@ -4,7 +4,7 @@ use eframe::egui::{Align, Context, Layout, RichText, ScrollArea, TextEdit, Ui};
 
 use super::{button_row, dialog, SECTION_GAP};
 use crate::state::{Action, AppState, RunnerForm};
-use crate::widgets::{action_button, icon_button, method_color};
+use crate::widgets::{action_button, checkbox, icon_button, method_color};
 
 const DIALOG_ID: &str = "collection-runner";
 const TITLE_PREFIX: &str = "Run";
@@ -90,7 +90,7 @@ fn steps(ui: &mut Ui, form: &mut RunnerForm) {
                 let last = form.steps.len() - 1;
                 for (index, step) in form.steps.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
-                        ui.checkbox(&mut step.enabled, "");
+                        checkbox(ui, &mut step.enabled, "");
                         ui.label(
                             RichText::new(step.method())
                                 .color(method_color(ui, step.method()))

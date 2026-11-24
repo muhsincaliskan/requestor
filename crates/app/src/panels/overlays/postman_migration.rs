@@ -3,6 +3,7 @@ use eframe::egui::{Context, RichText, ScrollArea, Ui};
 use super::postman_account;
 use super::{button_row, dialog, TITLE_GAP};
 use crate::state::{Action, FolderPurpose, MigrationForm, MigrationOutcome, PostmanAccountForm};
+use crate::widgets::checkbox;
 
 const DIALOG_ID: &str = "postman-migration";
 pub const TITLE: &str = "Import from Postman";
@@ -80,7 +81,7 @@ fn export_section(ui: &mut Ui, form: &mut MigrationForm, actions: &mut Vec<Actio
         if ui.button(EXPORT_LABEL).clicked() {
             actions.push(Action::ChooseWorkspaceArchiveLocation);
         }
-        ui.checkbox(&mut form.include_credentials, CREDENTIALS_LABEL)
+        checkbox(ui, &mut form.include_credentials, CREDENTIALS_LABEL)
             .on_hover_text(CREDENTIALS_HINT);
     });
 }

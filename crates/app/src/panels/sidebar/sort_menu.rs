@@ -1,7 +1,7 @@
 use eframe::egui::{Popup, Ui};
 use requestor_core::workspace::{SidebarOrder, SidebarSort};
 
-use crate::widgets::icon_button;
+use crate::widgets::{checkbox, icon_button};
 
 const SORT_GLYPH: &str = "↕";
 const SORT_HINT: &str = "Sort";
@@ -21,9 +21,7 @@ pub(super) fn show(ui: &mut Ui, order: &mut SidebarOrder) -> bool {
                 .changed();
         }
         ui.separator();
-        changed |= ui
-            .checkbox(&mut order.folders_first, FOLDERS_FIRST_LABEL)
-            .changed();
+        changed |= checkbox(ui, &mut order.folders_first, FOLDERS_FIRST_LABEL).changed();
     });
     changed
 }

@@ -2,6 +2,7 @@ use eframe::egui::{Context, Id, TextEdit, Ui};
 use requestor_core::settings::{ProxySettings, RequestSettings};
 
 use super::row::{row, toggles, Toggle};
+use crate::widgets::checkbox;
 use crate::widgets::switch::Switch;
 
 const REVEAL_ID: &str = "settings-proxy-reveal";
@@ -91,7 +92,7 @@ fn password(ui: &mut Ui, proxy: &mut ProxySettings) -> bool {
             .ctx()
             .data(|data| data.get_temp(reveal_id))
             .unwrap_or(false);
-        if ui.checkbox(&mut revealed, REVEAL_LABEL).changed() {
+        if checkbox(ui, &mut revealed, REVEAL_LABEL).changed() {
             ui.ctx()
                 .data_mut(|data| data.insert_temp(reveal_id, revealed));
         }

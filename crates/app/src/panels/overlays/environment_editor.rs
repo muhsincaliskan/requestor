@@ -9,7 +9,7 @@ use super::table::{
     text_cell, RowEdit, KEY_HINT,
 };
 use crate::state::{Action, AppState};
-use crate::widgets::environment_swatch;
+use crate::widgets::{checkbox, environment_swatch};
 
 const DIALOG_ID: &str = "environment-editor";
 const TABLE_ID: &str = "environment-values";
@@ -77,7 +77,7 @@ fn value_cell(ui: &mut Ui, entry: &mut EnvironmentValue) -> bool {
 
 fn secret_cell(ui: &mut Ui, entry: &mut EnvironmentValue) -> bool {
     let mut secret = entry.is_secret();
-    let toggled = ui.checkbox(&mut secret, SECRET_LABEL).changed();
+    let toggled = checkbox(ui, &mut secret, SECRET_LABEL).changed();
     if toggled {
         entry.set_secret(secret);
     }
@@ -88,8 +88,7 @@ fn marking(ui: &mut Ui, environment: &mut Environment) -> bool {
     ui.horizontal(|ui| {
         let mut changed = color_picker(ui, environment);
         let mut protected = environment.is_protected();
-        if ui
-            .checkbox(&mut protected, PROTECT_LABEL)
+        if checkbox(ui, &mut protected, PROTECT_LABEL)
             .on_hover_text(format!(
                 "{PROTECT_HINT} {}",
                 PRODUCTION_NAMES.join(NAME_LIST_SEPARATOR)
