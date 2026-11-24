@@ -1,5 +1,5 @@
 use std::io::ErrorKind;
-use std::net::TcpStream;
+use std::net::Shutdown;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
@@ -9,12 +9,13 @@ use tungstenite::{Error, Message};
 
 use super::super::socket::{SocketCommand, SocketEvent};
 use super::super::TransportError;
-use super::handshake::{Connection, Socket};
+use super::handshake::{tcp_stream, Connection, Socket};
 use crate::websocket::{SocketMessage, SocketPayload};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const CLOSE_GRACE: Duration = Duration::from_secs(2);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
+const NO_STREAM: &str = "the connection has no TCP stream to configure";
 
 enum Flow {
     Continue,
@@ -23,21 +24,20 @@ enum Flow {
 
 pub(super) struct Session {
     socket: Socket,
-    control: TcpStream,
     opened: Instant,
     close_reason: Option<String>,
 }
 
 impl Session {
     pub(super) fn new(connection: Connection) -> Result<Self, TransportError> {
-        let control = &connection.control;
-        control
+        let stream = tcp_stream(&connection.socket)
+            .ok_or_else(|| TransportError::ConnectionFailed(NO_STREAM.to_string()))?;
+        stream
             .set_read_timeout(Some(POLL_INTERVAL))
-            .and_then(|()| control.set_write_timeout(Some(WRITE_TIMEOUT)))
+            .and_then(|()| stream.set_write_timeout(Some(WRITE_TIMEOUT)))
             .map_err(|error| TransportError::from_io(&error))?;
         Ok(Session {
             socket: connection.socket,
-            control: connection.control,
             opened: Instant::now(),
             close_reason: None,
         })
@@ -102,7 +102,9 @@ impl Session {
                 Err(_) => break,
             }
         }
-        self.control.shutdown(std::net::Shutdown::Both).ok();
+        if let Some(stream) = tcp_stream(&self.socket) {
+            stream.shutdown(Shutdown::Both).ok();
+        }
         Flow::Finished
     }
 }

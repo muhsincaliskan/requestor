@@ -35,8 +35,15 @@ const HANDSHAKE_OWNED_HEADERS: [&str; 7] = [
 
 pub(super) struct Connection {
     pub(super) socket: Socket,
-    pub(super) control: TcpStream,
     pub(super) head: HttpResponse,
+}
+
+pub(super) fn tcp_stream(socket: &Socket) -> Option<&TcpStream> {
+    match socket.get_ref() {
+        MaybeTlsStream::Plain(stream) => Some(stream),
+        MaybeTlsStream::Rustls(stream) => Some(stream.get_ref()),
+        _ => None,
+    }
 }
 
 pub(super) fn connect(
@@ -56,10 +63,7 @@ pub(super) fn connect(
         ));
     }
     let stream = open_stream(handshake.uri(), settings.connect_timeout())?;
-    let control = stream
-        .try_clone()
-        .map_err(|error| TransportError::from_io(&error))?;
-    control
+    stream
         .set_read_timeout(Some(
             settings.request_timeout().unwrap_or(HANDSHAKE_TIMEOUT),
         ))
@@ -73,7 +77,6 @@ pub(super) fn connect(
             .map_err(TransportError::from_handshake)?;
     Ok(Connection {
         socket,
-        control,
         head: handshake_head(&response, started.elapsed()),
     })
 }
