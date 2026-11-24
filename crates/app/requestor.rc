@@ -1,1 +1,31 @@
+#include <winver.h>
+#include "version.h"
+
 1 ICON "../../assets/icon/requestor.ico"
+
+1 VERSIONINFO
+FILEVERSION REQUESTOR_VERSION_NUMBERS
+PRODUCTVERSION REQUESTOR_VERSION_NUMBERS
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "Requestor"
+            VALUE "FileVersion", REQUESTOR_VERSION
+            VALUE "InternalName", "requestor-app"
+            VALUE "OriginalFilename", "requestor-app.exe"
+            VALUE "ProductName", "Requestor"
+            VALUE "ProductVersion", REQUESTOR_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

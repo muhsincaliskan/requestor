@@ -60,10 +60,47 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+    env:
+      SIGN_WINDOWS: ${{ secrets.SIGNPATH_API_TOKEN != '' && startsWith(github.ref, 'refs/tags/') }}
+      SIGNPATH_APPROVAL_TIMEOUT_SECONDS: 3600
+      SIGNED_DIR: target/signed
     steps:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build --release --locked -p requestor-app -p requestor-cli
+      - name: Read product version
+        id: version
+        if: env.SIGN_WINDOWS == 'true'
+        shell: bash
+        run: echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+      - name: Upload unsigned app for signing
+        id: unsigned
+        if: env.SIGN_WINDOWS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned
+          path: target/release/requestor-app.exe
+      - name: Sign with SignPath
+        if: env.SIGN_WINDOWS == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: ${{ env.SIGNPATH_APPROVAL_TIMEOUT_SECONDS }}
+          output-artifact-directory: ${{ env.SIGNED_DIR }}
+          parameters: |
+            version: ${{ toJSON(steps.version.outputs.value) }}
+      - name: Use signed app
+        if: env.SIGN_WINDOWS == 'true'
+        shell: pwsh
+        run: Copy-Item -Force "$env:SIGNED_DIR/requestor-app.exe" target/release/requestor-app.exe
       - name: Package
         shell: pwsh
         run: Compress-Archive -Path target/release/requestor.exe, target/release/requestor-app.exe -DestinationPath requestor-windows-x86_64.zip
