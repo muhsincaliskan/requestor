@@ -3,9 +3,9 @@ use requestor_core::workspace::{AccentName, ThemeName};
 
 use super::accent::accent_color;
 
-const WIDGET_RADIUS: u8 = 10;
-const WINDOW_RADIUS: u8 = 14;
-const MENU_RADIUS: u8 = 12;
+const WIDGET_RADIUS: u8 = 8;
+const WINDOW_RADIUS: u8 = 12;
+const MENU_RADIUS: u8 = 10;
 const BORDER_WIDTH: f32 = 1.0;
 const SELECTION_STRENGTH: f32 = 0.3;
 
