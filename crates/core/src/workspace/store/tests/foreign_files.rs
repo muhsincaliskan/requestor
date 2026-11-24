@@ -3,6 +3,7 @@ use std::fs;
 use super::folder_safety::{item_names, save, with_request};
 use super::links::{folder_in, link, shop};
 use super::TemporaryRoot;
+#[cfg(unix)]
 use crate::collection::Item;
 
 #[test]
