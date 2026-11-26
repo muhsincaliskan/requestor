@@ -107,18 +107,20 @@ fn url_field(
     if submitted && !open.is_sending() && !open.is_connected() {
         actions.push(Action::Send(open.id));
     }
-    if response.changed() && !(pasted(ui) && open.draft.adopt_pasted_curl()) {
+    let adopted =
+        response.changed() && pasted(ui).is_some_and(|text| open.draft.adopt_pasted_curl(&text));
+    if response.changed() && !adopted {
         open.draft.url_edited();
     }
     response.changed()
 }
 
-fn pasted(ui: &Ui) -> bool {
+fn pasted(ui: &Ui) -> Option<String> {
     ui.input(|input| {
-        input
-            .events
-            .iter()
-            .any(|event| matches!(event, Event::Paste(_)))
+        input.events.iter().find_map(|event| match event {
+            Event::Paste(text) => Some(text.clone()),
+            _ => None,
+        })
     })
 }
 

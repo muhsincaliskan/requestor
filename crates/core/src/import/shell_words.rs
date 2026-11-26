@@ -1,5 +1,7 @@
 use super::ImportError;
 
+const SMART_QUOTES: [(char, char); 2] = [('\u{2018}', '\u{2019}'), ('\u{201C}', '\u{201D}')];
+
 pub(super) fn split(command: &str) -> Result<Vec<String>, ImportError> {
     let mut words = Vec::new();
     let mut current = String::new();
@@ -14,6 +16,10 @@ pub(super) fn split(command: &str) -> Result<Vec<String>, ImportError> {
                 read_ansi_quoted(&mut characters, &mut current, &mut started)?;
             }
             '\\' => read_unquoted_escape(&mut characters, &mut current, &mut started),
+            open if smart_close(open).is_some() => {
+                let close = smart_close(open).unwrap_or(open);
+                read_smart_quoted(&mut characters, &mut current, &mut started, close)?;
+            }
             space if space.is_whitespace() => {
                 if started {
                     words.push(std::mem::take(&mut current));
@@ -91,6 +97,29 @@ fn read_double_quoted(
     Err(ImportError::UnterminatedQuote)
 }
 
+fn smart_close(open: char) -> Option<char> {
+    SMART_QUOTES
+        .iter()
+        .find(|(opening, _)| *opening == open)
+        .map(|(_, closing)| *closing)
+}
+
+fn read_smart_quoted(
+    characters: &mut Characters,
+    current: &mut String,
+    started: &mut bool,
+    close: char,
+) -> Result<(), ImportError> {
+    *started = true;
+    for character in characters.by_ref() {
+        if character == close {
+            return Ok(());
+        }
+        current.push(character);
+    }
+    Err(ImportError::UnterminatedQuote)
+}
+
 fn read_ansi_quoted(
     characters: &mut Characters,
     current: &mut String,
@@ -143,6 +172,14 @@ mod tests {
         assert_eq!(split("a 'x\\\ny' b").unwrap(), ["a", "x\\\ny", "b"]);
         assert_eq!(split("a \"x\\\ny\" b").unwrap(), ["a", "xy", "b"]);
         assert_eq!(split("ab\\\ncd").unwrap(), ["abcd"]);
+    }
+
+    #[test]
+    fn typographic_quotes_quote_like_plain_ones() {
+        assert_eq!(
+            split("curl \u{2018}https://x.test/a b\u{2019} -H \u{201C}A: 'b'\u{201D}").unwrap(),
+            ["curl", "https://x.test/a b", "-H", "A: 'b'"]
+        );
     }
 
     #[test]
