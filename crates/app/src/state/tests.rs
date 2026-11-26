@@ -1,14 +1,18 @@
 use std::time::Duration;
 
 use requestor_core::collection::{Collection, Item, Request, Url};
+use requestor_core::draft::KeyValueRow;
 use requestor_core::response::HttpResponse;
 use requestor_core::workspace::{LoadedWorkspace, StoreWrite, Workspace, WorkspaceStore};
 
 use super::autosave::QUIET_SECONDS;
-use super::{Action, AppState, Effect, Exchange, LibraryTarget, Overlay, SaveTabForm, TabId};
+use super::{
+    Action, AppState, Effect, Exchange, LibraryTarget, Overlay, RequestTab, SaveTabForm, TabId,
+};
 
 const STORE_ROOT: &str = "requestor-state-tests";
 const LATER: f64 = QUIET_SECONDS + 1.0;
+const CURL_WITH_HEADER: &str = "curl https://example.test -H 'X-New: after'";
 
 fn state_with(workspace: Workspace) -> AppState {
     let loaded = LoadedWorkspace {
@@ -73,6 +77,37 @@ fn persisted_count(effects: &[Effect]) -> usize {
         .iter()
         .filter(|effect| matches!(effect, Effect::Persist(_)))
         .count()
+}
+
+#[test]
+fn pasting_curl_refreshes_open_bulk_headers() {
+    let mut tab = RequestTab::scratch(TabId(0));
+    tab.draft.headers.push(KeyValueRow::new("X-Old", "before"));
+    tab.header_bulk = Some(KeyValueRow::bulk_text(&tab.draft.headers));
+
+    assert!(tab.adopt_pasted_curl(CURL_WITH_HEADER));
+    assert_eq!(tab.header_bulk.as_deref(), Some("X-New:after"));
+    assert_eq!(tab.draft.headers.len(), 1);
+    assert_eq!(tab.draft.headers[0].key, "X-New");
+    assert_eq!(tab.draft.headers[0].value, "after");
+}
+
+#[test]
+fn pasting_curl_keeps_closed_bulk_headers_closed() {
+    let mut tab = RequestTab::scratch(TabId(0));
+
+    assert!(tab.adopt_pasted_curl(CURL_WITH_HEADER));
+    assert!(tab.header_bulk.is_none());
+}
+
+#[test]
+fn pasting_an_invalid_curl_command_preserves_bulk_text() {
+    const BULK_TEXT: &str = "X-Old: before\n\n";
+    let mut tab = RequestTab::scratch(TabId(0));
+    tab.header_bulk = Some(BULK_TEXT.to_string());
+
+    assert!(!tab.adopt_pasted_curl("curl 'unterminated"));
+    assert_eq!(tab.header_bulk.as_deref(), Some(BULK_TEXT));
 }
 
 #[test]

@@ -1,5 +1,5 @@
 use requestor_core::collection::{Item, Request};
-use requestor_core::draft::{RequestDraft, ScriptsDraft};
+use requestor_core::draft::{KeyValueRow, RequestDraft, ScriptsDraft};
 use requestor_core::history::HistoryEntry;
 use requestor_core::script::ScriptReport;
 use requestor_core::settings::RequestOverrides;
@@ -61,6 +61,16 @@ impl RequestTab {
 
     pub fn for_request(id: TabId, name: &str, request: &Request) -> Self {
         RequestTab::with_draft(id, None, RequestDraft::from_request(name, request), true)
+    }
+
+    pub fn adopt_pasted_curl(&mut self, pasted: &str) -> bool {
+        if !self.draft.adopt_pasted_curl(pasted) {
+            return false;
+        }
+        if let Some(text) = &mut self.header_bulk {
+            *text = KeyValueRow::bulk_text(&self.draft.headers);
+        }
+        true
     }
 
     pub fn for_item(id: TabId, binding: ItemBinding, item: &Item) -> Option<Self> {

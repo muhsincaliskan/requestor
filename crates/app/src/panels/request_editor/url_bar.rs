@@ -108,7 +108,7 @@ fn url_field(
         actions.push(Action::Send(open.id));
     }
     let adopted =
-        response.changed() && pasted(ui).is_some_and(|text| open.draft.adopt_pasted_curl(&text));
+        response.changed() && pasted(ui).is_some_and(|text| open.adopt_pasted_curl(&text));
     if response.changed() && !adopted {
         open.draft.url_edited();
     }
