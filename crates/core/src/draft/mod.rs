@@ -1,5 +1,6 @@
 mod auth;
 mod body;
+mod bulk;
 mod paste;
 mod row;
 mod scripts;

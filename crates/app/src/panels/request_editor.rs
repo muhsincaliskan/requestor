@@ -125,9 +125,13 @@ fn show_section(
     let hints = context.hints;
     match open.editor_section {
         EditorSection::Params => tables::params(ui, &mut open.draft, hints),
-        EditorSection::Headers => {
-            tables::headers(ui, &mut open.draft, hints, &context.inheritance.headers)
-        }
+        EditorSection::Headers => tables::headers(
+            ui,
+            &mut open.draft,
+            &mut open.header_bulk,
+            hints,
+            &context.inheritance.headers,
+        ),
         EditorSection::Body => body::show(ui, open, hints, actions),
         EditorSection::Auth => {
             let changed = auth_editor::show(ui, &mut open.draft.auth, hints, AUTH_SALT);

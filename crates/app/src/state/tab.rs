@@ -37,6 +37,7 @@ pub struct RequestTab {
     pub message_draft: String,
     pub schema: SchemaView,
     pub script_pane: ScriptPane,
+    pub header_bulk: Option<String>,
     pub(super) before_report: Option<ScriptReport>,
 }
 
@@ -236,6 +237,7 @@ impl RequestTab {
             message_draft: String::new(),
             schema: SchemaView::default(),
             script_pane: ScriptPane::default(),
+            header_bulk: None,
             before_report: None,
         }
     }
