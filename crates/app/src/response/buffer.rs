@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 pub use requestor_core::settings::BYTES_PER_MEGABYTE;
 const MAX_ROW_BYTES: usize = 2_000;
 const LINE_BREAK: u8 = b'\n';
@@ -36,6 +38,26 @@ impl ResponseBuffer {
             .get(index + 1)
             .map_or(self.text.len(), |next| *next);
         self.text[start..end].trim_end_matches(['\r', '\n'])
+    }
+
+    pub fn row_span(&self, index: usize) -> Range<usize> {
+        let start = self.row_starts[index];
+        start..start + self.row(index).len()
+    }
+
+    pub fn offset_at(&self, index: usize, column: usize) -> usize {
+        let row = self.row(index);
+        let within = row
+            .char_indices()
+            .nth(column)
+            .map_or(row.len(), |(offset, _)| offset);
+        self.row_starts[index] + within
+    }
+
+    pub fn column_at(&self, index: usize, offset: usize) -> usize {
+        let span = self.row_span(index);
+        let end = offset.clamp(span.start, span.end);
+        self.text[span.start..end].chars().count()
     }
 
     pub fn rows_containing(&self, needle: &str) -> Vec<usize> {

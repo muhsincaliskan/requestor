@@ -6,6 +6,7 @@ mod events;
 mod json_filter;
 mod lists;
 mod readout;
+mod rows;
 mod socket;
 mod status;
 mod tree;

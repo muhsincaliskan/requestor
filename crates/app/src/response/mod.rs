@@ -3,6 +3,7 @@ mod comparison;
 mod inspection;
 mod presentation;
 mod search;
+mod selection;
 
 pub use buffer::{ResponseBuffer, BYTES_PER_MEGABYTE};
 pub use comparison::{ChangesUnavailable, ComparisonBase};
@@ -10,6 +11,7 @@ pub use inspection::{BodyLayout, JsonInspection, JsonTreeView};
 
 pub use presentation::BodyPresentation;
 pub use search::BodySearch;
+pub use selection::BodySelection;
 
 use std::time::Duration;
 
@@ -21,6 +23,12 @@ use requestor_core::text_diff::LineDiff;
 
 const BINARY_NOTICE: &str = "Binary response body";
 const SET_COOKIE: &str = "set-cookie";
+
+pub struct BodyDisplay<'a> {
+    pub buffer: &'a ResponseBuffer,
+    pub search: &'a mut BodySearch,
+    pub selection: &'a mut BodySelection,
+}
 
 pub struct ResponseView {
     pub status: u16,
@@ -37,6 +45,7 @@ pub struct ResponseView {
     body: Vec<u8>,
     display: Option<ResponseBuffer>,
     search: BodySearch,
+    selection: BodySelection,
     previous: Option<ComparisonBase>,
     changes: Option<Result<LineDiff, ChangesUnavailable>>,
     events: Option<EventLog>,
@@ -67,6 +76,7 @@ impl ResponseView {
             body: response.body,
             display: None,
             search: BodySearch::default(),
+            selection: BodySelection::default(),
             previous: None,
             changes: None,
             events,
@@ -156,6 +166,7 @@ impl ResponseView {
     fn forget_display(&mut self) {
         self.display = None;
         self.search.invalidate();
+        self.selection.clear();
     }
 
     pub fn display(&mut self) -> &ResponseBuffer {
@@ -172,11 +183,15 @@ impl ResponseView {
         self.inspection.release();
     }
 
-    pub fn searched_display(&mut self) -> (&ResponseBuffer, &mut BodySearch) {
+    pub fn searched_display(&mut self) -> BodyDisplay<'_> {
         self.display();
         let buffer = self.display.as_ref().expect("display was just built");
         self.search.refresh(buffer);
-        (buffer, &mut self.search)
+        BodyDisplay {
+            buffer,
+            search: &mut self.search,
+            selection: &mut self.selection,
+        }
     }
 
     #[cfg(test)]
