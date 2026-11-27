@@ -1,20 +1,16 @@
-use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    vec2, Align, Key, KeyboardShortcut, Label, Layout, Modifiers, Rect, ScrollArea, TextEdit,
-    TextFormat, TextStyle, TextWrapMode, Ui,
+    Align, Key, KeyboardShortcut, Label, Layout, Modifiers, TextEdit, TextStyle, Ui,
 };
 use requestor_core::response::ResponseFormat;
 
 use super::readout::ByteSize;
-use super::{json_filter, tree};
-use crate::response::{BodyLayout, BodySearch, ResponseBuffer, ResponseView};
+use super::{json_filter, rows, tree};
+use crate::response::{BodyDisplay, BodyLayout, BodySearch, ResponseView};
 use crate::state::Action;
 use crate::widgets::variable_text_edit::FIELD_MARGIN;
-use crate::widgets::{append_row, icon_button, layout_row, SyntaxPalette};
+use crate::widgets::{icon_button, layout_row, SyntaxPalette};
 
 const COPY_LABEL: &str = "Copy";
-const SCROLL_ID: &str = "response-body";
-const GUTTER_GAP: &str = "  ";
 const FIND_HINT: &str = "Find";
 const FIND_WIDTH: f32 = 180.0;
 const PREVIOUS_LABEL: &str = "‹";
@@ -22,7 +18,6 @@ const NEXT_LABEL: &str = "›";
 const PREVIOUS_HINT: &str = "Previous match";
 const NEXT_HINT: &str = "Next match";
 const NO_MATCHES: &str = "No matches";
-const ROWS_ABOVE_MATCH: f32 = 3.0;
 const FIND_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::F);
 
 pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
@@ -46,8 +41,7 @@ pub fn show(ui: &mut Ui, view: &mut ResponseView, actions: &mut Vec<Action>) {
             return;
         }
     }
-    let (buffer, search) = view.searched_display();
-    rows(ui, buffer, format, search);
+    rows::show(ui, view.searched_display(), format);
 }
 
 fn shows_tree(view: &ResponseView) -> bool {
@@ -87,7 +81,7 @@ fn toolbar(ui: &mut Ui, view: &mut ResponseView, tree: bool, actions: &mut Vec<A
             return;
         }
         let searchable = view.format != ResponseFormat::Binary;
-        let (buffer, search) = view.searched_display();
+        let BodyDisplay { buffer, search, .. } = view.searched_display();
         if ui.button(COPY_LABEL).clicked() {
             actions.push(Action::CopyText(buffer.text().to_string()));
         }
@@ -134,46 +128,6 @@ fn find_box(ui: &mut Ui, search: &mut BodySearch) {
 
 pub(super) fn digits(count: usize) -> usize {
     count.max(1).ilog10() as usize + 1
-}
-
-fn rows(ui: &mut Ui, buffer: &ResponseBuffer, format: ResponseFormat, search: &mut BodySearch) {
-    let font = TextStyle::Monospace.resolve(ui.style());
-    let row_height = ui.text_style_height(&TextStyle::Monospace);
-    let palette = SyntaxPalette::for_mode(ui.visuals().dark_mode);
-    let width = digits(buffer.row_count());
-    let gutter_color = ui.visuals().weak_text_color();
-    let mut area = ScrollArea::both().id_salt(SCROLL_ID).auto_shrink(false);
-    if let Some(target) = search.take_scroll_target() {
-        let spaced = row_height + ui.spacing().item_spacing.y;
-        area = area.vertical_scroll_offset((target as f32 - ROWS_ABOVE_MATCH).max(0.0) * spaced);
-    }
-    area.show_rows(ui, row_height, buffer.row_count(), |ui, visible| {
-        for index in visible {
-            if search.is_match(index) {
-                mark_row(ui, row_height, search.current_row() == Some(index));
-            }
-            let mut job = LayoutJob::default();
-            let gutter = TextFormat::simple(font.clone(), gutter_color);
-            job.append(&format!("{:>width$}{GUTTER_GAP}", index + 1), 0.0, gutter);
-            append_row(&mut job, buffer.row(index), format, &palette, &font);
-            ui.add(
-                Label::new(job)
-                    .wrap_mode(TextWrapMode::Extend)
-                    .selectable(false),
-            );
-        }
-    });
-}
-
-fn mark_row(ui: &Ui, row_height: f32, current: bool) {
-    let rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), row_height));
-    let visuals = ui.visuals();
-    let fill = if current {
-        visuals.selection.bg_fill
-    } else {
-        visuals.faint_bg_color
-    };
-    ui.painter().rect_filled(rect, 0.0, fill);
 }
 
 #[cfg(test)]
